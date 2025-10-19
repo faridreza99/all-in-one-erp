@@ -407,6 +407,167 @@ class Offer(BaseDBModel):
     applicable_categories: List[str]
     is_active: bool = True
 
+# ========== ELECTRONICS MODELS ==========
+class WarrantyCreate(BaseModel):
+    product_id: str
+    serial_number: str
+    customer_name: str
+    customer_phone: str
+    purchase_date: str
+    warranty_period_months: int
+
+class Warranty(BaseDBModel):
+    tenant_id: str
+    product_id: str
+    serial_number: str
+    customer_name: str
+    customer_phone: str
+    purchase_date: str
+    warranty_period_months: int
+    expiry_date: str
+    is_active: bool = True
+
+class ReturnRequestCreate(BaseModel):
+    sale_id: str
+    product_id: str
+    reason: str
+    refund_amount: float
+
+class ReturnRequest(BaseDBModel):
+    tenant_id: str
+    sale_id: str
+    product_id: str
+    reason: str
+    refund_amount: float
+    status: str = "pending"
+    approved_by: Optional[str] = None
+
+# ========== STATIONERY MODELS ==========
+class BookCreate(BaseModel):
+    title: str
+    author: str
+    publisher: str
+    isbn: str
+    price: float
+    stock: int
+    category: str
+
+class Book(BaseDBModel):
+    tenant_id: str
+    title: str
+    author: str
+    publisher: str
+    isbn: str
+    price: float
+    stock: int
+    category: str
+
+# ========== HARDWARE MODELS ==========
+class BulkPricingCreate(BaseModel):
+    product_id: str
+    unit_type: str  # kg, ft, bag, etc.
+    min_quantity: float
+    max_quantity: float
+    price_per_unit: float
+
+class BulkPricing(BaseDBModel):
+    tenant_id: str
+    product_id: str
+    unit_type: str
+    min_quantity: float
+    max_quantity: float
+    price_per_unit: float
+
+# ========== FURNITURE MODELS ==========
+class CustomOrderCreate(BaseModel):
+    customer_name: str
+    customer_phone: str
+    product_description: str
+    specifications: Dict[str, Any]
+    total_amount: float
+    advance_payment: float
+    balance_amount: float
+    delivery_date: str
+
+class CustomOrder(BaseDBModel):
+    tenant_id: str
+    order_number: str
+    customer_name: str
+    customer_phone: str
+    product_description: str
+    specifications: Dict[str, Any]
+    total_amount: float
+    advance_payment: float
+    balance_amount: float
+    delivery_date: str
+    status: str = "pending"
+    installments: List[Dict[str, Any]] = []
+
+# ========== WHOLESALE MODELS ==========
+class TierPricingCreate(BaseModel):
+    product_id: str
+    tier_name: str
+    min_quantity: int
+    discount_percentage: float
+
+class TierPricing(BaseDBModel):
+    tenant_id: str
+    product_id: str
+    tier_name: str
+    min_quantity: int
+    discount_percentage: float
+
+class PurchaseOrderCreate(BaseModel):
+    supplier_id: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    expected_delivery: str
+
+class PurchaseOrder(BaseDBModel):
+    tenant_id: str
+    po_number: str
+    supplier_id: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    expected_delivery: str
+    status: str = "pending"
+
+class GoodsReceiptCreate(BaseModel):
+    po_number: str
+    received_items: List[Dict[str, Any]]
+    received_date: str
+
+class GoodsReceipt(BaseDBModel):
+    tenant_id: str
+    grn_number: str
+    po_number: str
+    received_items: List[Dict[str, Any]]
+    received_date: str
+
+# ========== ECOMMERCE MODELS ==========
+class OnlineOrderCreate(BaseModel):
+    customer_name: str
+    customer_email: str
+    customer_phone: str
+    shipping_address: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    payment_method: str
+
+class OnlineOrder(BaseDBModel):
+    tenant_id: str
+    order_number: str
+    customer_name: str
+    customer_email: str
+    customer_phone: str
+    shipping_address: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    payment_method: str
+    payment_status: str = "pending"
+    order_status: str = "processing"
+    tracking_number: Optional[str] = None
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
