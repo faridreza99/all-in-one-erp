@@ -469,10 +469,24 @@ async def register(user_data: UserCreate):
     
     await db.users.insert_one(doc)
     
-    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
+    # Get business_type from tenant if available
+    business_type = None
+    if user.tenant_id:
+        tenant = await db.tenants.find_one({"tenant_id": user.tenant_id}, {"_id": 0})
+        if tenant:
+            business_type = tenant.get("business_type")
+    
+    token = create_access_token({
+        "sub": user.id, 
+        "email": user.email, 
+        "role": user.role,
+        "business_type": business_type
+    })
     
     user_response = user.model_dump()
     user_response.pop("hashed_password")
+    if business_type:
+        user_response["business_type"] = business_type
     
     return TokenResponse(
         access_token=token,
