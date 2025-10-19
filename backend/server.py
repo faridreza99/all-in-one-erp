@@ -1258,6 +1258,271 @@ async def get_top_products(
     
     return [{"product_id": pid, **data} for pid, data in top_products]
 
+# ========== DOCTOR ROUTES (Clinic) ==========
+@api_router.post("/doctors", response_model=Doctor)
+async def create_doctor(
+    doctor_data: DoctorCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    doctor = Doctor(
+        tenant_id=current_user["tenant_id"],
+        **doctor_data.model_dump()
+    )
+    
+    doc = doctor.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.doctors.insert_one(doc)
+    return doctor
+
+@api_router.get("/doctors", response_model=List[Doctor])
+async def get_doctors(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    doctors = await db.doctors.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for doctor in doctors:
+        if isinstance(doctor.get('created_at'), str):
+            doctor['created_at'] = datetime.fromisoformat(doctor['created_at'])
+        if isinstance(doctor.get('updated_at'), str):
+            doctor['updated_at'] = datetime.fromisoformat(doctor['updated_at'])
+    
+    return doctors
+
+# ========== PATIENT ROUTES (Clinic) ==========
+@api_router.post("/patients", response_model=Patient)
+async def create_patient(
+    patient_data: PatientCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    patient = Patient(
+        tenant_id=current_user["tenant_id"],
+        **patient_data.model_dump()
+    )
+    
+    doc = patient.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.patients.insert_one(doc)
+    return patient
+
+@api_router.get("/patients", response_model=List[Patient])
+async def get_patients(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    patients = await db.patients.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for patient in patients:
+        if isinstance(patient.get('created_at'), str):
+            patient['created_at'] = datetime.fromisoformat(patient['created_at'])
+        if isinstance(patient.get('updated_at'), str):
+            patient['updated_at'] = datetime.fromisoformat(patient['updated_at'])
+    
+    return patients
+
+# ========== VEHICLE ROUTES (Garage) ==========
+@api_router.post("/vehicles", response_model=Vehicle)
+async def create_vehicle(
+    vehicle_data: VehicleCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    vehicle = Vehicle(
+        tenant_id=current_user["tenant_id"],
+        **vehicle_data.model_dump()
+    )
+    
+    doc = vehicle.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.vehicles.insert_one(doc)
+    return vehicle
+
+@api_router.get("/vehicles", response_model=List[Vehicle])
+async def get_vehicles(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    vehicles = await db.vehicles.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for vehicle in vehicles:
+        if isinstance(vehicle.get('created_at'), str):
+            vehicle['created_at'] = datetime.fromisoformat(vehicle['created_at'])
+        if isinstance(vehicle.get('updated_at'), str):
+            vehicle['updated_at'] = datetime.fromisoformat(vehicle['updated_at'])
+    
+    return vehicles
+
+# ========== PROPERTY ROUTES (Real Estate) ==========
+@api_router.post("/properties", response_model=Property)
+async def create_property(
+    property_data: PropertyCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    property_obj = Property(
+        tenant_id=current_user["tenant_id"],
+        **property_data.model_dump()
+    )
+    
+    doc = property_obj.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.properties.insert_one(doc)
+    return property_obj
+
+@api_router.get("/properties", response_model=List[Property])
+async def get_properties(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    properties = await db.properties.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for prop in properties:
+        if isinstance(prop.get('created_at'), str):
+            prop['created_at'] = datetime.fromisoformat(prop['created_at'])
+        if isinstance(prop.get('updated_at'), str):
+            prop['updated_at'] = datetime.fromisoformat(prop['updated_at'])
+    
+    return properties
+
+# ========== PRODUCT VARIANT ROUTES (Fashion) ==========
+@api_router.post("/product-variants", response_model=ProductVariant)
+async def create_product_variant(
+    variant_data: ProductVariantCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    variant = ProductVariant(
+        tenant_id=current_user["tenant_id"],
+        **variant_data.model_dump()
+    )
+    
+    doc = variant.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.product_variants.insert_one(doc)
+    return variant
+
+@api_router.get("/product-variants", response_model=List[ProductVariant])
+async def get_product_variants(
+    product_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if product_id:
+        query["product_id"] = product_id
+    
+    variants = await db.product_variants.find(query, {"_id": 0}).to_list(1000)
+    
+    for variant in variants:
+        if isinstance(variant.get('created_at'), str):
+            variant['created_at'] = datetime.fromisoformat(variant['created_at'])
+        if isinstance(variant.get('updated_at'), str):
+            variant['updated_at'] = datetime.fromisoformat(variant['updated_at'])
+    
+    return variants
+
+# ========== OFFER ROUTES (Grocery/Fashion) ==========
+@api_router.post("/offers", response_model=Offer)
+async def create_offer(
+    offer_data: OfferCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    offer = Offer(
+        tenant_id=current_user["tenant_id"],
+        **offer_data.model_dump()
+    )
+    
+    doc = offer.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.offers.insert_one(doc)
+    return offer
+
+@api_router.get("/offers", response_model=List[Offer])
+async def get_offers(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    offers = await db.offers.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for offer in offers:
+        if isinstance(offer.get('created_at'), str):
+            offer['created_at'] = datetime.fromisoformat(offer['created_at'])
+        if isinstance(offer.get('updated_at'), str):
+            offer['updated_at'] = datetime.fromisoformat(offer['updated_at'])
+    
+    return offers
+
+@api_router.patch("/offers/{offer_id}/toggle")
+async def toggle_offer(
+    offer_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    offer = await db.offers.find_one({"id": offer_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    new_status = not offer.get("is_active", True)
+    await db.offers.update_one(
+        {"id": offer_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Offer status updated", "is_active": new_status}
+
 app.include_router(api_router)
 
 app.add_middleware(
