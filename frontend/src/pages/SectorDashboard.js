@@ -86,32 +86,32 @@ const SectorDashboard = ({ user, onLogout }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className=\"mb-8\">
-          <div className=\"flex items-center gap-3 mb-2\">
-            <span className=\"text-5xl\">{sectorConfig.icon}</span>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-5xl">{sectorConfig.icon}</span>
             <div>
-              <h1 className=\"text-4xl font-bold text-white\">{sectorConfig.name} Dashboard</h1>
-              <p className=\"text-slate-400\">{getWelcomeMessage()}</p>
+              <h1 className="text-4xl font-bold text-white">{sectorConfig.name} Dashboard</h1>
+              <p className="text-slate-400">{getWelcomeMessage()}</p>
             </div>
           </div>
         </div>
 
         {/* Stats Grid */}
         {stats && (
-          <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8\">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className=\"stat-card\"
+              className="stat-card\"
             >
-              <div className=\"flex items-center gap-4\">
-                <div className=\"w-14 h-14 bg-blue-500/20 rounded-xl flex items-center justify-center\">
-                  <DollarSign className=\"w-7 h-7 text-blue-400\" />
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                  <DollarSign className="w-7 h-7 text-blue-400\" />
                 </div>
                 <div>
-                  <p className=\"text-slate-400 text-sm\">Total Sales</p>
-                  <p className=\"text-3xl font-bold text-white\" data-testid=\"total-sales\">
+                  <p className="text-slate-400 text-sm">Total Sales</p>
+                  <p className="text-3xl font-bold text-white\" data-testid=\"total-sales">
                     ${stats.total_sales.toFixed(2)}
                   </p>
                 </div>
@@ -122,15 +122,15 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className=\"stat-card\"
+              className="stat-card\"
             >
-              <div className=\"flex items-center gap-4\">
-                <div className=\"w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center\">
-                  <ShoppingCart className=\"w-7 h-7 text-green-400\" />
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center">
+                  <ShoppingCart className="w-7 h-7 text-green-400\" />
                 </div>
                 <div>
-                  <p className=\"text-slate-400 text-sm\">Total Orders</p>
-                  <p className=\"text-3xl font-bold text-white\" data-testid=\"total-orders\">
+                  <p className="text-slate-400 text-sm">Total Orders</p>
+                  <p className="text-3xl font-bold text-white\" data-testid=\"total-orders">
                     {stats.total_orders}
                   </p>
                 </div>
@@ -141,17 +141,17 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className=\"stat-card\"
+              className="stat-card\"
             >
-              <div className=\"flex items-center gap-4\">
-                <div className=\"w-14 h-14 bg-purple-500/20 rounded-xl flex items-center justify-center\">
-                  <Package className=\"w-7 h-7 text-purple-400\" />
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                  <Package className="w-7 h-7 text-purple-400\" />
                 </div>
                 <div>
-                  <p className=\"text-slate-400 text-sm\">
+                  <p className="text-slate-400 text-sm">
                     {businessType === 'salon' || businessType === 'clinic' ? 'Services' : 'Products'}
                   </p>
-                  <p className=\"text-3xl font-bold text-white\" data-testid=\"total-products\">
+                  <p className="text-3xl font-bold text-white\" data-testid=\"total-products">
                     {stats.total_products}
                   </p>
                 </div>
@@ -162,15 +162,15 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className=\"stat-card\"
+              className="stat-card\"
             >
-              <div className=\"flex items-center gap-4\">
-                <div className=\"w-14 h-14 bg-orange-500/20 rounded-xl flex items-center justify-center\">
-                  <AlertTriangle className=\"w-7 h-7 text-orange-400\" />
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                  <AlertTriangle className="w-7 h-7 text-orange-400\" />
                 </div>
                 <div>
-                  <p className=\"text-slate-400 text-sm\">Alerts</p>
-                  <p className=\"text-3xl font-bold text-white\" data-testid=\"low-stock-items\">
+                  <p className="text-slate-400 text-sm">Alerts</p>
+                  <p className="text-3xl font-bold text-white\" data-testid=\"low-stock-items">
                     {stats.low_stock_items}
                   </p>
                 </div>
@@ -180,8 +180,8 @@ const SectorDashboard = ({ user, onLogout }) => {
         )}
 
         {/* Sales Chart */}
-        <div className=\"glass-card p-6 mb-8\">
-          <h2 className=\"text-2xl font-bold text-white mb-6\">Sales Overview (Last 7 Days)</h2>
+        <div className="glass-card p-6 mb-8">
+          <h2 className="text-2xl font-bold text-white mb-6">Sales Overview (Last 7 Days)</h2>
           <ResponsiveContainer width=\"100%\" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray=\"3 3\" stroke=\"rgba(255,255,255,0.1)\" />
@@ -208,42 +208,42 @@ const SectorDashboard = ({ user, onLogout }) => {
         </div>
 
         {/* Sector-specific alerts and quick actions */}
-        <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6\">
-          <div className=\"glass-card p-6\">
-            <h3 className=\"text-xl font-semibold text-white mb-4\">Today's Performance</h3>
-            <div className=\"space-y-3\">
-              <div className=\"flex justify-between items-center\">
-                <span className=\"text-slate-400\">Today's Sales</span>
-                <span className=\"text-xl font-bold text-green-400\">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Today's Performance</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Today's Sales</span>
+                <span className="text-xl font-bold text-green-400">
                   ${stats?.today_sales.toFixed(2)}
                 </span>
               </div>
-              <div className=\"flex justify-between items-center\">
-                <span className=\"text-slate-400\">Monthly Sales</span>
-                <span className=\"text-xl font-bold text-blue-400\">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Monthly Sales</span>
+                <span className="text-xl font-bold text-blue-400">
                   ${stats?.monthly_sales.toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className=\"glass-card p-6\">
-            <h3 className=\"text-xl font-semibold text-white mb-4\">Quick Actions</h3>
-            <div className=\"space-y-3\">
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Quick Actions</h3>
+            <div className="space-y-3">
               {getSectorAlerts().map((alert, index) => {
                 const Icon = alert.icon;
                 return (
-                  <div key={index} className=\"flex items-center gap-3\">
+                  <div key={index} className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${alert.type === 'warning' ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
-                    <Icon className=\"w-4 h-4 text-slate-400\" />
-                    <span className=\"text-slate-300\">{alert.message}</span>
+                    <Icon className="w-4 h-4 text-slate-400\" />
+                    <span className="text-slate-300">{alert.message}</span>
                   </div>
                 );
               })}
               {getSectorAlerts().length === 0 && (
-                <div className=\"flex items-center gap-3\">
-                  <div className=\"w-2 h-2 bg-green-400 rounded-full\"></div>
-                  <span className=\"text-slate-300\">System running smoothly</span>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span className="text-slate-300">System running smoothly</span>
                 </div>
               )}
             </div>
