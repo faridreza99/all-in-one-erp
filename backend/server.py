@@ -486,7 +486,20 @@ async def login(credentials: LoginRequest):
     if not user or not verify_password(credentials.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
+    # Get business_type from tenant if available
+    business_type = None
+    if user.get("tenant_id"):
+        tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
+        if tenant:
+            business_type = tenant.get("business_type")
+            user["business_type"] = business_type
+    
+    token = create_access_token({
+        "sub": user["id"], 
+        "email": user["email"], 
+        "role": user["role"],
+        "business_type": business_type
+    })
     
     user.pop("hashed_password")
     
