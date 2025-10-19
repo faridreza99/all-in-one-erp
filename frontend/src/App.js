@@ -86,27 +86,87 @@ const App = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={
-            !user ? <AuthPage onLogin={handleLogin} /> : <Navigate to="/" />
+            !user ? <AuthPage onLogin={handleLogin} /> : (
+              user.role === 'super_admin' ? 
+                <Navigate to="/" /> : 
+                <Navigate to={`/${user.business_type}`} />
+            )
           } />
           
           {user ? (
             <>
-              <Route path="/" element={
-                user.role === 'super_admin' ? 
-                  <SuperAdminDashboard user={user} onLogout={handleLogout} /> :
-                  <TenantDashboard user={user} onLogout={handleLogout} />
-              } />
-              <Route path="/pos" element={<POSPage user={user} onLogout={handleLogout} />} />
-              <Route path="/products" element={<ProductsPage user={user} onLogout={handleLogout} />} />
-              <Route path="/services" element={<ServicesPage user={user} onLogout={handleLogout} />} />
-              <Route path="/appointments" element={<AppointmentsPage user={user} onLogout={handleLogout} />} />
-              <Route path="/repairs" element={<RepairsPage user={user} onLogout={handleLogout} />} />
-              <Route path="/tables" element={<TablesPage user={user} onLogout={handleLogout} />} />
-              <Route path="/customers" element={<CustomersPage user={user} onLogout={handleLogout} />} />
-              <Route path="/expenses" element={<ExpensesPage user={user} onLogout={handleLogout} />} />
-              <Route path="/clinic" element={<ClinicPage user={user} onLogout={handleLogout} />} />
-              <Route path="/sales" element={<SalesPage user={user} onLogout={handleLogout} />} />
-              <Route path="/reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />
+              {/* Super Admin Route */}
+              {user.role === 'super_admin' && (
+                <Route path="/" element={<SuperAdminDashboard user={user} onLogout={handleLogout} />} />
+              )}
+              
+              {/* Sector-Specific Routes */}
+              {user.business_type && (
+                <>
+                  {/* Dashboard */}
+                  <Route 
+                    path={`/${user.business_type}`} 
+                    element={<SectorDashboard user={user} onLogout={handleLogout} />} 
+                  />
+                  
+                  {/* Module Routes with access control */}
+                  <Route 
+                    path={`/${user.business_type}/products`} 
+                    element={<SectorRoute user={user} module="products" element={<ProductsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/pos`} 
+                    element={<SectorRoute user={user} module="pos" element={<POSPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/services`} 
+                    element={<SectorRoute user={user} module="services" element={<ServicesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/appointments`} 
+                    element={<SectorRoute user={user} module="appointments" element={<AppointmentsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/repairs`} 
+                    element={<SectorRoute user={user} module="repairs" element={<RepairsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/tables`} 
+                    element={<SectorRoute user={user} module="tables" element={<TablesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/customers`} 
+                    element={<SectorRoute user={user} module="customers" element={<CustomersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/suppliers`} 
+                    element={<SectorRoute user={user} module="suppliers" element={<CustomersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/expenses`} 
+                    element={<SectorRoute user={user} module="expenses" element={<ExpensesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/doctors`} 
+                    element={<SectorRoute user={user} module="doctors" element={<ClinicPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/patients`} 
+                    element={<SectorRoute user={user} module="patients" element={<ClinicPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/sales`} 
+                    element={<SectorRoute user={user} module="sales" element={<SalesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/reports`} 
+                    element={<SectorRoute user={user} module="reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  
+                  {/* Redirect root to sector dashboard */}
+                  <Route path="/" element={<Navigate to={`/${user.business_type}`} />} />
+                </>
+              )}
             </>
           ) : (
             <Route path="*" element={<Navigate to="/auth" />} />
