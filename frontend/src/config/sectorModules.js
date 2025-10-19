@@ -112,7 +112,16 @@ export const MODULE_ROUTES = {
   vehicles: { path: '/vehicles', label: 'Vehicles' },
   properties: { path: '/properties', label: 'Properties' },
   offers: { path: '/offers', label: 'Offers' },
-  variants: { path: '/variants', label: 'Variants' }
+  variants: { path: '/variants', label: 'Variants' },
+  warranties: { path: '/warranties', label: 'Warranties' },
+  returns: { path: '/returns', label: 'Returns' },
+  books: { path: '/books', label: 'Books' },
+  'bulk-pricing': { path: '/bulk-pricing', label: 'Bulk Pricing' },
+  'custom-orders': { path: '/custom-orders', label: 'Custom Orders' },
+  'tier-pricing': { path: '/tier-pricing', label: 'Tier Pricing' },
+  'purchase-orders': { path: '/purchase-orders', label: 'Purchase Orders' },
+  'goods-receipts': { path: '/goods-receipts', label: 'Goods Receipts' },
+  'online-orders': { path: '/online-orders', label: 'Online Orders' }
 };
 
 export const getSectorModules = (businessType) => {
