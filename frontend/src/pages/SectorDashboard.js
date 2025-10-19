@@ -103,15 +103,15 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="stat-card\"
+              className="stat-card"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                  <DollarSign className="w-7 h-7 text-blue-400\" />
+                  <DollarSign className="w-7 h-7 text-blue-400" />
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Total Sales</p>
-                  <p className="text-3xl font-bold text-white\" data-testid="total-sales">
+                  <p className="text-3xl font-bold text-white" data-testid="total-sales">
                     ${stats.total_sales.toFixed(2)}
                   </p>
                 </div>
@@ -122,15 +122,15 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="stat-card\"
+              className="stat-card"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center">
-                  <ShoppingCart className="w-7 h-7 text-green-400\" />
+                  <ShoppingCart className="w-7 h-7 text-green-400" />
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Total Orders</p>
-                  <p className="text-3xl font-bold text-white\" data-testid="total-orders">
+                  <p className="text-3xl font-bold text-white" data-testid="total-orders">
                     {stats.total_orders}
                   </p>
                 </div>
@@ -141,17 +141,17 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="stat-card\"
+              className="stat-card"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                  <Package className="w-7 h-7 text-purple-400\" />
+                  <Package className="w-7 h-7 text-purple-400" />
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">
                     {businessType === 'salon' || businessType === 'clinic' ? 'Services' : 'Products'}
                   </p>
-                  <p className="text-3xl font-bold text-white\" data-testid="total-products">
+                  <p className="text-3xl font-bold text-white" data-testid="total-products">
                     {stats.total_products}
                   </p>
                 </div>
@@ -162,15 +162,15 @@ const SectorDashboard = ({ user, onLogout }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="stat-card\"
+              className="stat-card"
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                  <AlertTriangle className="w-7 h-7 text-orange-400\" />
+                  <AlertTriangle className="w-7 h-7 text-orange-400" />
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Alerts</p>
-                  <p className="text-3xl font-bold text-white\" data-testid="low-stock-items">
+                  <p className="text-3xl font-bold text-white" data-testid="low-stock-items">
                     {stats.low_stock_items}
                   </p>
                 </div>
@@ -184,9 +184,9 @@ const SectorDashboard = ({ user, onLogout }) => {
           <h2 className="text-2xl font-bold text-white mb-6">Sales Overview (Last 7 Days)</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)\" />
-              <XAxis dataKey="date\" stroke="#94a3b8\" />
-              <YAxis stroke="#94a3b8\" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="date" stroke="#94a3b8" />
+              <YAxis stroke="#94a3b8" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -196,9 +196,9 @@ const SectorDashboard = ({ user, onLogout }) => {
                 }}
               />
               <Line
-                type=\"monotone\"
-                dataKey="sales\"
-                stroke="#3b82f6\"
+                type="monotone"
+                dataKey="sales"
+                stroke="#3b82f6"
                 strokeWidth={3}
                 dot={{ fill: '#3b82f6', r: 4 }}
                 activeDot={{ r: 6 }}
@@ -235,7 +235,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 return (
                   <div key={index} className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${alert.type === 'warning' ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
-                    <Icon className="w-4 h-4 text-slate-400\" />
+                    <Icon className="w-4 h-4 text-slate-400" />
                     <span className="text-slate-300">{alert.message}</span>
                   </div>
                 );
