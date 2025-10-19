@@ -922,6 +922,239 @@ async def download_invoice(
         headers={"Content-Disposition": f"attachment; filename=invoice-{sale.get('sale_number')}.pdf"}
     )
 
+# ========== SUPPLIER ROUTES ==========
+@api_router.post("/suppliers", response_model=Supplier)
+async def create_supplier(
+    supplier_data: SupplierCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    supplier = Supplier(
+        tenant_id=current_user["tenant_id"],
+        **supplier_data.model_dump()
+    )
+    
+    doc = supplier.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.suppliers.insert_one(doc)
+    return supplier
+
+@api_router.get("/suppliers", response_model=List[Supplier])
+async def get_suppliers(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    suppliers = await db.suppliers.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for supplier in suppliers:
+        if isinstance(supplier.get('created_at'), str):
+            supplier['created_at'] = datetime.fromisoformat(supplier['created_at'])
+        if isinstance(supplier.get('updated_at'), str):
+            supplier['updated_at'] = datetime.fromisoformat(supplier['updated_at'])
+    
+    return suppliers
+
+# ========== CUSTOMER ROUTES ==========
+@api_router.post("/customers", response_model=Customer)
+async def create_customer(
+    customer_data: CustomerCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    customer = Customer(
+        tenant_id=current_user["tenant_id"],
+        **customer_data.model_dump()
+    )
+    
+    doc = customer.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.customers.insert_one(doc)
+    return customer
+
+@api_router.get("/customers", response_model=List[Customer])
+async def get_customers(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    customers = await db.customers.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for customer in customers:
+        if isinstance(customer.get('created_at'), str):
+            customer['created_at'] = datetime.fromisoformat(customer['created_at'])
+        if isinstance(customer.get('updated_at'), str):
+            customer['updated_at'] = datetime.fromisoformat(customer['updated_at'])
+    
+    return customers
+
+# ========== EXPENSE ROUTES ==========
+@api_router.post("/expenses", response_model=Expense)
+async def create_expense(
+    expense_data: ExpenseCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    expense = Expense(
+        tenant_id=current_user["tenant_id"],
+        **expense_data.model_dump()
+    )
+    
+    doc = expense.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.expenses.insert_one(doc)
+    return expense
+
+@api_router.get("/expenses", response_model=List[Expense])
+async def get_expenses(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    expenses = await db.expenses.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for expense in expenses:
+        if isinstance(expense.get('created_at'), str):
+            expense['created_at'] = datetime.fromisoformat(expense['created_at'])
+        if isinstance(expense.get('updated_at'), str):
+            expense['updated_at'] = datetime.fromisoformat(expense['updated_at'])
+    
+    return expenses
+
+# ========== PURCHASE ROUTES ==========
+@api_router.post("/purchases", response_model=Purchase)
+async def create_purchase(
+    purchase_data: PurchaseCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Generate purchase number
+    count = await db.purchases.count_documents({"tenant_id": current_user["tenant_id"]})
+    purchase_number = f"PO-{count + 1:06d}"
+    
+    purchase = Purchase(
+        tenant_id=current_user["tenant_id"],
+        purchase_number=purchase_number,
+        **purchase_data.model_dump()
+    )
+    
+    doc = purchase.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.purchases.insert_one(doc)
+    return purchase
+
+@api_router.get("/purchases", response_model=List[Purchase])
+async def get_purchases(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    purchases = await db.purchases.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for purchase in purchases:
+        if isinstance(purchase.get('created_at'), str):
+            purchase['created_at'] = datetime.fromisoformat(purchase['created_at'])
+        if isinstance(purchase.get('updated_at'), str):
+            purchase['updated_at'] = datetime.fromisoformat(purchase['updated_at'])
+    
+    return purchases
+
+# ========== REPORTS ==========
+@api_router.get("/reports/profit-loss")
+async def get_profit_loss_report(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    # Get sales
+    sales = await db.sales.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    total_revenue = sum(sale.get("total", 0) for sale in sales)
+    
+    # Get expenses
+    expenses = await db.expenses.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    total_expenses = sum(expense.get("amount", 0) for expense in expenses)
+    
+    # Get purchases
+    purchases = await db.purchases.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    total_purchases = sum(purchase.get("total_amount", 0) for purchase in purchases)
+    
+    profit = total_revenue - total_expenses - total_purchases
+    
+    return {
+        "revenue": total_revenue,
+        "expenses": total_expenses,
+        "purchases": total_purchases,
+        "profit": profit,
+        "profit_margin": (profit / total_revenue * 100) if total_revenue > 0 else 0
+    }
+
+@api_router.get("/reports/top-products")
+async def get_top_products(
+    current_user: dict = Depends(get_current_user),
+    limit: int = 10
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Get all sales and aggregate by product
+    sales = await db.sales.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
+    
+    product_sales = {}
+    for sale in sales:
+        for item in sale.get("items", []):
+            product_id = item.get("product_id")
+            if product_id not in product_sales:
+                product_sales[product_id] = {
+                    "quantity": 0,
+                    "revenue": 0
+                }
+            product_sales[product_id]["quantity"] += item.get("quantity", 0)
+            product_sales[product_id]["revenue"] += item.get("price", 0) * item.get("quantity", 0)
+    
+    # Sort by revenue
+    top_products = sorted(
+        product_sales.items(),
+        key=lambda x: x[1]["revenue"],
+        reverse=True
+    )[:limit]
+    
+    return [{"product_id": pid, **data} for pid, data in top_products]
+
 app.include_router(api_router)
 
 app.add_middleware(
