@@ -78,7 +78,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-3\"
+                className="flex items-center gap-3"
               >
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">{sectorConfig.icon}</span>
@@ -91,10 +91,10 @@ const SectorLayout = ({ children, user, onLogout }) => {
             )}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors\"
-              data-testid="sidebar-toggle\"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              data-testid="sidebar-toggle"
             >
-              {sidebarOpen ? <X className="w-5 h-5\" /> : <Menu className="w-5 h-5\" />}
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
 
@@ -110,7 +110,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     className={`sidebar-item ${isActive ? 'active' : ''}`}
                     data-testid={`menu-${item.label.toLowerCase()}`}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0\" />
+                    <Icon className="w-5 h-5 flex-shrink-0" />
                     {sidebarOpen && (
                       <motion.span
                         initial={{ opacity: 0 }}
@@ -126,10 +126,10 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
             <button
               onClick={onLogout}
-              className="sidebar-item w-full text-left\"
-              data-testid="logout-button\"
+              className="sidebar-item w-full text-left"
+              data-testid="logout-button"
             >
-              <LogOut className="w-5 h-5 flex-shrink-0\" />
+              <LogOut className="w-5 h-5 flex-shrink-0" />
               {sidebarOpen && (
                 <motion.span
                   initial={{ opacity: 0 }}
@@ -147,7 +147,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
       <motion.div
         initial={false}
         animate={{ marginLeft: sidebarOpen ? 256 : 80 }}
-        className="min-h-screen transition-all duration-300\"
+        className="min-h-screen transition-all duration-300"
       >
         <div className="p-8">
           {children}
