@@ -51,6 +51,13 @@ class BusinessType(str, Enum):
     CLINIC = "clinic"
     ELECTRONICS = "electronics"
     FASHION = "fashion"
+    STATIONERY = "stationery"
+    HARDWARE = "hardware"
+    FURNITURE = "furniture"
+    GARAGE = "garage"
+    WHOLESALE = "wholesale"
+    ECOMMERCE = "ecommerce"
+    REAL_ESTATE = "real_estate"
 
 class RepairStatus(str, Enum):
     RECEIVED = "received"
