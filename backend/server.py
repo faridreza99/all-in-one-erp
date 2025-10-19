@@ -1718,6 +1718,449 @@ async def toggle_offer(
     
     return {"message": "Offer status updated", "is_active": new_status}
 
+# ========== WARRANTY ROUTES (Electronics) ==========
+@api_router.post("/warranties", response_model=Warranty)
+async def create_warranty(
+    warranty_data: WarrantyCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Calculate expiry date
+    purchase_date = datetime.fromisoformat(warranty_data.purchase_date)
+    expiry_date = purchase_date + timedelta(days=warranty_data.warranty_period_months * 30)
+    
+    warranty = Warranty(
+        tenant_id=current_user["tenant_id"],
+        expiry_date=expiry_date.isoformat(),
+        **warranty_data.model_dump()
+    )
+    
+    doc = warranty.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.warranties.insert_one(doc)
+    return warranty
+
+@api_router.get("/warranties", response_model=List[Warranty])
+async def get_warranties(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    warranties = await db.warranties.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for warranty in warranties:
+        if isinstance(warranty.get('created_at'), str):
+            warranty['created_at'] = datetime.fromisoformat(warranty['created_at'])
+        if isinstance(warranty.get('updated_at'), str):
+            warranty['updated_at'] = datetime.fromisoformat(warranty['updated_at'])
+    
+    return warranties
+
+# ========== RETURN REQUEST ROUTES (Electronics) ==========
+@api_router.post("/returns", response_model=ReturnRequest)
+async def create_return_request(
+    return_data: ReturnRequestCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    return_request = ReturnRequest(
+        tenant_id=current_user["tenant_id"],
+        **return_data.model_dump()
+    )
+    
+    doc = return_request.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.returns.insert_one(doc)
+    return return_request
+
+@api_router.get("/returns", response_model=List[ReturnRequest])
+async def get_returns(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    returns = await db.returns.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for ret in returns:
+        if isinstance(ret.get('created_at'), str):
+            ret['created_at'] = datetime.fromisoformat(ret['created_at'])
+        if isinstance(ret.get('updated_at'), str):
+            ret['updated_at'] = datetime.fromisoformat(ret['updated_at'])
+    
+    return returns
+
+@api_router.patch("/returns/{return_id}/approve")
+async def approve_return(
+    return_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    return_req = await db.returns.find_one({"id": return_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not return_req:
+        raise HTTPException(status_code=404, detail="Return request not found")
+    
+    await db.returns.update_one(
+        {"id": return_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {"status": "approved", "approved_by": current_user["id"], "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Return request approved"}
+
+# ========== BOOK ROUTES (Stationery) ==========
+@api_router.post("/books", response_model=Book)
+async def create_book(
+    book_data: BookCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    book = Book(
+        tenant_id=current_user["tenant_id"],
+        **book_data.model_dump()
+    )
+    
+    doc = book.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.books.insert_one(doc)
+    return book
+
+@api_router.get("/books", response_model=List[Book])
+async def get_books(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    books = await db.books.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for book in books:
+        if isinstance(book.get('created_at'), str):
+            book['created_at'] = datetime.fromisoformat(book['created_at'])
+        if isinstance(book.get('updated_at'), str):
+            book['updated_at'] = datetime.fromisoformat(book['updated_at'])
+    
+    return books
+
+# ========== BULK PRICING ROUTES (Hardware) ==========
+@api_router.post("/bulk-pricing", response_model=BulkPricing)
+async def create_bulk_pricing(
+    pricing_data: BulkPricingCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    pricing = BulkPricing(
+        tenant_id=current_user["tenant_id"],
+        **pricing_data.model_dump()
+    )
+    
+    doc = pricing.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.bulk_pricing.insert_one(doc)
+    return pricing
+
+@api_router.get("/bulk-pricing", response_model=List[BulkPricing])
+async def get_bulk_pricing(
+    product_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if product_id:
+        query["product_id"] = product_id
+    
+    pricing = await db.bulk_pricing.find(query, {"_id": 0}).to_list(1000)
+    
+    for p in pricing:
+        if isinstance(p.get('created_at'), str):
+            p['created_at'] = datetime.fromisoformat(p['created_at'])
+        if isinstance(p.get('updated_at'), str):
+            p['updated_at'] = datetime.fromisoformat(p['updated_at'])
+    
+    return pricing
+
+# ========== CUSTOM ORDER ROUTES (Furniture) ==========
+@api_router.post("/custom-orders", response_model=CustomOrder)
+async def create_custom_order(
+    order_data: CustomOrderCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    order_number = f"CO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    
+    order = CustomOrder(
+        tenant_id=current_user["tenant_id"],
+        order_number=order_number,
+        **order_data.model_dump()
+    )
+    
+    doc = order.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.custom_orders.insert_one(doc)
+    return order
+
+@api_router.get("/custom-orders", response_model=List[CustomOrder])
+async def get_custom_orders(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    orders = await db.custom_orders.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for order in orders:
+        if isinstance(order.get('created_at'), str):
+            order['created_at'] = datetime.fromisoformat(order['created_at'])
+        if isinstance(order.get('updated_at'), str):
+            order['updated_at'] = datetime.fromisoformat(order['updated_at'])
+    
+    return orders
+
+@api_router.post("/custom-orders/{order_id}/installment")
+async def add_installment(
+    order_id: str,
+    installment: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    order = await db.custom_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    installments = order.get("installments", [])
+    installments.append(installment)
+    
+    await db.custom_orders.update_one(
+        {"id": order_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {"installments": installments, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Installment added successfully"}
+
+# ========== TIER PRICING ROUTES (Wholesale) ==========
+@api_router.post("/tier-pricing", response_model=TierPricing)
+async def create_tier_pricing(
+    pricing_data: TierPricingCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    pricing = TierPricing(
+        tenant_id=current_user["tenant_id"],
+        **pricing_data.model_dump()
+    )
+    
+    doc = pricing.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.tier_pricing.insert_one(doc)
+    return pricing
+
+@api_router.get("/tier-pricing", response_model=List[TierPricing])
+async def get_tier_pricing(
+    product_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if product_id:
+        query["product_id"] = product_id
+    
+    pricing = await db.tier_pricing.find(query, {"_id": 0}).to_list(1000)
+    
+    for p in pricing:
+        if isinstance(p.get('created_at'), str):
+            p['created_at'] = datetime.fromisoformat(p['created_at'])
+        if isinstance(p.get('updated_at'), str):
+            p['updated_at'] = datetime.fromisoformat(p['updated_at'])
+    
+    return pricing
+
+# ========== PURCHASE ORDER ROUTES (Wholesale) ==========
+@api_router.post("/purchase-orders", response_model=PurchaseOrder)
+async def create_purchase_order(
+    po_data: PurchaseOrderCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    po_number = f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    
+    po = PurchaseOrder(
+        tenant_id=current_user["tenant_id"],
+        po_number=po_number,
+        **po_data.model_dump()
+    )
+    
+    doc = po.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.purchase_orders.insert_one(doc)
+    return po
+
+@api_router.get("/purchase-orders", response_model=List[PurchaseOrder])
+async def get_purchase_orders(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    orders = await db.purchase_orders.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for order in orders:
+        if isinstance(order.get('created_at'), str):
+            order['created_at'] = datetime.fromisoformat(order['created_at'])
+        if isinstance(order.get('updated_at'), str):
+            order['updated_at'] = datetime.fromisoformat(order['updated_at'])
+    
+    return orders
+
+# ========== GOODS RECEIPT ROUTES (Wholesale) ==========
+@api_router.post("/goods-receipts", response_model=GoodsReceipt)
+async def create_goods_receipt(
+    grn_data: GoodsReceiptCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    grn_number = f"GRN-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    
+    grn = GoodsReceipt(
+        tenant_id=current_user["tenant_id"],
+        grn_number=grn_number,
+        **grn_data.model_dump()
+    )
+    
+    doc = grn.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.goods_receipts.insert_one(doc)
+    return grn
+
+@api_router.get("/goods-receipts", response_model=List[GoodsReceipt])
+async def get_goods_receipts(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    receipts = await db.goods_receipts.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for receipt in receipts:
+        if isinstance(receipt.get('created_at'), str):
+            receipt['created_at'] = datetime.fromisoformat(receipt['created_at'])
+        if isinstance(receipt.get('updated_at'), str):
+            receipt['updated_at'] = datetime.fromisoformat(receipt['updated_at'])
+    
+    return receipts
+
+# ========== ONLINE ORDER ROUTES (E-commerce) ==========
+@api_router.post("/online-orders", response_model=OnlineOrder)
+async def create_online_order(
+    order_data: OnlineOrderCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    order_number = f"ORD-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    
+    order = OnlineOrder(
+        tenant_id=current_user["tenant_id"],
+        order_number=order_number,
+        **order_data.model_dump()
+    )
+    
+    doc = order.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.online_orders.insert_one(doc)
+    return order
+
+@api_router.get("/online-orders", response_model=List[OnlineOrder])
+async def get_online_orders(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    orders = await db.online_orders.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for order in orders:
+        if isinstance(order.get('created_at'), str):
+            order['created_at'] = datetime.fromisoformat(order['created_at'])
+        if isinstance(order.get('updated_at'), str):
+            order['updated_at'] = datetime.fromisoformat(order['updated_at'])
+    
+    return orders
+
+@api_router.patch("/online-orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    status_update: Dict[str, str],
+    current_user: dict = Depends(get_current_user)
+):
+    order = await db.online_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    await db.online_orders.update_one(
+        {"id": order_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {**status_update, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Order status updated"}
+
 app.include_router(api_router)
 
 app.add_middleware(
