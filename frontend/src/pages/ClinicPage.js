@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Plus, Stethoscope, Users, Calendar } from 'lucide-react';
-import Layout from '../components/Layout';
+import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
 
@@ -88,7 +88,7 @@ const ClinicPage = ({ user, onLogout }) => {
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <SectorLayout user={user} onLogout={onLogout}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -380,7 +380,7 @@ const ClinicPage = ({ user, onLogout }) => {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </SectorLayout>
   );
 };
 

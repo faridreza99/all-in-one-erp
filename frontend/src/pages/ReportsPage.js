@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, DollarSign, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import Layout from '../components/Layout';
+import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
 
@@ -31,7 +31,7 @@ const ReportsPage = ({ user, onLogout }) => {
   const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <SectorLayout user={user} onLogout={onLogout}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -159,7 +159,7 @@ const ReportsPage = ({ user, onLogout }) => {
           </>
         )}
       </motion.div>
-    </Layout>
+    </SectorLayout>
   );
 };
 

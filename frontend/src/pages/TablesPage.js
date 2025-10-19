@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Plus, Users } from 'lucide-react';
-import Layout from '../components/Layout';
+import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
 
@@ -41,7 +41,7 @@ const TablesPage = ({ user, onLogout }) => {
   };
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <SectorLayout user={user} onLogout={onLogout}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -143,7 +143,7 @@ const TablesPage = ({ user, onLogout }) => {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </SectorLayout>
   );
 };
 
