@@ -41,7 +41,7 @@ export const SECTOR_MODULES = {
     name: 'Electronics',
     icon: '💻',
     color: 'indigo',
-    modules: ['dashboard', 'products', 'repairs', 'pos', 'sales', 'customers', 'suppliers', 'reports']
+    modules: ['dashboard', 'products', 'warranties', 'returns', 'repairs', 'pos', 'sales', 'customers', 'suppliers', 'reports']
   },
   fashion: {
     name: 'Fashion',
@@ -53,19 +53,19 @@ export const SECTOR_MODULES = {
     name: 'Stationery',
     icon: '📚',
     color: 'yellow',
-    modules: ['dashboard', 'products', 'pos', 'sales', 'customers', 'suppliers', 'reports']
+    modules: ['dashboard', 'books', 'products', 'pos', 'sales', 'customers', 'suppliers', 'reports']
   },
   hardware: {
     name: 'Hardware',
     icon: '🔧',
     color: 'gray',
-    modules: ['dashboard', 'products', 'pos', 'sales', 'suppliers', 'customers', 'expenses', 'reports']
+    modules: ['dashboard', 'products', 'bulk-pricing', 'pos', 'sales', 'suppliers', 'customers', 'expenses', 'reports']
   },
   furniture: {
     name: 'Furniture',
     icon: '🛋️',
     color: 'brown',
-    modules: ['dashboard', 'products', 'pos', 'sales', 'customers', 'expenses', 'reports']
+    modules: ['dashboard', 'products', 'custom-orders', 'pos', 'sales', 'customers', 'expenses', 'reports']
   },
   garage: {
     name: 'Garage',
@@ -77,13 +77,13 @@ export const SECTOR_MODULES = {
     name: 'Wholesale',
     icon: '📦',
     color: 'teal',
-    modules: ['dashboard', 'products', 'offers', 'pos', 'sales', 'suppliers', 'customers', 'reports']
+    modules: ['dashboard', 'products', 'tier-pricing', 'purchase-orders', 'goods-receipts', 'offers', 'pos', 'sales', 'suppliers', 'customers', 'reports']
   },
   ecommerce: {
     name: 'E-commerce',
     icon: '🛍️',
     color: 'purple',
-    modules: ['dashboard', 'products', 'sales', 'customers', 'reports']
+    modules: ['dashboard', 'products', 'online-orders', 'sales', 'customers', 'reports']
   },
   real_estate: {
     name: 'Real Estate',
