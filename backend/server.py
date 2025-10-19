@@ -304,6 +304,109 @@ class Purchase(BaseDBModel):
     total_amount: float
     payment_status: str
 
+class DoctorCreate(BaseModel):
+    name: str
+    specialization: str
+    phone: str
+    email: Optional[str] = None
+    consultation_fee: float
+    available_days: List[str] = []
+
+class Doctor(BaseDBModel):
+    tenant_id: str
+    name: str
+    specialization: str
+    phone: str
+    email: Optional[str] = None
+    consultation_fee: float
+    available_days: List[str]
+
+class PatientCreate(BaseModel):
+    name: str
+    age: int
+    gender: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+    blood_group: Optional[str] = None
+
+class Patient(BaseDBModel):
+    tenant_id: str
+    name: str
+    age: int
+    gender: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+    blood_group: Optional[str] = None
+    medical_history: List[str] = []
+
+class VehicleCreate(BaseModel):
+    owner_name: str
+    phone: str
+    vehicle_number: str
+    vehicle_model: str
+    vehicle_type: str
+
+class Vehicle(BaseDBModel):
+    tenant_id: str
+    owner_name: str
+    phone: str
+    vehicle_number: str
+    vehicle_model: str
+    vehicle_type: str
+    service_history: List[str] = []
+
+class PropertyCreate(BaseModel):
+    property_name: str
+    property_type: str
+    address: str
+    size: str
+    rent_amount: float
+    status: str = "available"
+
+class Property(BaseDBModel):
+    tenant_id: str
+    property_name: str
+    property_type: str
+    address: str
+    size: str
+    rent_amount: float
+    status: str
+
+class ProductVariantCreate(BaseModel):
+    product_id: str
+    size: Optional[str] = None
+    color: Optional[str] = None
+    sku: str
+    price: float
+    stock: int
+
+class ProductVariant(BaseDBModel):
+    tenant_id: str
+    product_id: str
+    size: Optional[str] = None
+    color: Optional[str] = None
+    sku: str
+    price: float
+    stock: int
+
+class OfferCreate(BaseModel):
+    title: str
+    discount_percentage: float
+    start_date: str
+    end_date: str
+    applicable_categories: List[str] = []
+
+class Offer(BaseDBModel):
+    tenant_id: str
+    title: str
+    discount_percentage: float
+    start_date: str
+    end_date: str
+    applicable_categories: List[str]
+    is_active: bool = True
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
