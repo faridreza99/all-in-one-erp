@@ -246,6 +246,64 @@ class DashboardStats(BaseModel):
     today_sales: float
     monthly_sales: float
 
+class SupplierCreate(BaseModel):
+    name: str
+    contact_person: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+
+class Supplier(BaseDBModel):
+    tenant_id: str
+    name: str
+    contact_person: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+
+class CustomerCreate(BaseModel):
+    name: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+    credit_limit: float = 0
+
+class Customer(BaseDBModel):
+    tenant_id: str
+    name: str
+    phone: str
+    email: Optional[str] = None
+    address: Optional[str] = None
+    credit_limit: float
+    total_purchases: float = 0
+
+class ExpenseCreate(BaseModel):
+    category: str
+    amount: float
+    description: str
+    date: str
+
+class Expense(BaseDBModel):
+    tenant_id: str
+    category: str
+    amount: float
+    description: str
+    date: str
+
+class PurchaseCreate(BaseModel):
+    supplier_id: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    payment_status: str = "pending"
+
+class Purchase(BaseDBModel):
+    tenant_id: str
+    purchase_number: str
+    supplier_id: str
+    items: List[Dict[str, Any]]
+    total_amount: float
+    payment_status: str
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
