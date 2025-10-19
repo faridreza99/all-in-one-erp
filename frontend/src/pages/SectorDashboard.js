@@ -182,11 +182,11 @@ const SectorDashboard = ({ user, onLogout }) => {
         {/* Sales Chart */}
         <div className="glass-card p-6 mb-8">
           <h2 className="text-2xl font-bold text-white mb-6">Sales Overview (Last 7 Days)</h2>
-          <ResponsiveContainer width=\"100%\" height={300}>
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray=\"3 3\" stroke=\"rgba(255,255,255,0.1)\" />
-              <XAxis dataKey=\"date\" stroke=\"#94a3b8\" />
-              <YAxis stroke=\"#94a3b8\" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)\" />
+              <XAxis dataKey="date\" stroke="#94a3b8\" />
+              <YAxis stroke="#94a3b8\" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -197,8 +197,8 @@ const SectorDashboard = ({ user, onLogout }) => {
               />
               <Line
                 type=\"monotone\"
-                dataKey=\"sales\"
-                stroke=\"#3b82f6\"
+                dataKey="sales\"
+                stroke="#3b82f6\"
                 strokeWidth={3}
                 dot={{ fill: '#3b82f6', r: 4 }}
                 activeDot={{ r: 6 }}
