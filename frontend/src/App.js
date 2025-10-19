@@ -13,6 +13,9 @@ import AppointmentsPage from './pages/AppointmentsPage';
 import RepairsPage from './pages/RepairsPage';
 import TablesPage from './pages/TablesPage';
 import SalesPage from './pages/SalesPage';
+import CustomersPage from './pages/CustomersPage';
+import ExpensesPage from './pages/ExpensesPage';
+import ReportsPage from './pages/ReportsPage';
 import { Toaster } from './components/ui/sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
