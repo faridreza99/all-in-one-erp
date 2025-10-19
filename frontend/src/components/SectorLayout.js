@@ -72,33 +72,33 @@ const SectorLayout = ({ children, user, onLogout }) => {
         animate={{ width: sidebarOpen ? 256 : 80 }}
         className="fixed left-0 top-0 h-full sidebar z-50"
       >
-        <div className=\"p-4\">
-          <div className=\"flex items-center justify-between mb-8\">
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-8">
             {sidebarOpen && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className=\"flex items-center gap-3\"
+                className="flex items-center gap-3\"
               >
-                <div className=\"w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center\">
-                  <span className=\"text-2xl\">{sectorConfig.icon}</span>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">{sectorConfig.icon}</span>
                 </div>
                 <div>
-                  <h2 className=\"font-bold text-white\">{sectorConfig.name}</h2>
-                  <p className=\"text-xs text-slate-400\">{user?.role}</p>
+                  <h2 className="font-bold text-white">{sectorConfig.name}</h2>
+                  <p className="text-xs text-slate-400">{user?.role}</p>
                 </div>
               </motion.div>
             )}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className=\"p-2 hover:bg-white/10 rounded-lg transition-colors\"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors\"
               data-testid=\"sidebar-toggle\"
             >
-              {sidebarOpen ? <X className=\"w-5 h-5\" /> : <Menu className=\"w-5 h-5\" />}
+              {sidebarOpen ? <X className="w-5 h-5\" /> : <Menu className="w-5 h-5\" />}
             </button>
           </div>
 
-          <nav className=\"space-y-2\">
+          <nav className="space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path || 
@@ -110,7 +110,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     className={`sidebar-item ${isActive ? 'active' : ''}`}
                     data-testid={`menu-${item.label.toLowerCase()}`}
                   >
-                    <Icon className=\"w-5 h-5 flex-shrink-0\" />
+                    <Icon className="w-5 h-5 flex-shrink-0\" />
                     {sidebarOpen && (
                       <motion.span
                         initial={{ opacity: 0 }}
@@ -126,10 +126,10 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
             <button
               onClick={onLogout}
-              className=\"sidebar-item w-full text-left\"
+              className="sidebar-item w-full text-left\"
               data-testid=\"logout-button\"
             >
-              <LogOut className=\"w-5 h-5 flex-shrink-0\" />
+              <LogOut className="w-5 h-5 flex-shrink-0\" />
               {sidebarOpen && (
                 <motion.span
                   initial={{ opacity: 0 }}
@@ -147,9 +147,9 @@ const SectorLayout = ({ children, user, onLogout }) => {
       <motion.div
         initial={false}
         animate={{ marginLeft: sidebarOpen ? 256 : 80 }}
-        className=\"min-h-screen transition-all duration-300\"
+        className="min-h-screen transition-all duration-300\"
       >
-        <div className=\"p-8\">
+        <div className="p-8">
           {children}
         </div>
       </motion.div>
