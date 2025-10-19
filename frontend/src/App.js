@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import '@/App.css';
 
 import AuthPage from './pages/AuthPage';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import TenantDashboard from './pages/TenantDashboard';
+import SectorDashboard from './pages/SectorDashboard';
 import POSPage from './pages/POSPage';
 import ProductsPage from './pages/ProductsPage';
 import ServicesPage from './pages/ServicesPage';
@@ -18,9 +18,25 @@ import ExpensesPage from './pages/ExpensesPage';
 import ReportsPage from './pages/ReportsPage';
 import ClinicPage from './pages/ClinicPage';
 import { Toaster } from './components/ui/sonner';
+import { isSectorAllowed } from './config/sectorModules';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
+
+// Protected route wrapper
+const SectorRoute = ({ user, element, module }) => {
+  const businessType = user?.business_type;
+  
+  if (!businessType) return element;
+  
+  const isAllowed = isSectorAllowed(businessType, module);
+  
+  if (!isAllowed) {
+    return <Navigate to={`/${businessType}`} replace />;
+  }
+  
+  return element;
+};
 
 const App = () => {
   const [user, setUser] = useState(null);
