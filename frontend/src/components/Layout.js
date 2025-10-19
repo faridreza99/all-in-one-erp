@@ -27,7 +27,10 @@ const Layout = ({ children, user, onLogout }) => {
     { path: '/appointments', label: 'Appointments', icon: Calendar },
     { path: '/repairs', label: 'Repairs', icon: Wrench },
     { path: '/tables', label: 'Tables', icon: Utensils },
+    { path: '/customers', label: 'Customers', icon: Building2 },
+    { path: '/expenses', label: 'Expenses', icon: DollarSign },
     { path: '/sales', label: 'Sales', icon: DollarSign },
+    { path: '/reports', label: 'Reports', icon: LayoutDashboard },
   ];
 
   return (
