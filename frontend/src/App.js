@@ -161,11 +161,55 @@ const App = () => {
                   />
                   <Route 
                     path={`/${user.business_type}/doctors`} 
-                    element={<SectorRoute user={user} module="doctors" element={<ClinicPage user={user} onLogout={handleLogout} />} />}
+                    element={<SectorRoute user={user} module="doctors" element={<DoctorsPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/patients`} 
-                    element={<SectorRoute user={user} module="patients" element={<ClinicPage user={user} onLogout={handleLogout} />} />}
+                    element={<SectorRoute user={user} module="patients" element={<PatientsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/vehicles`} 
+                    element={<SectorRoute user={user} module="vehicles" element={<VehiclesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/properties`} 
+                    element={<SectorRoute user={user} module="properties" element={<PropertiesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/offers`} 
+                    element={<SectorRoute user={user} module="offers" element={<OffersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/variants`} 
+                    element={<SectorRoute user={user} module="variants" element={<ProductVariantsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/warranties`} 
+                    element={<SectorRoute user={user} module="warranties" element={<WarrantiesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/returns`} 
+                    element={<SectorRoute user={user} module="returns" element={<ReturnsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/books`} 
+                    element={<SectorRoute user={user} module="books" element={<BooksPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/custom-orders`} 
+                    element={<SectorRoute user={user} module="custom-orders" element={<CustomOrdersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/purchase-orders`} 
+                    element={<SectorRoute user={user} module="purchase-orders" element={<PurchaseOrdersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/goods-receipts`} 
+                    element={<SectorRoute user={user} module="goods-receipts" element={<GoodsReceiptsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/online-orders`} 
+                    element={<SectorRoute user={user} module="online-orders" element={<OnlineOrdersPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/sales`} 
