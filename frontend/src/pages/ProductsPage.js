@@ -89,7 +89,7 @@ const ProductsPage = ({ user, onLogout }) => {
   );
 
   return (
-    <Layout user={user} onLogout={onLogout}>
+    <SectorLayout user={user} onLogout={onLogout}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
