@@ -284,7 +284,7 @@ const ProductsPage = ({ user, onLogout }) => {
           </div>
         )}
       </motion.div>
-    </Layout>
+    </SectorLayout>
   );
 };
 
