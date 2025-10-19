@@ -65,12 +65,12 @@ const SectorLayout = ({ children, user, onLogout }) => {
   });
 
   return (
-    <div className=\"min-h-screen gradient-bg\">
+    <div className="min-h-screen gradient-bg">
       {/* Sidebar */}
       <motion.div
         initial={false}
         animate={{ width: sidebarOpen ? 256 : 80 }}
-        className=\"fixed left-0 top-0 h-full sidebar z-50\"
+        className="fixed left-0 top-0 h-full sidebar z-50"
       >
         <div className=\"p-4\">
           <div className=\"flex items-center justify-between mb-8\">
