@@ -430,6 +430,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        
+        # Add business_type from tenant if tenant_id exists
+        if user.get("tenant_id"):
+            tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
+            if tenant:
+                user["business_type"] = tenant.get("business_type")
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
