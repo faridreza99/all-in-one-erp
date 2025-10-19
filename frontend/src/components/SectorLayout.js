@@ -92,7 +92,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors\"
-              data-testid=\"sidebar-toggle\"
+              data-testid="sidebar-toggle\"
             >
               {sidebarOpen ? <X className="w-5 h-5\" /> : <Menu className="w-5 h-5\" />}
             </button>
@@ -127,7 +127,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
             <button
               onClick={onLogout}
               className="sidebar-item w-full text-left\"
-              data-testid=\"logout-button\"
+              data-testid="logout-button\"
             >
               <LogOut className="w-5 h-5 flex-shrink-0\" />
               {sidebarOpen && (

@@ -111,7 +111,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Total Sales</p>
-                  <p className="text-3xl font-bold text-white\" data-testid=\"total-sales">
+                  <p className="text-3xl font-bold text-white\" data-testid="total-sales">
                     ${stats.total_sales.toFixed(2)}
                   </p>
                 </div>
@@ -130,7 +130,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Total Orders</p>
-                  <p className="text-3xl font-bold text-white\" data-testid=\"total-orders">
+                  <p className="text-3xl font-bold text-white\" data-testid="total-orders">
                     {stats.total_orders}
                   </p>
                 </div>
@@ -151,7 +151,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                   <p className="text-slate-400 text-sm">
                     {businessType === 'salon' || businessType === 'clinic' ? 'Services' : 'Products'}
                   </p>
-                  <p className="text-3xl font-bold text-white\" data-testid=\"total-products">
+                  <p className="text-3xl font-bold text-white\" data-testid="total-products">
                     {stats.total_products}
                   </p>
                 </div>
@@ -170,7 +170,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 </div>
                 <div>
                   <p className="text-slate-400 text-sm">Alerts</p>
-                  <p className="text-3xl font-bold text-white\" data-testid=\"low-stock-items">
+                  <p className="text-3xl font-bold text-white\" data-testid="low-stock-items">
                     {stats.low_stock_items}
                   </p>
                 </div>
