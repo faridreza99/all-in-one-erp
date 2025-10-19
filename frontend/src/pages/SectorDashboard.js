@@ -234,7 +234,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 const Icon = alert.icon;
                 return (
                   <div key={index} className=\"flex items-center gap-3\">
-                    <div className={`w-2 h-2 rounded-full ${\n                      alert.type === 'warning' ? 'bg-orange-400' : 'bg-blue-400'\n                    }`}></div>
+                    <div className={`w-2 h-2 rounded-full ${alert.type === 'warning' ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
                     <Icon className=\"w-4 h-4 text-slate-400\" />
                     <span className=\"text-slate-300\">{alert.message}</span>
                   </div>
