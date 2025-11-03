@@ -5,6 +5,7 @@ import { Plus, Clock } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const ServicesPage = ({ user, onLogout }) => {
   const [services, setServices] = useState([]);
@@ -38,7 +39,7 @@ const ServicesPage = ({ user, onLogout }) => {
       setFormData({ name: '', duration_minutes: '', price: '', description: '' });
       fetchServices();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create service');
+      toast.error(formatErrorMessage(error, 'Failed to create service'));
     }
   };
 

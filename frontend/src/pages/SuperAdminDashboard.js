@@ -5,6 +5,7 @@ import { Plus, Users, Building, ToggleLeft, ToggleRight } from 'lucide-react';
 import Layout from '../components/Layout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
   const [tenants, setTenants] = useState([]);
@@ -38,7 +39,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
       setFormData({ name: '', email: '', business_type: 'pharmacy', admin_password: '' });
       fetchTenants();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create tenant');
+      toast.error(formatErrorMessage(error, 'Failed to create tenant'));
     }
   };
 

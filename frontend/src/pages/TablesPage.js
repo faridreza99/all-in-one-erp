@@ -5,6 +5,7 @@ import { Plus, Users } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const TablesPage = ({ user, onLogout }) => {
   const [tables, setTables] = useState([]);
@@ -36,7 +37,7 @@ const TablesPage = ({ user, onLogout }) => {
       setFormData({ table_number: '', capacity: '' });
       fetchTables();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create table');
+      toast.error(formatErrorMessage(error, 'Failed to create table'));
     }
   };
 

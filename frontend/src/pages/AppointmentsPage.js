@@ -5,6 +5,7 @@ import { Plus, Calendar, Clock, User } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const AppointmentsPage = ({ user, onLogout }) => {
   const [appointments, setAppointments] = useState([]);
@@ -54,7 +55,7 @@ const AppointmentsPage = ({ user, onLogout }) => {
       });
       fetchAppointments();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create appointment');
+      toast.error(formatErrorMessage(error, 'Failed to create appointment'));
     }
   };
 

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Lock, Mail, User, Building2 } from 'lucide-react';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const AuthPage = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -26,7 +27,7 @@ const AuthPage = ({ onLogin }) => {
       onLogin(response.data.user, response.data.access_token);
       toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Authentication failed');
+      toast.error(formatErrorMessage(error, 'Authentication failed'));
     } finally {
       setLoading(false);
     }

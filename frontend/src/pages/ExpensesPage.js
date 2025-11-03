@@ -5,6 +5,7 @@ import { Plus, DollarSign, Calendar, TrendingDown } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const ExpensesPage = ({ user, onLogout }) => {
   const [expenses, setExpenses] = useState([]);
@@ -38,7 +39,7 @@ const ExpensesPage = ({ user, onLogout }) => {
       setFormData({ category: '', amount: '', description: '', date: new Date().toISOString().split('T')[0] });
       fetchExpenses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to add expense');
+      toast.error(formatErrorMessage(error, 'Failed to add expense'));
     }
   };
 

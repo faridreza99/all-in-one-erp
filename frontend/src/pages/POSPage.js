@@ -5,6 +5,7 @@ import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const POSPage = ({ user, onLogout }) => {
   const [products, setProducts] = useState([]);
@@ -99,7 +100,7 @@ const POSPage = ({ user, onLogout }) => {
       setTax(0);
       fetchProducts();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Checkout failed');
+      toast.error(formatErrorMessage(error, 'Checkout failed'));
     }
   };
 

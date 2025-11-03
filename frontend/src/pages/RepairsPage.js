@@ -5,6 +5,7 @@ import { Plus, Wrench } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const RepairsPage = ({ user, onLogout }) => {
   const [repairs, setRepairs] = useState([]);
@@ -43,7 +44,7 @@ const RepairsPage = ({ user, onLogout }) => {
       });
       fetchRepairs();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create ticket');
+      toast.error(formatErrorMessage(error, 'Failed to create ticket'));
     }
   };
 

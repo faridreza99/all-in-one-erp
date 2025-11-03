@@ -5,6 +5,7 @@ import { Plus, Stethoscope, Users, Calendar } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const ClinicPage = ({ user, onLogout }) => {
   const [doctors, setDoctors] = useState([]);
@@ -61,7 +62,7 @@ const ClinicPage = ({ user, onLogout }) => {
       setDoctorForm({ name: '', specialization: '', phone: '', email: '', consultation_fee: '', available_days: [] });
       fetchDoctors();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to add doctor');
+      toast.error(formatErrorMessage(error, 'Failed to add doctor'));
     }
   };
 
@@ -74,7 +75,7 @@ const ClinicPage = ({ user, onLogout }) => {
       setPatientForm({ name: '', age: '', gender: 'male', phone: '', email: '', address: '', blood_group: '' });
       fetchPatients();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to register patient');
+      toast.error(formatErrorMessage(error, 'Failed to register patient'));
     }
   };
 
