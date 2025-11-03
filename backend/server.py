@@ -571,6 +571,58 @@ class OnlineOrder(BaseDBModel):
     order_status: str = "processing"
     tracking_number: Optional[str] = None
 
+# ========== MULTI-BRANCH MODELS ==========
+class BranchCreate(BaseModel):
+    name: str
+    address: str
+    contact_phone: str
+    manager_name: Optional[str] = None
+    is_active: bool = True
+
+class Branch(BaseDBModel):
+    tenant_id: str
+    name: str
+    address: str
+    contact_phone: str
+    manager_name: Optional[str] = None
+    manager_user_id: Optional[str] = None
+    is_active: bool = True
+
+class ProductBranchCreate(BaseModel):
+    product_id: str
+    branch_id: str
+    stock: int
+    purchase_price: float
+    sale_price: float
+    reorder_level: int = 5
+
+class ProductBranch(BaseDBModel):
+    tenant_id: str
+    product_id: str
+    branch_id: str
+    stock: int
+    purchase_price: float
+    sale_price: float
+    reorder_level: int
+
+class StockTransferCreate(BaseModel):
+    product_id: str
+    from_branch_id: str
+    to_branch_id: str
+    quantity: int
+    reference_note: Optional[str] = None
+
+class StockTransfer(BaseDBModel):
+    tenant_id: str
+    transfer_number: str
+    product_id: str
+    from_branch_id: str
+    to_branch_id: str
+    quantity: int
+    reference_note: Optional[str] = None
+    status: str = "completed"
+    transferred_by: str
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
