@@ -5,6 +5,7 @@ import { Plus, Users, Phone, Mail } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 const CustomersPage = ({ user, onLogout }) => {
   const [customers, setCustomers] = useState([]);
