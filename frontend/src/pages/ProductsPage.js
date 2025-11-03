@@ -5,9 +5,10 @@ import { Plus, Edit2, Trash2, Search } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
 // Helper function to format API error messages
-const formatErrorMessage = (error) => {
+const formatErrorMessageLocal = (error) => {
   if (!error.response?.data) return 'Operation failed';
   
   const data = error.response.data;
