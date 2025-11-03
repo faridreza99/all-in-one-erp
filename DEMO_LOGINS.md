@@ -252,6 +252,13 @@ curl -X POST "https://erp-hub-suite.preview.emergentagent.com/api/auth/login" \
   -d '{"email":"pharmacy@example.com","password":"pharmacy123"}'
 ```
 
+### Test Computer Shop (Advanced Features):
+```bash
+curl -X POST "https://erp-hub-suite.preview.emergentagent.com/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"computershop@example.com","password":"computershop123"}'
+```
+
 ---
 
 ## ⚠️ **Important Notes**
