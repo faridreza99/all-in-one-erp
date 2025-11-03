@@ -6,6 +6,30 @@ import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
 
+// Helper function to format API error messages
+const formatErrorMessage = (error) => {
+  if (!error.response?.data) return 'Operation failed';
+  
+  const data = error.response.data;
+  
+  // Handle FastAPI validation errors (array of objects)
+  if (Array.isArray(data.detail)) {
+    return data.detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+  }
+  
+  // Handle simple string detail
+  if (typeof data.detail === 'string') {
+    return data.detail;
+  }
+  
+  // Handle object detail
+  if (typeof data.detail === 'object' && data.detail.msg) {
+    return data.detail.msg;
+  }
+  
+  return 'Operation failed';
+};
+
 const ProductsPage = ({ user, onLogout }) => {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
