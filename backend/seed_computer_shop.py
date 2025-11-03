@@ -24,7 +24,8 @@ async def seed_computer_shop():
     # Create tenant
     tenant_id = str(uuid.uuid4())
     tenant = {
-        "id": tenant_id,
+        "id": str(uuid.uuid4()),
+        "tenant_id": tenant_id,
         "name": "TechMart Computer Shop",
         "business_type": "computer_shop",
         "email": "computershop@example.com",
