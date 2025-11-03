@@ -39,8 +39,11 @@ api_router = APIRouter(prefix="/api")
 class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"
     TENANT_ADMIN = "tenant_admin"
+    HEAD_OFFICE = "head_office"
+    BRANCH_MANAGER = "branch_manager"
     STAFF = "staff"
     CASHIER = "cashier"
+    TECHNICIAN = "technician"
 
 class BusinessType(str, Enum):
     PHARMACY = "pharmacy"
