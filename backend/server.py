@@ -2679,6 +2679,293 @@ async def get_branch_stats(
         "low_stock_items": low_stock_count
     }
 
+# ========== COMPUTER COMPONENTS ROUTES ==========
+@api_router.post("/components", response_model=Component)
+async def create_component(
+    component_data: ComponentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    component = Component(
+        tenant_id=current_user["tenant_id"],
+        **component_data.model_dump()
+    )
+    
+    doc = component.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.components.insert_one(doc)
+    return component
+
+@api_router.get("/components", response_model=List[Component])
+async def get_components(
+    category: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if category:
+        query["category"] = category
+    
+    components = await db.components.find(query, {"_id": 0}).to_list(10000)
+    
+    for comp in components:
+        if isinstance(comp.get('created_at'), str):
+            comp['created_at'] = datetime.fromisoformat(comp['created_at'])
+        if isinstance(comp.get('updated_at'), str):
+            comp['updated_at'] = datetime.fromisoformat(comp['updated_at'])
+    
+    return components
+
+# ========== COMPUTER PRODUCTS ROUTES ==========
+@api_router.post("/computer-products", response_model=ComputerProduct)
+async def create_computer_product(
+    product_data: ComputerProductCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    product = ComputerProduct(
+        tenant_id=current_user["tenant_id"],
+        **product_data.model_dump()
+    )
+    
+    doc = product.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.computer_products.insert_one(doc)
+    return product
+
+@api_router.get("/computer-products", response_model=List[ComputerProduct])
+async def get_computer_products(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if status:
+        query["status"] = status
+    
+    products = await db.computer_products.find(query, {"_id": 0}).to_list(10000)
+    
+    for product in products:
+        if isinstance(product.get('created_at'), str):
+            product['created_at'] = datetime.fromisoformat(product['created_at'])
+        if isinstance(product.get('updated_at'), str):
+            product['updated_at'] = datetime.fromisoformat(product['updated_at'])
+    
+    return products
+
+@api_router.get("/computer-products/{product_id}", response_model=ComputerProduct)
+async def get_computer_product(
+    product_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    product = await db.computer_products.find_one({
+        "id": product_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if isinstance(product.get('created_at'), str):
+        product['created_at'] = datetime.fromisoformat(product['created_at'])
+    if isinstance(product.get('updated_at'), str):
+        product['updated_at'] = datetime.fromisoformat(product['updated_at'])
+    
+    return product
+
+# ========== JOB CARD ROUTES ==========
+@api_router.post("/job-cards", response_model=JobCard)
+async def create_job_card(
+    job_data: JobCardCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    job_number = f"JOB-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    received_date = datetime.now(timezone.utc).isoformat()
+    
+    job_card = JobCard(
+        tenant_id=current_user["tenant_id"],
+        job_number=job_number,
+        received_date=received_date,
+        **job_data.model_dump()
+    )
+    
+    doc = job_card.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.job_cards.insert_one(doc)
+    return job_card
+
+@api_router.get("/job-cards", response_model=List[JobCard])
+async def get_job_cards(
+    status: Optional[str] = None,
+    technician_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if status:
+        query["status"] = status
+    if technician_id:
+        query["technician_id"] = technician_id
+    
+    job_cards = await db.job_cards.find(query, {"_id": 0}).to_list(10000)
+    
+    for job in job_cards:
+        if isinstance(job.get('created_at'), str):
+            job['created_at'] = datetime.fromisoformat(job['created_at'])
+        if isinstance(job.get('updated_at'), str):
+            job['updated_at'] = datetime.fromisoformat(job['updated_at'])
+    
+    return job_cards
+
+@api_router.patch("/job-cards/{job_id}/status")
+async def update_job_status(
+    job_id: str,
+    status_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    job_card = await db.job_cards.find_one({
+        "id": job_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not job_card:
+        raise HTTPException(status_code=404, detail="Job card not found")
+    
+    update_data = {**status_data, "updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if status_data.get("status") == "completed" and not job_card.get("completion_date"):
+        update_data["completion_date"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.job_cards.update_one(
+        {"id": job_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Job card updated successfully"}
+
+@api_router.post("/job-cards/{job_id}/add-part")
+async def add_part_to_job(
+    job_id: str,
+    part_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    job_card = await db.job_cards.find_one({
+        "id": job_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not job_card:
+        raise HTTPException(status_code=404, detail="Job card not found")
+    
+    parts_used = job_card.get("parts_used", [])
+    parts_used.append(part_data)
+    
+    actual_cost = job_card.get("actual_cost", 0) + part_data.get("cost", 0)
+    
+    await db.job_cards.update_one(
+        {"id": job_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {
+            "parts_used": parts_used,
+            "actual_cost": actual_cost,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Part added to job card"}
+
+# ========== DEVICE HISTORY ROUTES ==========
+@api_router.post("/device-history", response_model=DeviceHistory)
+async def create_device_history(
+    device_data: DeviceHistoryCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    device = DeviceHistory(
+        tenant_id=current_user["tenant_id"],
+        **device_data.model_dump()
+    )
+    
+    doc = device.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.device_history.insert_one(doc)
+    return device
+
+@api_router.get("/device-history", response_model=List[DeviceHistory])
+async def get_device_history(
+    customer_id: Optional[str] = None,
+    serial_number: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if customer_id:
+        query["customer_id"] = customer_id
+    if serial_number:
+        query["serial_number"] = serial_number
+    
+    devices = await db.device_history.find(query, {"_id": 0}).to_list(10000)
+    
+    for device in devices:
+        if isinstance(device.get('created_at'), str):
+            device['created_at'] = datetime.fromisoformat(device['created_at'])
+        if isinstance(device.get('updated_at'), str):
+            device['updated_at'] = datetime.fromisoformat(device['updated_at'])
+    
+    return devices
+
+@api_router.post("/device-history/{device_id}/add-repair")
+async def add_repair_to_device(
+    device_id: str,
+    job_card_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    device = await db.device_history.find_one({
+        "id": device_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    repair_history = device.get("repair_history", [])
+    if job_card_id not in repair_history:
+        repair_history.append(job_card_id)
+    
+    await db.device_history.update_one(
+        {"id": device_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {
+            "repair_history": repair_history,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Repair added to device history"}
+
 app.include_router(api_router)
 
 app.add_middleware(
