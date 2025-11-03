@@ -130,7 +130,10 @@ export const MODULE_ROUTES = {
   'tier-pricing': { path: '/tier-pricing', label: 'Tier Pricing' },
   'purchase-orders': { path: '/purchase-orders', label: 'Purchase Orders' },
   'goods-receipts': { path: '/goods-receipts', label: 'Goods Receipts' },
-  'online-orders': { path: '/online-orders', label: 'Online Orders' }
+  'online-orders': { path: '/online-orders', label: 'Online Orders' },
+  components: { path: '/components', label: 'Components' },
+  'job-cards': { path: '/job-cards', label: 'Job Cards' },
+  'device-history': { path: '/device-history', label: 'Device History' }
 };
 
 export const getSectorModules = (businessType) => {
