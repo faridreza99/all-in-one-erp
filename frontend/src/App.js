@@ -189,6 +189,18 @@ const App = () => {
                     element={<SectorRoute user={user} module="variants" element={<ProductVariantsPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
+                    path={`/${user.business_type}/branches`} 
+                    element={<SectorRoute user={user} module="branches" element={<BranchesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/product-assignment`} 
+                    element={<SectorRoute user={user} module="product-assignment" element={<ProductBranchAssignmentPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/stock-transfer`} 
+                    element={<SectorRoute user={user} module="stock-transfer" element={<StockTransferPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
                     path={`/${user.business_type}/warranties`} 
                     element={<SectorRoute user={user} module="warranties" element={<WarrantiesPage user={user} onLogout={handleLogout} />} />}
                   />
