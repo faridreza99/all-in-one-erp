@@ -825,7 +825,7 @@ async def login(credentials: LoginRequest):
     # Get business_type from tenant if available
     business_type = None
     if user.get("tenant_id"):
-        tenant = await db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0})
+        tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
         if tenant:
             business_type = tenant.get("business_type")
             user["business_type"] = business_type
