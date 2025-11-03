@@ -325,6 +325,7 @@ curl -X POST "https://erp-hub-suite.preview.emergentagent.com/api/auth/login" \
 | Wholesale | ✅ Verified | ✅ Working | ✅ 3 products |
 | E-commerce | ✅ Verified | ✅ Working | ✅ 3 products |
 | Real Estate | ✅ Verified | ✅ Working | ✅ 3 properties |
+| **Computer Shop** | ✅ Verified | ✅ Working | ✅ 5 components, 3 products, 2 jobs |
 
 ---
 
