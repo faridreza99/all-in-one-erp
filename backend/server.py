@@ -2217,6 +2217,363 @@ async def update_order_status(
     
     return {"message": "Order status updated"}
 
+# ========== BRANCH MANAGEMENT ROUTES ==========
+@api_router.post("/branches", response_model=Branch)
+async def create_branch(
+    branch_data: BranchCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Only tenant_admin, head_office, or super_admin can create branches
+    if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    branch = Branch(
+        tenant_id=current_user["tenant_id"],
+        **branch_data.model_dump()
+    )
+    
+    doc = branch.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.branches.insert_one(doc)
+    return branch
+
+@api_router.get("/branches", response_model=List[Branch])
+async def get_branches(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    branches = await db.branches.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for branch in branches:
+        if isinstance(branch.get('created_at'), str):
+            branch['created_at'] = datetime.fromisoformat(branch['created_at'])
+        if isinstance(branch.get('updated_at'), str):
+            branch['updated_at'] = datetime.fromisoformat(branch['updated_at'])
+    
+    return branches
+
+@api_router.get("/branches/{branch_id}", response_model=Branch)
+async def get_branch(
+    branch_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    branch = await db.branches.find_one(
+        {"id": branch_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    if isinstance(branch.get('created_at'), str):
+        branch['created_at'] = datetime.fromisoformat(branch['created_at'])
+    if isinstance(branch.get('updated_at'), str):
+        branch['updated_at'] = datetime.fromisoformat(branch['updated_at'])
+    
+    return branch
+
+@api_router.put("/branches/{branch_id}")
+async def update_branch(
+    branch_id: str,
+    branch_data: BranchCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    branch = await db.branches.find_one({"id": branch_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    await db.branches.update_one(
+        {"id": branch_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {**branch_data.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Branch updated successfully"}
+
+@api_router.delete("/branches/{branch_id}")
+async def delete_branch(
+    branch_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    result = await db.branches.delete_one({"id": branch_id, "tenant_id": current_user["tenant_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    # Also delete associated product-branch records
+    await db.product_branches.delete_many({"branch_id": branch_id, "tenant_id": current_user["tenant_id"]})
+    
+    return {"message": "Branch deleted successfully"}
+
+# ========== PRODUCT-BRANCH ASSIGNMENT ROUTES ==========
+@api_router.post("/product-branches", response_model=ProductBranch)
+async def assign_product_to_branch(
+    assignment: ProductBranchCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Check if assignment already exists
+    existing = await db.product_branches.find_one({
+        "product_id": assignment.product_id,
+        "branch_id": assignment.branch_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Product already assigned to this branch")
+    
+    product_branch = ProductBranch(
+        tenant_id=current_user["tenant_id"],
+        **assignment.model_dump()
+    )
+    
+    doc = product_branch.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.product_branches.insert_one(doc)
+    return product_branch
+
+@api_router.get("/product-branches", response_model=List[ProductBranch])
+async def get_product_branches(
+    product_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    
+    # Branch managers can only see their branch
+    if current_user["role"] == "branch_manager" and current_user.get("branch_id"):
+        query["branch_id"] = current_user["branch_id"]
+    elif branch_id:
+        query["branch_id"] = branch_id
+    
+    if product_id:
+        query["product_id"] = product_id
+    
+    assignments = await db.product_branches.find(query, {"_id": 0}).to_list(10000)
+    
+    for assignment in assignments:
+        if isinstance(assignment.get('created_at'), str):
+            assignment['created_at'] = datetime.fromisoformat(assignment['created_at'])
+        if isinstance(assignment.get('updated_at'), str):
+            assignment['updated_at'] = datetime.fromisoformat(assignment['updated_at'])
+    
+    return assignments
+
+@api_router.put("/product-branches/{assignment_id}")
+async def update_product_branch(
+    assignment_id: str,
+    update_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    assignment = await db.product_branches.find_one(
+        {"id": assignment_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    # Branch managers can only update their branch
+    if current_user["role"] == "branch_manager":
+        if assignment["branch_id"] != current_user.get("branch_id"):
+            raise HTTPException(status_code=403, detail="Can only update own branch")
+    
+    await db.product_branches.update_one(
+        {"id": assignment_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {**update_data, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Product-branch assignment updated"}
+
+@api_router.delete("/product-branches/{assignment_id}")
+async def delete_product_branch(
+    assignment_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    result = await db.product_branches.delete_one({
+        "id": assignment_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    return {"message": "Product-branch assignment deleted"}
+
+# ========== STOCK TRANSFER ROUTES ==========
+@api_router.post("/stock-transfers", response_model=StockTransfer)
+async def create_stock_transfer(
+    transfer_data: StockTransferCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Verify source branch has enough stock
+    source_assignment = await db.product_branches.find_one({
+        "product_id": transfer_data.product_id,
+        "branch_id": transfer_data.from_branch_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not source_assignment:
+        raise HTTPException(status_code=404, detail="Product not found in source branch")
+    
+    if source_assignment["stock"] < transfer_data.quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock in source branch")
+    
+    # Verify destination branch exists
+    dest_assignment = await db.product_branches.find_one({
+        "product_id": transfer_data.product_id,
+        "branch_id": transfer_data.to_branch_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not dest_assignment:
+        raise HTTPException(status_code=404, detail="Product not assigned to destination branch")
+    
+    # Create transfer record
+    transfer_number = f"ST-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    
+    stock_transfer = StockTransfer(
+        tenant_id=current_user["tenant_id"],
+        transfer_number=transfer_number,
+        transferred_by=current_user["id"],
+        **transfer_data.model_dump()
+    )
+    
+    doc = stock_transfer.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.stock_transfers.insert_one(doc)
+    
+    # Update source branch stock (deduct)
+    await db.product_branches.update_one(
+        {"id": source_assignment["id"], "tenant_id": current_user["tenant_id"]},
+        {
+            "$inc": {"stock": -transfer_data.quantity},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    # Update destination branch stock (add)
+    await db.product_branches.update_one(
+        {"id": dest_assignment["id"], "tenant_id": current_user["tenant_id"]},
+        {
+            "$inc": {"stock": transfer_data.quantity},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    return stock_transfer
+
+@api_router.get("/stock-transfers", response_model=List[StockTransfer])
+async def get_stock_transfers(
+    branch_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    
+    # Branch managers can only see transfers involving their branch
+    if current_user["role"] == "branch_manager" and current_user.get("branch_id"):
+        query["$or"] = [
+            {"from_branch_id": current_user["branch_id"]},
+            {"to_branch_id": current_user["branch_id"]}
+        ]
+    elif branch_id:
+        query["$or"] = [
+            {"from_branch_id": branch_id},
+            {"to_branch_id": branch_id}
+        ]
+    
+    transfers = await db.stock_transfers.find(query, {"_id": 0}).to_list(10000)
+    
+    for transfer in transfers:
+        if isinstance(transfer.get('created_at'), str):
+            transfer['created_at'] = datetime.fromisoformat(transfer['created_at'])
+        if isinstance(transfer.get('updated_at'), str):
+            transfer['updated_at'] = datetime.fromisoformat(transfer['updated_at'])
+    
+    return transfers
+
+# ========== BRANCH-SPECIFIC DASHBOARD STATS ==========
+@api_router.get("/branches/{branch_id}/stats")
+async def get_branch_stats(
+    branch_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Verify branch exists and user has access
+    branch = await db.branches.find_one({
+        "id": branch_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    
+    # Branch managers can only view their own branch
+    if current_user["role"] == "branch_manager":
+        if branch_id != current_user.get("branch_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get total products in branch
+    products_count = await db.product_branches.count_documents({
+        "branch_id": branch_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    # Get total stock value
+    product_branches = await db.product_branches.find({
+        "branch_id": branch_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0}).to_list(10000)
+    
+    total_stock = sum(pb.get("stock", 0) for pb in product_branches)
+    total_value = sum(pb.get("stock", 0) * pb.get("purchase_price", 0) for pb in product_branches)
+    
+    # Get low stock items (below reorder level)
+    low_stock_count = len([pb for pb in product_branches if pb.get("stock", 0) <= pb.get("reorder_level", 5)])
+    
+    return {
+        "branch_id": branch_id,
+        "branch_name": branch.get("name"),
+        "total_products": products_count,
+        "total_stock": total_stock,
+        "total_value": total_value,
+        "low_stock_items": low_stock_count
+    }
+
 app.include_router(api_router)
 
 app.add_middleware(
