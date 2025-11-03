@@ -112,6 +112,7 @@ class User(BaseDBModel):
     full_name: str
     role: UserRole
     tenant_id: Optional[str] = None
+    branch_id: Optional[str] = None
     hashed_password: str
     is_active: bool = True
 
