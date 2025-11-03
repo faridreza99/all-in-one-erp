@@ -15,7 +15,7 @@
 ## 👑 **Super Admin Access**
 
 ```
-Email: admin@erp.com
+Email: superadmin@erp.com
 Password: admin123
 Role: Super Admin
 Dashboard: https://erp-hub-suite.preview.emergentagent.com/
