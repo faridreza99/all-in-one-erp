@@ -40,7 +40,7 @@ const CustomersPage = ({ user, onLogout }) => {
       setFormData({ name: '', phone: '', email: '', address: '', credit_limit: '' });
       fetchCustomers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to add customer');
+      toast.error(formatErrorMessage(error, 'Failed to add customer'));
     }
   };
 
