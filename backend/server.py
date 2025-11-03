@@ -854,6 +854,56 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     current_user.pop("hashed_password", None)
     return current_user
 
+@api_router.post("/auth/signup", response_model=TokenResponse)
+async def signup_tenant(tenant_data: TenantCreate):
+    existing_email = await db.users.find_one({"email": tenant_data.email}, {"_id": 0})
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    tenant = Tenant(
+        name=tenant_data.name,
+        email=tenant_data.email,
+        business_type=tenant_data.business_type,
+        modules_enabled=[tenant_data.business_type.value]
+    )
+    
+    doc = tenant.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.tenants.insert_one(doc)
+    
+    admin_user = User(
+        email=tenant_data.email,
+        full_name=f"{tenant_data.name} Admin",
+        role=UserRole.TENANT_ADMIN,
+        tenant_id=tenant.tenant_id,
+        hashed_password=hash_password(tenant_data.admin_password)
+    )
+    
+    admin_doc = admin_user.model_dump()
+    admin_doc['created_at'] = admin_doc['created_at'].isoformat()
+    admin_doc['updated_at'] = admin_doc['updated_at'].isoformat()
+    
+    await db.users.insert_one(admin_doc)
+    
+    token = create_access_token({
+        "sub": admin_user.id, 
+        "email": admin_user.email, 
+        "role": admin_user.role.value,
+        "business_type": tenant.business_type.value
+    })
+    
+    user_response = admin_user.model_dump()
+    user_response.pop("hashed_password")
+    user_response["business_type"] = tenant.business_type.value
+    
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user=user_response
+    )
+
 # ========== TENANT ROUTES (Super Admin Only) ==========
 @api_router.post("/tenants", response_model=Tenant)
 async def create_tenant(

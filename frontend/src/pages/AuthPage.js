@@ -12,8 +12,8 @@ const AuthPage = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    full_name: '',
-    role: 'tenant_admin'
+    name: '',
+    business_type: 'mobile_shop'
   });
 
   const handleSubmit = async (e) => {
@@ -21,8 +21,16 @@ const AuthPage = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const response = await axios.post(`${API}${endpoint}`, formData);
+      const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+      const payload = isLogin 
+        ? { email: formData.email, password: formData.password }
+        : { 
+            email: formData.email, 
+            admin_password: formData.password,
+            name: formData.name,
+            business_type: formData.business_type
+          };
+      const response = await axios.post(`${API}${endpoint}`, payload);
       
       onLogin(response.data.user, response.data.access_token);
       toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
@@ -60,23 +68,56 @@ const AuthPage = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    data-testid="auth-fullname-input"
-                    type="text"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 rounded-xl"
-                    placeholder="Enter your full name"
-                    required={!isLogin}
-                  />
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Business Name
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      data-testid="auth-businessname-input"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white placeholder-slate-500"
+                      placeholder="Enter your business name"
+                      required={!isLogin}
+                    />
+                  </div>
                 </div>
-              </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Business Type
+                  </label>
+                  <div className="relative">
+                    <select
+                      data-testid="auth-businesstype-select"
+                      value={formData.business_type}
+                      onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"
+                      required={!isLogin}
+                    >
+                      <option value="mobile_shop">Mobile Shop 📱</option>
+                      <option value="pharmacy">Pharmacy 💊</option>
+                      <option value="salon">Salon & Spa ✂️</option>
+                      <option value="restaurant">Restaurant 🍽️</option>
+                      <option value="clinic">Clinic 🏥</option>
+                      <option value="grocery">Grocery Store 🛒</option>
+                      <option value="electronics">Electronics Store 💻</option>
+                      <option value="fashion">Fashion Boutique 👗</option>
+                      <option value="stationery">Stationery Shop 📚</option>
+                      <option value="hardware">Hardware Store 🔧</option>
+                      <option value="furniture">Furniture Store 🛋️</option>
+                      <option value="garage">Auto Garage 🚗</option>
+                      <option value="wholesale">Wholesale Business 📦</option>
+                      <option value="ecommerce">E-commerce 🛍️</option>
+                      <option value="real_estate">Real Estate 🏘️</option>
+                    </select>
+                  </div>
+                </div>
+              </>
             )}
 
             <div>
