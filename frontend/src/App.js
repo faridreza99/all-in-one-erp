@@ -202,6 +202,18 @@ const App = () => {
                     element={<SectorRoute user={user} module="stock-transfer" element={<StockTransferPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
+                    path={`/${user.business_type}/components`} 
+                    element={<SectorRoute user={user} module="components" element={<ComponentsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/job-cards`} 
+                    element={<SectorRoute user={user} module="job-cards" element={<JobCardsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/device-history`} 
+                    element={<SectorRoute user={user} module="device-history" element={<DeviceHistoryPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
                     path={`/${user.business_type}/warranties`} 
                     element={<SectorRoute user={user} module="warranties" element={<WarrantiesPage user={user} onLogout={handleLogout} />} />}
                   />
