@@ -4,15 +4,17 @@ from passlib.context import CryptContext
 import os
 from datetime import datetime, timezone
 import uuid
+import certifi
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def seed_all_sectors():
-    # Connect to MongoDB
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    # Connect to MongoDB - handle both Mongo_URL and MONGO_URL
+    mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL') or 'mongodb://localhost:27017'
     db_name = os.environ.get('DB_NAME', 'erp_database')
     
-    client = AsyncIOMotorClient(mongo_url)
+    # Add TLS configuration for MongoDB Atlas using certifi
+    client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
     db = client[db_name]
     
     print("🌱 Seeding ALL 15 business sectors...")
