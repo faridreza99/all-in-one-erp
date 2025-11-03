@@ -30,6 +30,11 @@ import VehiclesPage from './pages/VehiclesPage';
 import DoctorsPage from './pages/DoctorsPage';
 import PatientsPage from './pages/PatientsPage';
 import ProductVariantsPage from './pages/ProductVariantsPage';
+import BranchesPage from './pages/BranchesPage';
+import ProductBranchAssignmentPage from './pages/ProductBranchAssignmentPage';
+import StockTransferPage from './pages/StockTransferPage';
+import PatientsPage from './pages/PatientsPage';
+import ProductVariantsPage from './pages/ProductVariantsPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
