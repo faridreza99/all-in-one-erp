@@ -78,7 +78,7 @@ const ProductsPage = ({ user, onLogout }) => {
       resetForm();
       fetchProducts();
     } catch (error) {
-      toast.error(formatErrorMessage(error));
+      toast.error(formatErrorMessageLocal(error));
     }
   };
 
