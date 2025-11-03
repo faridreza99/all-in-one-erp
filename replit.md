@@ -31,10 +31,18 @@ This is a full-stack ERP application built with:
 ## Current Setup
 
 ### Environment Variables
-- `Mongo_URL`: MongoDB Atlas connection string (stored in Replit Secrets)
+
+**Required Secrets (Must be added in Replit Secrets panel):**
+- `Mongo_URL` or `MONGO_URL`: MongoDB Atlas connection string
+  - ⚠️ **CRITICAL**: This must be set before running the application
+  - The backend will fail to start without this secret
+  - Get your connection string from MongoDB Atlas: https://www.mongodb.com/cloud/atlas
+
+**Optional Environment Variables (.env files):**
 - `DB_NAME`: Database name (default: erp_db)
-- `JWT_SECRET`: Secret key for JWT tokens
-- `REACT_APP_BACKEND_URL`: Backend API URL (http://localhost:8000)
+- `JWT_SECRET`: Secret key for JWT tokens (change in production!)
+- `REACT_APP_BACKEND_URL`: Backend API URL (http://localhost:8000 for development)
+  - For production deployment, set this as a Replit Secret to your deployed backend URL
 
 ### Workflows
 1. **Backend** - FastAPI server running on localhost:8000
@@ -146,9 +154,29 @@ _This section can be used to track user-specific preferences and coding styles a
 ## Next Steps
 
 1. ✅ Application is running and accessible
-2. 🔄 Seed database with demo data through API or seed scripts
-3. 🔄 Test all sector-specific features
-4. 🔄 Configure production deployment settings
+2. ✅ MongoDB connection configured securely via Replit Secrets
+3. 🔄 Seed database with demo data (create tenant accounts via Sign Up or API)
+4. 🔄 Test end-to-end login and API functionality
+5. 🔄 For production: Add `REACT_APP_BACKEND_URL` secret with deployed backend domain
+6. 🔄 Test all sector-specific features for each business type
+
+## Troubleshooting
+
+### Application won't start
+- **Check**: Is `Mongo_URL` added to Replit Secrets?
+- **Check**: Are both Backend and Frontend workflows running?
+- **Solution**: Add MongoDB connection string to Secrets, restart workflows
+
+### Frontend can't connect to backend
+- **Development**: Ensure backend is running on localhost:8000
+- **Production**: Set `REACT_APP_BACKEND_URL` secret to deployed backend URL
+- **Check**: Look for CORS errors in browser console
+
+### MongoDB connection failed
+- **Check**: Is your MongoDB Atlas cluster IP whitelist configured?
+  - Either add Replit's IP or use 0.0.0.0/0 for testing
+- **Check**: Is the connection string correct?
+- **Check**: Are your MongoDB Atlas credentials valid?
 
 ---
 
