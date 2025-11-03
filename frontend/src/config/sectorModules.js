@@ -23,7 +23,7 @@ export const SECTOR_MODULES = {
     name: 'Mobile Shop',
     icon: '📱',
     color: 'purple',
-    modules: ['dashboard', 'products', 'repairs', 'pos', 'sales', 'customers', 'reports']
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'pos', 'sales', 'customers', 'reports']
   },
   grocery: {
     name: 'Grocery',
