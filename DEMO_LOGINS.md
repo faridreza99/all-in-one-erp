@@ -216,6 +216,26 @@ Dashboard: /real_estate
 
 ---
 
+### 16. 🖥️ **Computer Shop** (Advanced Features)
+```
+Email: computershop@example.com
+Password: computershop123
+Business Type: computer_shop
+Dashboard: /computer_shop
+```
+**Features**: 
+- **Multi-Branch Management**: Create and manage multiple branches
+- **Advanced Inventory**: Serial number tracking, warranty management
+- **Components**: Manage individual computer parts (CPU, RAM, SSD, etc.)
+- **Computer Products**: Complete systems with component associations
+- **Repair Management**: Job cards with technician assignment
+- **Device History**: Track customer devices and repair history
+- **POS, Sales, Customers, Suppliers, Reports**
+
+**Sample Data**: 5 components, 3 computer products, 2 job cards pre-loaded
+
+---
+
 ## 🧪 **Quick Test Guide**
 
 ### Test Super Admin:
