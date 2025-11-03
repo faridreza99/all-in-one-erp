@@ -25,6 +25,12 @@ export const SECTOR_MODULES = {
     color: 'purple',
     modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'pos', 'sales', 'customers', 'reports']
   },
+  computer_shop: {
+    name: 'Computer Shop',
+    icon: '🖥️',
+    color: 'cyan',
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'components', 'repairs', 'job-cards', 'pos', 'sales', 'customers', 'suppliers', 'device-history', 'reports']
+  },
   grocery: {
     name: 'Grocery',
     icon: '🛒',
