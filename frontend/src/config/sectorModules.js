@@ -96,6 +96,9 @@ export const SECTOR_MODULES = {
 // Module to route mapping
 export const MODULE_ROUTES = {
   dashboard: { path: '', label: 'Dashboard' },
+  branches: { path: '/branches', label: 'Branches' },
+  'product-assignment': { path: '/product-assignment', label: 'Product Assignment' },
+  'stock-transfer': { path: '/stock-transfer', label: 'Stock Transfer' },
   products: { path: '/products', label: 'Products' },
   services: { path: '/services', label: 'Services' },
   appointments: { path: '/appointments', label: 'Appointments' },
