@@ -624,6 +624,111 @@ class StockTransfer(BaseDBModel):
     status: str = "completed"
     transferred_by: str
 
+# ========== COMPUTER SHOP SPECIFIC MODELS ==========
+class ComponentCreate(BaseModel):
+    name: str
+    category: str  # CPU, RAM, HDD, SSD, GPU, Motherboard, etc.
+    brand: str
+    model: str
+    specifications: Dict[str, Any]
+    price: float
+    stock: int
+    supplier_id: Optional[str] = None
+
+class Component(BaseDBModel):
+    tenant_id: str
+    name: str
+    category: str
+    brand: str
+    model: str
+    specifications: Dict[str, Any]
+    price: float
+    stock: int
+    supplier_id: Optional[str] = None
+    serial_numbers: List[str] = []
+
+class ComputerProductCreate(BaseModel):
+    name: str
+    sku: str
+    category: str  # Desktop, Laptop, Server, Workstation
+    brand: str
+    model: str
+    serial_number: str
+    specifications: Dict[str, Any]
+    purchase_price: float
+    sale_price: float
+    warranty_months: int
+    warranty_expiry_date: str
+    supplier_id: str
+    components: List[str] = []  # Component IDs if assembled
+
+class ComputerProduct(BaseDBModel):
+    tenant_id: str
+    name: str
+    sku: str
+    category: str
+    brand: str
+    model: str
+    serial_number: str
+    specifications: Dict[str, Any]
+    purchase_price: float
+    sale_price: float
+    warranty_months: int
+    warranty_expiry_date: str
+    supplier_id: str
+    components: List[str] = []
+    status: str = "in_stock"  # in_stock, sold, in_repair
+
+class JobCardCreate(BaseModel):
+    customer_id: str
+    device_type: str
+    device_brand: str
+    device_model: str
+    serial_number: Optional[str] = None
+    issue_description: str
+    estimated_cost: float
+    technician_id: Optional[str] = None
+
+class JobCard(BaseDBModel):
+    tenant_id: str
+    job_number: str
+    customer_id: str
+    device_type: str
+    device_brand: str
+    device_model: str
+    serial_number: Optional[str] = None
+    issue_description: str
+    estimated_cost: float
+    actual_cost: float = 0
+    technician_id: Optional[str] = None
+    parts_used: List[Dict[str, Any]] = []
+    status: str = "pending"  # pending, in_progress, completed, delivered, cancelled
+    received_date: str
+    completion_date: Optional[str] = None
+    delivery_date: Optional[str] = None
+
+class DeviceHistoryCreate(BaseModel):
+    customer_id: str
+    device_type: str
+    device_brand: str
+    device_model: str
+    serial_number: str
+    purchase_date: str
+    warranty_expiry: str
+    sale_id: Optional[str] = None
+
+class DeviceHistory(BaseDBModel):
+    tenant_id: str
+    customer_id: str
+    device_type: str
+    device_brand: str
+    device_model: str
+    serial_number: str
+    purchase_date: str
+    warranty_expiry: str
+    sale_id: Optional[str] = None
+    repair_history: List[str] = []  # Job card IDs
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
