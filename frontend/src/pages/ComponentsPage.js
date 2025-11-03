@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { motion } from 'framer-motion';
+import { Plus, Edit2, Trash2, Search } from 'lucide-react';
+import SectorLayout from '../components/SectorLayout';
+import { API } from '../App';
+import { toast } from 'sonner';
+import { formatErrorMessage } from '../utils/errorHandler';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
-
-const COMPONENT_CATEGORIES = ['CPU', 'RAM', 'HDD', 'SSD', 'GPU', 'Motherboard', 'PSU', 'Case', 'Monitor', 'Keyboard', 'Mouse'];
-
-function ComponentsPage() {
+const ComponentsPage = ({ user, onLogout }) => {
   const [components, setComponents] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editingComponent, setEditingComponent] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     category: '',
     brand: '',
     model: '',
     specifications: {},
-    price: 0,
-    stock: 0
+    price: '',
+    stock: ''
   });
 
   useEffect(() => {
@@ -24,141 +28,252 @@ function ComponentsPage() {
 
   const fetchComponents = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/components`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get(`${API}/components`);
       setComponents(response.data);
     } catch (error) {
-      console.error('Error fetching components:', error);
+      toast.error(formatErrorMessage(error, 'Failed to fetch components'));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/components`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setShowForm(false);
-      setFormData({ name: '', category: '', brand: '', model: '', specifications: {}, price: 0, stock: 0 });
+      if (editingComponent) {
+        await axios.put(`${API}/components/${editingComponent.id}`, formData);
+        toast.success('Component updated successfully');
+      } else {
+        await axios.post(`${API}/components`, formData);
+        toast.success('Component created successfully');
+      }
+      setShowModal(false);
+      resetForm();
       fetchComponents();
     } catch (error) {
-      console.error('Error creating component:', error);
-      alert(error.response?.data?.detail || 'Error creating component');
+      toast.error(formatErrorMessage(error, 'Operation failed'));
     }
   };
 
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">🖥️ Computer Components</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-        >
-          {showForm ? 'Cancel' : '+ Add Component'}
-        </button>
-      </div>
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this component?')) {
+      try {
+        await axios.delete(`${API}/components/${id}`);
+        toast.success('Component deleted successfully');
+        fetchComponents();
+      } catch (error) {
+        toast.error(formatErrorMessage(error, 'Failed to delete component'));
+      }
+    }
+  };
 
-      {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow-lg mb-6">
-          <h2 className="text-xl font-bold mb-4">Add New Component</h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Component Name *"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="p-2 border rounded"
-              required
-            />
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="p-2 border rounded"
-              required
-            >
-              <option value="">Select Category *</option>
-              {COMPONENT_CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Brand *"
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              className="p-2 border rounded"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Model *"
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              className="p-2 border rounded"
-              required
-            />
-            <input
-              type="number"
-              placeholder="Price *"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-              className="p-2 border rounded"
-              step="0.01"
-              required
-            />
-            <input
-              type="number"
-              placeholder="Stock *"
-              value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-              className="p-2 border rounded"
-              required
-            />
-            <button type="submit" className="col-span-2 bg-green-600 text-white py-2 rounded hover:bg-green-700">
-              Add Component
-            </button>
-          </form>
-        </div>
-      )}
+  const handleEdit = (component) => {
+    setEditingComponent(component);
+    setFormData(component);
+    setShowModal(true);
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {components.map((component) => (
-          <div key={component.id} className="bg-white rounded-lg shadow-lg p-4 hover:shadow-xl transition-shadow">
-            <div className="flex justify-between items-start mb-3">
-              <span className="px-2 py-1 bg-cyan-100 text-cyan-800 rounded text-xs font-semibold">
-                {component.category}
-              </span>
-              <span className={`px-2 py-1 rounded text-xs ${
-                component.stock > 10 ? 'bg-green-100 text-green-800' :
-                component.stock > 0 ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                Stock: {component.stock}
-              </span>
-            </div>
-            <h3 className="font-bold text-lg mb-2">{component.name}</h3>
-            <div className="space-y-1 text-sm text-gray-600 mb-3">
-              <p><span className="font-semibold">Brand:</span> {component.brand}</p>
-              <p><span className="font-semibold">Model:</span> {component.model}</p>
-            </div>
-            <div className="pt-3 border-t">
-              <p className="text-2xl font-bold text-green-600">৳{component.price.toFixed(2)}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+  const resetForm = () => {
+    setFormData({
+      name: '', category: '', brand: '', model: '', specifications: {}, price: '', stock: ''
+    });
+    setEditingComponent(null);
+  };
 
-      {components.length === 0 && (
-        <div className="bg-white p-12 rounded-lg shadow-lg text-center text-gray-500">
-          No components added yet. Click "+ Add Component" to start.
-        </div>
-      )}
-    </div>
+  const filteredComponents = components.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
-}
+
+  return (
+    <SectorLayout user={user} onLogout={onLogout}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Components</h1>
+            <p className="text-slate-400">Manage computer components inventory</p>
+          </div>
+          <button
+            onClick={() => { resetForm(); setShowModal(true); }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Add Component
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="glass-card p-4 mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search components..."
+              className="w-full pl-11 pr-4 py-3 rounded-xl"
+            />
+          </div>
+        </div>
+
+        {/* Components Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredComponents.map((component) => (
+            <motion.div
+              key={component.id}
+              whileHover={{ scale: 1.02 }}
+              className="glass-card p-6"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-1">{component.name}</h3>
+                  <span className="badge badge-info">{component.category}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(component)}
+                    className="p-2 hover:bg-blue-500/20 rounded-lg transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4 text-blue-400" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(component.id)}
+                    className="p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Brand:</span>
+                  <span className="text-white font-semibold">{component.brand}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Model:</span>
+                  <span className="text-white font-semibold">{component.model}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Price:</span>
+                  <span className="text-green-400 font-semibold">${component.price}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Stock:</span>
+                  <span className={`badge ${component.stock < 5 ? 'badge-warning' : 'badge-success'}`}>
+                    {component.stock}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Add/Edit Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-card p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <h2 className="text-2xl font-bold text-white mb-6">
+                {editingComponent ? 'Edit Component' : 'Add New Component'}
+              </h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full"
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      <option value="CPU">CPU</option>
+                      <option value="GPU">GPU</option>
+                      <option value="RAM">RAM</option>
+                      <option value="SSD">SSD</option>
+                      <option value="HDD">HDD</option>
+                      <option value="Motherboard">Motherboard</option>
+                      <option value="PSU">PSU</option>
+                      <option value="Cooling">Cooling</option>
+                      <option value="Case">Case</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
+                    <input
+                      type="text"
+                      value={formData.brand}
+                      onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Model</label>
+                    <input
+                      type="text"
+                      value={formData.model}
+                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Price</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Stock</label>
+                    <input
+                      type="number"
+                      value={formData.stock}
+                      onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button type="submit" className="btn-primary flex-1">
+                    {editingComponent ? 'Update' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowModal(false); resetForm(); }}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </motion.div>
+    </SectorLayout>
+  );
+};
 
 export default ComponentsPage;
