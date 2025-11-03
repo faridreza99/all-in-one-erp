@@ -6,9 +6,9 @@
 
 ## 🌐 **Base URLs**
 
-**Login Page**: https://saas-erp-hub.preview.emergentagent.com/auth
+**Login Page**: https://erp-hub-suite.preview.emergentagent.com/auth
 
-**API Base**: https://saas-erp-hub.preview.emergentagent.com/api
+**API Base**: https://erp-hub-suite.preview.emergentagent.com/api
 
 ---
 
@@ -18,7 +18,7 @@
 Email: admin@erp.com
 Password: admin123
 Role: Super Admin
-Dashboard: https://saas-erp-hub.preview.emergentagent.com/
+Dashboard: https://erp-hub-suite.preview.emergentagent.com/
 ```
 
 **Capabilities**:
@@ -32,7 +32,7 @@ Dashboard: https://saas-erp-hub.preview.emergentagent.com/
 ## 🏢 **All 15 Business Sector Logins**
 
 ### ✅ Login Instructions
-1. Go to: https://saas-erp-hub.preview.emergentagent.com/auth
+1. Go to: https://erp-hub-suite.preview.emergentagent.com/auth
 2. Enter the email and password below
 3. Click "Sign In"
 4. You'll be auto-redirected to your sector dashboard
@@ -220,14 +220,14 @@ Dashboard: /real_estate
 
 ### Test Super Admin:
 ```bash
-curl -X POST "https://saas-erp-hub.preview.emergentagent.com/api/auth/login" \
+curl -X POST "https://erp-hub-suite.preview.emergentagent.com/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@erp.com","password":"admin123"}'
 ```
 
 ### Test Any Sector (Example: Pharmacy):
 ```bash
-curl -X POST "https://saas-erp-hub.preview.emergentagent.com/api/auth/login" \
+curl -X POST "https://erp-hub-suite.preview.emergentagent.com/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"pharmacy@example.com","password":"pharmacy123"}'
 ```
@@ -273,7 +273,7 @@ curl -X POST "https://saas-erp-hub.preview.emergentagent.com/api/auth/login" \
 - Password should be `{sector}123` format
 
 **Backend API Test**:
-- Visit: https://saas-erp-hub.preview.emergentagent.com/api/docs
+- Visit: https://erp-hub-suite.preview.emergentagent.com/api/docs
 - Try login endpoint manually with credentials
 
 ---

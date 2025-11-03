@@ -10,7 +10,7 @@ import sys
 from typing import Dict, List, Optional
 
 # Backend URL from frontend/.env
-BASE_URL = "https://saas-erp-hub.preview.emergentagent.com/api"
+BASE_URL = "https://erp-hub-suite.preview.emergentagent.com/api"
 
 # Test credentials for different sectors
 TEST_CREDENTIALS = {

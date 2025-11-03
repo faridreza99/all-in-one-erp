@@ -4,7 +4,7 @@ A comprehensive, sector-specific ERP system supporting **15 business types** wit
 
 ## 🌐 Live Preview
 
-**Preview URL**: https://saas-erp-hub.preview.emergentagent.com
+**Preview URL**: https://erp-hub-suite.preview.emergentagent.com
 
 ---
 
