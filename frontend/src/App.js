@@ -33,6 +33,9 @@ import ProductVariantsPage from './pages/ProductVariantsPage';
 import BranchesPage from './pages/BranchesPage';
 import ProductBranchAssignmentPage from './pages/ProductBranchAssignmentPage';
 import StockTransferPage from './pages/StockTransferPage';
+import ComponentsPage from './pages/ComponentsPage';
+import JobCardsPage from './pages/JobCardsPage';
+import DeviceHistoryPage from './pages/DeviceHistoryPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
