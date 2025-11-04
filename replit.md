@@ -168,6 +168,13 @@ For production deployment, see DEPLOYMENT_GUIDE.md for detailed instructions.
    - Modernized branch cards with icons, gradients, and improved badges
    - Professional empty state with icon and call-to-action
    - Branch codes properly saved to database and displayed on cards with Hash icon
+8. **Product Creation Integer Validation Fix** (Nov 4, 2025): Fixed backend validation error
+   - Resolved "Input should be a valid integer" error when creating products
+   - Modified ProductsPage to properly convert numeric fields before API submission
+   - Price field now uses parseFloat to support decimal values (e.g., 99.99)
+   - Stock field uses parseInt for whole numbers
+   - Warranty_months field properly handles 0 values and empty inputs
+   - Backend validation now accepts properly formatted numeric data
 
 ## User Preferences
 
