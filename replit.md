@@ -202,7 +202,8 @@ For production deployment, see DEPLOYMENT_GUIDE.md for detailed instructions.
    - Comprehensive stock validation before transfer (quantity, branch mismatch, insufficient stock)
    - Confirmation modal with transfer summary before finalizing
    - Success and error toast notifications replacing alerts
-   - Transfer history table with search and branch filtering
+   - Transfer history table with search, branch filtering, and sorting (6 sort options)
+   - Sorting options: Newest First, Oldest First, Highest/Lowest Quantity, Transfer # A-Z/Z-A
    - Color-coded branch badges (red for source, green for destination)
    - Export transfer history to CSV functionality
    - Auto-generated transfer numbers (backend handles TRF-XXXX format)
