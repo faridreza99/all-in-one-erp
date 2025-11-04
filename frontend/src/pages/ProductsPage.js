@@ -34,9 +34,11 @@ const formatErrorMessageLocal = (error) => {
 
 const ProductsPage = ({ user, onLogout }) => {
   const [products, setProducts] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -49,11 +51,13 @@ const ProductsPage = ({ user, onLogout }) => {
     batch_number: '',
     expiry_date: '',
     imei: '',
-    warranty_months: ''
+    warranty_months: '',
+    branch_id: ''
   });
 
   useEffect(() => {
     fetchProducts();
+    fetchBranches();
   }, []);
 
   const fetchProducts = async () => {
@@ -62,6 +66,17 @@ const ProductsPage = ({ user, onLogout }) => {
       setProducts(response.data);
     } catch (error) {
       toast.error('Failed to fetch products');
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const response = await axios.get(`${API}/branches`);
+      // Filter only active branches
+      const activeBranches = response.data.filter(branch => branch.is_active);
+      setBranches(activeBranches);
+    } catch (error) {
+      toast.error('Failed to fetch branches');
     }
   };
 
@@ -79,6 +94,7 @@ const ProductsPage = ({ user, onLogout }) => {
         batch_number: formData.batch_number,
         expiry_date: formData.expiry_date,
         imei: formData.imei,
+        branch_id: formData.branch_id,
         // Convert numeric fields from strings to numbers
         price: formData.price !== '' && formData.price !== null ? parseFloat(formData.price) : 0,
         stock: formData.stock !== '' && formData.stock !== null ? parseInt(formData.stock, 10) : 0,
@@ -125,15 +141,17 @@ const ProductsPage = ({ user, onLogout }) => {
   const resetForm = () => {
     setFormData({
       name: '', sku: '', category: '', price: '', stock: '', description: '',
-      generic_name: '', brand: '', batch_number: '', expiry_date: '', imei: '', warranty_months: ''
+      generic_name: '', brand: '', batch_number: '', expiry_date: '', imei: '', warranty_months: '', branch_id: ''
     });
     setEditingProduct(null);
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBranch = !branchFilter || p.branch_id === branchFilter;
+    return matchesSearch && matchesBranch;
+  });
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
@@ -157,18 +175,34 @@ const ProductsPage = ({ user, onLogout }) => {
           </button>
         </div>
 
-        {/* Search */}
+        {/* Search and Filter */}
         <div className="glass-card p-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              data-testid="product-search-input"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search products..."
-              className="w-full pl-11 pr-4 py-3 rounded-xl"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                data-testid="product-search-input"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search products..."
+                className="w-full pl-11 pr-4 py-3 rounded-xl"
+              />
+            </div>
+            <div>
+              <select
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -236,6 +270,27 @@ const ProductsPage = ({ user, onLogout }) => {
               <h2 className="text-2xl font-bold text-white mb-6">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
+              
+              {/* Branch Selection - Below Title */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Branch <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={formData.branch_id}
+                  onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  required
+                >
+                  <option value="">Select a branch...</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} {branch.branch_code ? `(${branch.branch_code})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
