@@ -68,11 +68,32 @@ const ProductsPage = ({ user, onLogout }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Build submitData with properly converted numeric fields
+      const submitData = {
+        name: formData.name,
+        sku: formData.sku,
+        category: formData.category,
+        description: formData.description,
+        generic_name: formData.generic_name,
+        brand: formData.brand,
+        batch_number: formData.batch_number,
+        expiry_date: formData.expiry_date,
+        imei: formData.imei,
+        // Convert numeric fields from strings to numbers
+        price: formData.price !== '' && formData.price !== null ? parseFloat(formData.price) : 0,
+        stock: formData.stock !== '' && formData.stock !== null ? parseInt(formData.stock, 10) : 0,
+      };
+      
+      // Only add warranty_months if it has a value (including 0)
+      if (formData.warranty_months !== '' && formData.warranty_months !== null && formData.warranty_months !== undefined) {
+        submitData.warranty_months = parseInt(formData.warranty_months, 10);
+      }
+      
       if (editingProduct) {
-        await axios.put(`${API}/products/${editingProduct.id}`, formData);
+        await axios.put(`${API}/products/${editingProduct.id}`, submitData);
         toast.success('Product updated successfully');
       } else {
-        await axios.post(`${API}/products`, formData);
+        await axios.post(`${API}/products`, submitData);
         toast.success('Product created successfully');
       }
       setShowModal(false);
