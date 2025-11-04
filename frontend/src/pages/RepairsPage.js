@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Plus, Wrench } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
+import BackButton from '../components/BackButton';
 import { API } from '../App';
 import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
@@ -64,6 +65,7 @@ const RepairsPage = ({ user, onLogout }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
+        <BackButton className="mb-4" />
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">Repair Tickets</h1>

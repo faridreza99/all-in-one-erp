@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, DollarSign, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import SectorLayout from '../components/SectorLayout';
+import BackButton from '../components/BackButton';
 import { API } from '../App';
 import { toast } from 'sonner';
 
@@ -36,6 +37,7 @@ const ReportsPage = ({ user, onLogout }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
+        <BackButton className="mb-4" />
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Reports & Analytics</h1>
           <p className="text-slate-400">Business insights and performance metrics</p>

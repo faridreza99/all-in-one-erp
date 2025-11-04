@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import BackButton from '../components/BackButton';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -73,6 +74,7 @@ function DeviceHistoryPage() {
 
   return (
     <div className="p-6">
+      <BackButton className="mb-4" />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">💻 Customer Device History</h1>
         <button
