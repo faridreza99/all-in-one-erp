@@ -175,6 +175,14 @@ For production deployment, see DEPLOYMENT_GUIDE.md for detailed instructions.
    - Stock field uses parseInt for whole numbers
    - Warranty_months field properly handles 0 values and empty inputs
    - Backend validation now accepts properly formatted numeric data
+9. **Multi-Branch Inventory Management** (Nov 4, 2025): Added branch selection to product forms
+   - Branch dropdown added below form title (required field with red asterisk)
+   - Loads all active branches from the database
+   - Displays branch name and code in dropdown options
+   - Pre-selects branch when editing existing products
+   - Added branch filter dropdown to product list for easy filtering
+   - Products can now be filtered by branch alongside search functionality
+   - Type conversion fix ensures proper filtering (string to integer conversion)
 
 ## User Preferences
 
