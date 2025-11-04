@@ -23,7 +23,7 @@ export const SECTOR_MODULES = {
     name: 'Mobile Shop',
     icon: '📱',
     color: 'purple',
-    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'pos', 'sales', 'customers', 'reports']
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'purchases', 'suppliers', 'pos', 'sales', 'customers', 'low-stock', 'reports']
   },
   computer_shop: {
     name: 'Computer Shop',
@@ -133,7 +133,9 @@ export const MODULE_ROUTES = {
   'online-orders': { path: '/online-orders', label: 'Online Orders' },
   components: { path: '/components', label: 'Components' },
   'job-cards': { path: '/job-cards', label: 'Job Cards' },
-  'device-history': { path: '/device-history', label: 'Device History' }
+  'device-history': { path: '/device-history', label: 'Device History' },
+  purchases: { path: '/purchases', label: 'Purchases' },
+  'low-stock': { path: '/low-stock', label: 'Low Stock Alerts' }
 };
 
 export const getSectorModules = (businessType) => {
