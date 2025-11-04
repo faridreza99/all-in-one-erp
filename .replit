@@ -55,8 +55,8 @@ externalPort = 8000
 exposeLocalhost = true
 
 [[ports]]
-localPort = 42365
-externalPort = 3001
+localPort = 41479
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "cloudrun"
