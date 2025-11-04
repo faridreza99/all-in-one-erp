@@ -28,6 +28,7 @@ function StockTransferPage({ user, onLogout }) {
   const [availableStock, setAvailableStock] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
+  const [sortBy, setSortBy] = useState('date-desc'); // date-desc, date-asc, quantity-desc, quantity-asc, transfer-asc, transfer-desc
 
   useEffect(() => {
     fetchTransfers();
@@ -188,19 +189,38 @@ function StockTransferPage({ user, onLogout }) {
     toast.success('Transfer history exported successfully!');
   };
 
-  // Filter transfers
-  const filteredTransfers = transfers.filter(transfer => {
-    const productName = getProductName(transfer.product_id).toLowerCase();
-    const transferNumber = transfer.transfer_number.toLowerCase();
-    const fromBranch = getBranchName(transfer.from_branch_id);
-    const toBranch = getBranchName(transfer.to_branch_id);
-    const matchesSearch = productName.includes(searchTerm.toLowerCase()) || 
-                         transferNumber.includes(searchTerm.toLowerCase());
-    const matchesBranch = !filterBranch || 
-                         transfer.from_branch_id === parseInt(filterBranch) ||
-                         transfer.to_branch_id === parseInt(filterBranch);
-    return matchesSearch && matchesBranch;
-  });
+  // Filter and sort transfers
+  const filteredTransfers = transfers
+    .filter(transfer => {
+      const productName = getProductName(transfer.product_id).toLowerCase();
+      const transferNumber = transfer.transfer_number.toLowerCase();
+      const fromBranch = getBranchName(transfer.from_branch_id);
+      const toBranch = getBranchName(transfer.to_branch_id);
+      const matchesSearch = productName.includes(searchTerm.toLowerCase()) || 
+                           transferNumber.includes(searchTerm.toLowerCase());
+      const matchesBranch = !filterBranch || 
+                           transfer.from_branch_id === parseInt(filterBranch) ||
+                           transfer.to_branch_id === parseInt(filterBranch);
+      return matchesSearch && matchesBranch;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.created_at) - new Date(a.created_at);
+        case 'date-asc':
+          return new Date(a.created_at) - new Date(b.created_at);
+        case 'quantity-desc':
+          return b.quantity - a.quantity;
+        case 'quantity-asc':
+          return a.quantity - b.quantity;
+        case 'transfer-desc':
+          return b.transfer_number.localeCompare(a.transfer_number);
+        case 'transfer-asc':
+          return a.transfer_number.localeCompare(b.transfer_number);
+        default:
+          return new Date(b.created_at) - new Date(a.created_at);
+      }
+    });
 
   const selectedProduct = products.find(p => p.id === parseInt(formData.product_id));
   const fromBranch = branches.find(b => b.id === parseInt(formData.from_branch_id));
@@ -398,8 +418,8 @@ function StockTransferPage({ user, onLogout }) {
             </button>
           </div>
 
-          {/* Search and Filter */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Search, Filter, and Sort */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
             <input
               type="text"
               placeholder="Search by product or transfer number..."
@@ -416,6 +436,18 @@ function StockTransferPage({ user, onLogout }) {
               {branches.map(branch => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 focus:outline-none transition-all"
+            >
+              <option value="date-desc">Newest First</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="quantity-desc">Highest Quantity</option>
+              <option value="quantity-asc">Lowest Quantity</option>
+              <option value="transfer-asc">Transfer # (A-Z)</option>
+              <option value="transfer-desc">Transfer # (Z-A)</option>
             </select>
           </div>
 
