@@ -90,17 +90,27 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
   };
 
   const handleBranchDataChange = (branchId, field, value) => {
-    setBranchAssignments(prev => prev.map(ba => 
-      ba.branch_id === branchId ? { ...ba, [field]: parseFloat(value) || 0 } : ba
-    ));
-  };
-
-  const handleMasterChange = (field, value) => {
-    if (applySameToAll) {
-      setBranchAssignments(prev => prev.map(ba => ({
-        ...ba, [field]: parseFloat(value) || 0
-      })));
-    }
+    setBranchAssignments(prev => {
+      const updated = prev.map(ba => 
+        ba.branch_id === branchId ? { ...ba, [field]: parseFloat(value) || 0 } : ba
+      );
+      
+      // If "apply same to all" is enabled, copy ALL values from the edited branch to all other branches
+      if (applySameToAll) {
+        const masterBranch = updated.find(ba => ba.branch_id === branchId);
+        if (masterBranch) {
+          return updated.map(ba => ({
+            ...ba,
+            stock: masterBranch.stock,
+            purchase_price: masterBranch.purchase_price,
+            sale_price: masterBranch.sale_price,
+            reorder_level: masterBranch.reorder_level
+          }));
+        }
+      }
+      
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
@@ -294,10 +304,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                           <input
                             type="number"
                             value={ba.stock}
-                            onChange={(e) => {
-                              handleBranchDataChange(ba.branch_id, 'stock', e.target.value);
-                              handleMasterChange('stock', e.target.value);
-                            }}
+                            onChange={(e) => handleBranchDataChange(ba.branch_id, 'stock', e.target.value)}
                             disabled={!ba.assigned}
                             className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                               ba.assigned 
@@ -316,10 +323,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                           <input
                             type="number"
                             value={ba.purchase_price}
-                            onChange={(e) => {
-                              handleBranchDataChange(ba.branch_id, 'purchase_price', e.target.value);
-                              handleMasterChange('purchase_price', e.target.value);
-                            }}
+                            onChange={(e) => handleBranchDataChange(ba.branch_id, 'purchase_price', e.target.value)}
                             disabled={!ba.assigned}
                             className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                               ba.assigned 
@@ -339,10 +343,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                           <input
                             type="number"
                             value={ba.sale_price}
-                            onChange={(e) => {
-                              handleBranchDataChange(ba.branch_id, 'sale_price', e.target.value);
-                              handleMasterChange('sale_price', e.target.value);
-                            }}
+                            onChange={(e) => handleBranchDataChange(ba.branch_id, 'sale_price', e.target.value)}
                             disabled={!ba.assigned}
                             className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                               ba.assigned 
@@ -360,10 +361,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                         <input
                           type="number"
                           value={ba.reorder_level}
-                          onChange={(e) => {
-                            handleBranchDataChange(ba.branch_id, 'reorder_level', e.target.value);
-                            handleMasterChange('reorder_level', e.target.value);
-                          }}
+                          onChange={(e) => handleBranchDataChange(ba.branch_id, 'reorder_level', e.target.value)}
                           disabled={!ba.assigned}
                           className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                             ba.assigned 

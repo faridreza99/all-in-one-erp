@@ -183,6 +183,17 @@ For production deployment, see DEPLOYMENT_GUIDE.md for detailed instructions.
    - Added branch filter dropdown to product list for easy filtering
    - Products can now be filtered by branch alongside search functionality
    - Type conversion fix ensures proper filtering (string to integer conversion)
+10. **Product-Branch Assignment Page Redesign** (Nov 4, 2025): Complete UI/UX overhaul with table layout
+   - Modern dark theme with gradient backgrounds and glass-morphism effects
+   - Clear table layout showing Active, Branch, Stock, Purchase Price, Sale Price, and Reorder Level columns
+   - Editable input fields for stock and pricing per branch with color-coded focus states
+   - Icons for each data type (Building2, Package, DollarSign) for better visual clarity
+   - "Apply same details to all branches" checkbox feature with live sync across all branches
+   - Input fields disabled when branch is not active (better UX)
+   - Success and error toast notifications replacing alerts
+   - Row highlighting for active branches
+   - Responsive design with proper spacing and alignment
+   - Professional gradient action buttons with hover animations
 
 ## User Preferences
 
