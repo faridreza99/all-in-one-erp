@@ -149,7 +149,7 @@ const ProductsPage = ({ user, onLogout }) => {
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBranch = !branchFilter || p.branch_id === branchFilter;
+    const matchesBranch = !branchFilter || p.branch_id === parseInt(branchFilter, 10);
     return matchesSearch && matchesBranch;
   });
 
