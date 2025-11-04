@@ -36,6 +36,9 @@ import StockTransferPage from './pages/StockTransferPage';
 import ComponentsPage from './pages/ComponentsPage';
 import JobCardsPage from './pages/JobCardsPage';
 import DeviceHistoryPage from './pages/DeviceHistoryPage';
+import SuppliersPage from './pages/SuppliersPage';
+import PurchasesPage from './pages/PurchasesPage';
+import LowStockPage from './pages/LowStockPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
@@ -159,7 +162,15 @@ const App = () => {
                   />
                   <Route 
                     path={`/${user.business_type}/suppliers`} 
-                    element={<SectorRoute user={user} module="suppliers" element={<CustomersPage user={user} onLogout={handleLogout} />} />}
+                    element={<SectorRoute user={user} module="suppliers" element={<SuppliersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/purchases`} 
+                    element={<SectorRoute user={user} module="purchases" element={<PurchasesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/low-stock`} 
+                    element={<SectorRoute user={user} module="low-stock" element={<LowStockPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/expenses`} 
