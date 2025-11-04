@@ -75,9 +75,15 @@ Both workflows are configured and will start automatically:
 
 ### Database
 The application uses MongoDB Atlas. The connection is configured to use:
-- TLS/SSL with certifi for secure connections
+- Secure TLS/SSL connections to MongoDB Atlas
 - Handles both `MONGO_URL` and `Mongo_URL` environment variables
 - Database name from environment or defaults to `erp_db`
+
+**IMPORTANT - MongoDB Atlas Network Access:**
+- You must whitelist Replit's IP address in MongoDB Atlas for the connection to work
+- Go to: MongoDB Atlas → Security → **Network Access** → Add IP Address
+- Add Replit server IP or `0.0.0.0/0` (allow from anywhere) for testing
+- Without IP whitelisting, you'll get "TLSV1_ALERT_INTERNAL_ERROR" errors
 
 ## Demo Accounts
 
@@ -172,13 +178,18 @@ _This section can be used to track user-specific preferences and coding styles a
 - **Production**: Set `REACT_APP_BACKEND_URL` secret to deployed backend URL
 - **Check**: Look for CORS errors in browser console
 
-### MongoDB connection failed
-- **Check**: Is your MongoDB Atlas cluster IP whitelist configured?
-  - Either add Replit's IP or use 0.0.0.0/0 for testing
-- **Check**: Is the connection string correct?
-- **Check**: Are your MongoDB Atlas credentials valid?
+### MongoDB connection failed with "TLSV1_ALERT_INTERNAL_ERROR"
+- **Root Cause**: MongoDB Atlas is blocking the connection due to IP whitelist
+- **Solution**: Add Replit's IP to MongoDB Atlas Network Access:
+  1. Go to MongoDB Atlas → Security → Network Access
+  2. Click "Add IP Address"
+  3. Add `0.0.0.0/0` (allow all) or specific Replit IP
+  4. Wait ~1 minute for changes to propagate
+- **Note**: This is NOT a TLS/SSL certificate issue - it's IP-based access control
+- **Check**: Verify the connection string is correct
+- **Check**: Ensure MongoDB Atlas credentials are valid
 
 ---
 
-Last Updated: November 3, 2025
-Project Status: ✅ Running Successfully
+Last Updated: November 4, 2025
+Project Status: ✅ Running Successfully - MongoDB Atlas Connected

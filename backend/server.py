@@ -1398,6 +1398,7 @@ async def download_invoice(
         raise HTTPException(status_code=404, detail="Sale not found")
     
     tenant = await db.tenants.find_one({"tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    tenant_name = tenant.get("name", "Business Name") if tenant else "Business Name"
     
     # Create PDF
     buffer = BytesIO()
@@ -1405,9 +1406,9 @@ async def download_invoice(
     
     # Header
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, 750, tenant.get("name", "Business Name"))
+    c.drawString(50, 750, tenant_name)
     c.setFont("Helvetica", 10)
-    c.drawString(50, 735, f"Invoice: {sale.get('sale_number')}")
+    c.drawString(50, 735, f"Invoice: {sale.get('sale_number', '')}")
     c.drawString(50, 720, f"Date: {sale.get('created_at', '')[:10]}")
     
     # Items
@@ -1417,7 +1418,8 @@ async def download_invoice(
     y -= 20
     
     c.setFont("Helvetica", 10)
-    for item in sale.get("items", []):
+    items = sale.get("items", [])
+    for item in items:
         c.drawString(50, y, f"{item.get('quantity')}x - ${item.get('price'):.2f}")
         y -= 15
     
