@@ -16,7 +16,7 @@ const ReportsPage = () => {
 
   useEffect(() => {
     loadReportData();
-  }, [reportType, dateRange]);
+  }, [reportType, dateRange, customStartDate, customEndDate]);
 
   const loadReportData = async () => {
     setLoading(true);

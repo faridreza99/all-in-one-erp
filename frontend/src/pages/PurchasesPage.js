@@ -56,9 +56,12 @@ const PurchasesPage = () => {
       if (response.ok) {
         const data = await response.json();
         setSuppliers(data);
+      } else {
+        toast.error('Failed to load suppliers');
       }
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      toast.error('Failed to load suppliers');
     }
   };
 
@@ -73,9 +76,12 @@ const PurchasesPage = () => {
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
+      } else {
+        toast.error('Failed to load products');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      toast.error('Failed to load products');
     }
   };
 
