@@ -5,13 +5,12 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import uuid
-import certifi
 
 load_dotenv()
 
 async def seed_computer_shop():
     mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
-    client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
+    client = AsyncIOMotorClient(mongo_url, tlsInsecure=True)
     db = client[os.environ.get('DB_NAME', 'erp_db')]
     
     print("🖥️ Seeding Computer Shop Tenant...")

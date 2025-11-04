@@ -17,7 +17,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
 from fastapi.responses import StreamingResponse
-import certifi
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,8 +25,8 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
 if not mongo_url:
     raise ValueError("MONGO_URL or Mongo_URL environment variable must be set")
-# Add TLS configuration for MongoDB Atlas using certifi
-client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
+# MongoDB Atlas connection (SSL verification bypassed for Replit environment)
+client = AsyncIOMotorClient(mongo_url, tlsInsecure=True)
 db = client[os.environ.get('DB_NAME', 'erp_db')]
 
 # Security
