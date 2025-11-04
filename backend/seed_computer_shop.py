@@ -10,9 +10,6 @@ load_dotenv()
 
 async def seed_computer_shop():
     mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
-    # Replace tls=true with tlsInsecure=true for Replit environment SSL bypass
-    mongo_url = mongo_url.replace('tls=true', 'tlsInsecure=true')
-    mongo_url = mongo_url.replace('ssl=true', 'tlsInsecure=true')
     client = AsyncIOMotorClient(mongo_url)
     db = client[os.environ.get('DB_NAME', 'erp_db')]
     

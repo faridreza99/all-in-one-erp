@@ -26,11 +26,7 @@ mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
 if not mongo_url:
     raise ValueError("MONGO_URL or Mongo_URL environment variable must be set")
 
-# Replace tls=true with tlsInsecure=true for Replit environment SSL bypass
-mongo_url = mongo_url.replace('tls=true', 'tlsInsecure=true')
-mongo_url = mongo_url.replace('ssl=true', 'tlsInsecure=true')
-
-# MongoDB Atlas connection (SSL verification bypassed for Replit environment)
+# MongoDB Atlas connection with proper TLS
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'erp_db')]
 
