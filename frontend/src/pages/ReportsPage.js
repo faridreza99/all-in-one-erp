@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, Download, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '../components/BackButton';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import Footer from '../components/Footer';
 
 const ReportsPage = () => {
   const [reportType, setReportType] = useState('profit-loss');
@@ -276,7 +278,7 @@ const ReportsPage = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-green-300 text-sm font-semibold mb-1">TOTAL REVENUE</p>
-                        <p className="text-4xl font-bold text-white">${profitLossData.revenue.toFixed(2)}</p>
+                        <p className="text-4xl font-bold text-white">{formatCurrency(profitLossData.revenue)}</p>
                       </div>
                       <TrendingUp className="w-12 h-12 text-green-400" />
                     </div>
@@ -286,7 +288,7 @@ const ReportsPage = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-red-300 text-sm font-semibold mb-1">TOTAL EXPENSES</p>
-                        <p className="text-4xl font-bold text-white">${(profitLossData.expenses + profitLossData.purchases).toFixed(2)}</p>
+                        <p className="text-4xl font-bold text-white">{formatCurrency(profitLossData.expenses + profitLossData.purchases)}</p>
                       </div>
                       <TrendingDown className="w-12 h-12 text-red-400" />
                     </div>
@@ -296,16 +298,16 @@ const ReportsPage = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-gray-600">
                     <span className="text-gray-300 font-semibold">Operating Expenses</span>
-                    <span className="text-red-400 font-bold">${profitLossData.expenses.toFixed(2)}</span>
+                    <span className="text-red-400 font-bold">{formatCurrency(profitLossData.expenses)}</span>
                   </div>
                   <div className="flex justify-between items-center py-3 border-b border-gray-600">
                     <span className="text-gray-300 font-semibold">Purchase Costs</span>
-                    <span className="text-red-400 font-bold">${profitLossData.purchases.toFixed(2)}</span>
+                    <span className="text-red-400 font-bold">{formatCurrency(profitLossData.purchases)}</span>
                   </div>
                   <div className="flex justify-between items-center py-4 bg-gradient-to-r from-indigo-600/30 to-purple-600/30 border border-indigo-500/50 rounded-lg px-6 mt-6">
                     <span className="text-white font-bold text-xl">NET PROFIT</span>
                     <span className={`font-bold text-3xl ${profitLossData.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      ${profitLossData.profit.toFixed(2)}
+                      {formatCurrency(profitLossData.profit)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-3">
@@ -493,7 +495,7 @@ const ReportsPage = () => {
                           <tr key={purchase.purchase_number} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
                             <td className="py-4 px-4 text-white font-mono">{purchase.purchase_number}</td>
                             <td className="py-4 px-4 text-center text-gray-300">{purchase.items?.length || 0}</td>
-                            <td className="py-4 px-4 text-right text-red-400 font-bold">${purchase.total_amount?.toFixed(2) || '0.00'}</td>
+                            <td className="py-4 px-4 text-right text-red-400 font-bold">{formatCurrency(purchase.total_amount || 0)}</td>
                             <td className="py-4 px-4 text-center">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 purchase.payment_status === 'paid' ? 'bg-green-600/30 text-green-400' :
@@ -503,7 +505,7 @@ const ReportsPage = () => {
                                 {purchase.payment_status?.toUpperCase()}
                               </span>
                             </td>
-                            <td className="py-4 px-4 text-center text-gray-400">{new Date(purchase.created_at).toLocaleString()}</td>
+                            <td className="py-4 px-4 text-center text-gray-400">{formatDate(purchase.created_at)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -514,6 +516,8 @@ const ReportsPage = () => {
             )}
           </>
         )}
+        
+        <Footer />
       </div>
     </div>
   );

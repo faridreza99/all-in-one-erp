@@ -7,6 +7,8 @@ import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
 import { toast } from 'sonner';
 import { getSectorModules } from '../config/sectorModules';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import Footer from '../components/Footer';
 
 const SectorDashboard = ({ user, onLogout }) => {
   const [stats, setStats] = useState(null);
@@ -118,26 +120,9 @@ const SectorDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Sector-specific welcome messages
+  // Universal tagline for all business types
   const getWelcomeMessage = () => {
-    const messages = {
-      pharmacy: 'Manage your pharmacy operations efficiently',
-      salon: 'Manage appointments and services',
-      restaurant: 'Track orders and table management',
-      mobile_shop: 'Handle repairs and device inventory',
-      grocery: 'Manage inventory and special offers',
-      clinic: 'Manage patients and appointments',
-      garage: 'Track vehicles and services',
-      real_estate: 'Manage properties and tenants',
-      fashion: 'Manage products and variants',
-      electronics: 'Handle electronics inventory',
-      stationery: 'Manage stationery products',
-      hardware: 'Track hardware inventory',
-      furniture: 'Manage furniture inventory',
-      wholesale: 'Manage wholesale operations',
-      ecommerce: 'Manage online orders'
-    };
-    return messages[businessType] || 'Manage your business operations';
+    return 'Manage sales, stock, purchases & repairs in one place';
   };
 
   // Sector-specific alerts
@@ -171,7 +156,7 @@ const SectorDashboard = ({ user, onLogout }) => {
           <div className="flex items-center gap-3 mb-2">
             <span className="text-5xl">{sectorConfig.icon}</span>
             <div>
-              <h1 className="text-4xl font-bold text-white">{sectorConfig.name} Dashboard</h1>
+              <h1 className="text-4xl font-bold text-white">Smart Business ERP Dashboard</h1>
               <p className="text-slate-400">{getWelcomeMessage()}</p>
             </div>
           </div>
@@ -193,7 +178,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                 <div>
                   <p className="text-slate-400 text-sm">Total Sales</p>
                   <p className="text-3xl font-bold text-white" data-testid="total-sales">
-                    ${stats.total_sales.toFixed(2)}
+                    {formatCurrency(stats.total_sales)}
                   </p>
                 </div>
               </div>
@@ -296,13 +281,13 @@ const SectorDashboard = ({ user, onLogout }) => {
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Today's Sales</span>
                 <span className="text-xl font-bold text-green-400">
-                  ${stats?.today_sales.toFixed(2)}
+                  {formatCurrency(stats?.today_sales || 0)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Monthly Sales</span>
                 <span className="text-xl font-bold text-blue-400">
-                  ${stats?.monthly_sales.toFixed(2)}
+                  {formatCurrency(stats?.monthly_sales || 0)}
                 </span>
               </div>
             </div>
@@ -434,7 +419,7 @@ const SectorDashboard = ({ user, onLogout }) => {
                       </div>
                       <div className="text-right">
                         <p className="text-green-400 font-bold text-lg">
-                          ${product.revenue?.toFixed(2) || '0.00'}
+                          {formatCurrency(product.revenue || 0)}
                         </p>
                         <p className="text-slate-400 text-xs">Revenue</p>
                       </div>
@@ -478,6 +463,8 @@ const SectorDashboard = ({ user, onLogout }) => {
             </div>
           </div>
         )}
+        
+        <Footer />
       </motion.div>
     </SectorLayout>
   );

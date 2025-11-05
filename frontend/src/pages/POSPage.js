@@ -7,6 +7,8 @@ import BackButton from '../components/BackButton';
 import { API } from '../App';
 import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
+import { formatCurrency } from '../utils/formatters';
+import Footer from '../components/Footer';
 
 const POSPage = ({ user, onLogout }) => {
   const [products, setProducts] = useState([]);
@@ -138,7 +140,7 @@ const POSPage = ({ user, onLogout }) => {
                     <h3 className="font-semibold text-white mb-1">{product.name}</h3>
                     <p className="text-slate-400 text-sm mb-2">{product.category}</p>
                     <div className="flex justify-between items-center">
-                      <span className="text-green-400 font-bold">${product.price}</span>
+                      <span className="text-green-400 font-bold">{formatCurrency(product.price)}</span>
                       <span className="text-xs text-slate-400">Stock: {product.stock}</span>
                     </div>
                   </motion.div>
@@ -160,7 +162,7 @@ const POSPage = ({ user, onLogout }) => {
                   <div key={item.product_id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg" data-testid={`cart-item-${item.product_id}`}>
                     <div className="flex-1">
                       <p className="font-semibold text-white text-sm">{item.name}</p>
-                      <p className="text-slate-400 text-xs">${item.price} each</p>
+                      <p className="text-slate-400 text-xs">{formatCurrency(item.price)} each</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -214,7 +216,7 @@ const POSPage = ({ user, onLogout }) => {
               <div className="space-y-2 mb-6 pb-6 border-b border-slate-700">
                 <div className="flex justify-between text-slate-300">
                   <span>Subtotal:</span>
-                  <span data-testid="subtotal">${subtotal.toFixed(2)}</span>
+                  <span data-testid="subtotal">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-300">
                   <span>Discount:</span>
@@ -241,7 +243,7 @@ const POSPage = ({ user, onLogout }) => {
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xl font-bold text-white">Total:</span>
                 <span className="text-3xl font-bold text-green-400" data-testid="total">
-                  ${total.toFixed(2)}
+                  {formatCurrency(total)}
                 </span>
               </div>
 
@@ -256,6 +258,8 @@ const POSPage = ({ user, onLogout }) => {
             </div>
           </div>
         </div>
+        
+        <Footer />
       </motion.div>
     </SectorLayout>
   );
