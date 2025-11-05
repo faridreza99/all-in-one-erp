@@ -103,7 +103,7 @@ function BranchesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+    <div className="min-h-screen gradient-bg p-6">
       <BackButton className="mb-4" />
       <div className="flex justify-between items-center mb-8">
         <div>
