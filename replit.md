@@ -1,5 +1,21 @@
 # Smart Business ERP - Multi-Tenant SaaS System
 
+## ⚠️ IMPORTANT: Authentication Data Persists to MongoDB Atlas
+
+**If you're experiencing "Authentication failed" errors or data loss after restart:**
+
+Your MongoDB Atlas connection is likely being blocked due to IP whitelisting. **All user authentication data is stored in MongoDB Atlas (cloud database)**, not locally. If the connection fails, no data will be saved.
+
+**📋 QUICK FIX:**
+1. Go to [MongoDB Atlas](https://cloud.mongodb.com) → Security → Network Access
+2. Add IP address: `0.0.0.0/0` (Allow access from anywhere)
+3. Wait 60 seconds, then restart the Backend workflow
+4. Look for "✅ MongoDB Atlas connection successful!" in the logs
+
+**📖 Detailed Instructions:** See [MONGODB_SETUP.md](./MONGODB_SETUP.md) for complete step-by-step guide.
+
+---
+
 ## Overview
 This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors.
 

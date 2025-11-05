@@ -27,7 +27,7 @@ if not mongo_url:
     raise ValueError("MONGO_URL or Mongo_URL environment variable must be set")
 
 # MongoDB Atlas connection with proper TLS
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=10000)
 db = client[os.environ.get('DB_NAME', 'erp_db')]
 
 # Security
@@ -38,6 +38,50 @@ ALGORITHM = "HS256"
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# MongoDB connection test on startup
+@app.on_event("startup")
+async def test_database_connection():
+    """Test MongoDB connection on startup and fail fast if connection cannot be established."""
+    try:
+        print("=" * 60)
+        print("🔍 Testing MongoDB Atlas connection...")
+        print(f"   Database: {os.environ.get('DB_NAME', 'erp_db')}")
+        
+        await client.admin.command('ping')
+        
+        print("✅ MongoDB Atlas connection successful!")
+        print("=" * 60)
+    except Exception as e:
+        error_msg = str(e)
+        print("=" * 60)
+        print("❌ CRITICAL ERROR: Cannot connect to MongoDB Atlas")
+        print("=" * 60)
+        
+        if "TLSV1_ALERT_INTERNAL_ERROR" in error_msg or "SSL" in error_msg:
+            print("\n🔒 SSL/TLS Handshake Error Detected")
+            print("\nROOT CAUSE: MongoDB Atlas is blocking your connection")
+            print("This usually means Replit's IP address is not whitelisted.\n")
+            print("🛠️  HOW TO FIX:")
+            print("   1. Go to https://cloud.mongodb.com")
+            print("   2. Navigate to: Security → Network Access")
+            print("   3. Click 'Add IP Address'")
+            print("   4. Select 'Allow access from anywhere' (0.0.0.0/0)")
+            print("      OR add Replit's specific IP address")
+            print("   5. Save and wait ~60 seconds for changes to apply")
+            print("   6. Restart this Replit server")
+        elif "authentication failed" in error_msg.lower():
+            print("\n🔐 Authentication Error Detected")
+            print("\nROOT CAUSE: Invalid MongoDB credentials")
+            print("\n🛠️  HOW TO FIX:")
+            print("   1. Verify MONGO_URL secret has correct username/password")
+            print("   2. Check MongoDB Atlas user permissions")
+        else:
+            print(f"\n📋 Error Details: {error_msg}")
+        
+        print("\n⚠️  Server will continue but authentication will NOT work!")
+        print("⚠️  All login/register attempts will fail until MongoDB is connected.")
+        print("=" * 60)
 
 # ========== ENUMS ==========
 class UserRole(str, Enum):
@@ -822,32 +866,43 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: LoginRequest):
-    user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
-    if not user or not verify_password(credentials.password, user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Get business_type from tenant if available
-    business_type = None
-    if user.get("tenant_id"):
-        tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
-        if tenant:
-            business_type = tenant.get("business_type")
-            user["business_type"] = business_type
-    
-    token = create_access_token({
-        "sub": user["id"], 
-        "email": user["email"], 
-        "role": user["role"],
-        "business_type": business_type
-    })
-    
-    user.pop("hashed_password")
-    
-    return TokenResponse(
-        access_token=token,
-        token_type="bearer",
-        user=user
-    )
+    try:
+        user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
+        if not user or not verify_password(credentials.password, user["hashed_password"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Get business_type from tenant if available
+        business_type = None
+        if user.get("tenant_id"):
+            tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
+            if tenant:
+                business_type = tenant.get("business_type")
+                user["business_type"] = business_type
+        
+        token = create_access_token({
+            "sub": user["id"], 
+            "email": user["email"], 
+            "role": user["role"],
+            "business_type": business_type
+        })
+        
+        user.pop("hashed_password")
+        
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            user=user
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "SSL" in error_msg or "TLS" in error_msg or "ServerSelectionTimeoutError" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection failed. MongoDB Atlas is not accessible. Please check server logs and verify IP whitelist settings."
+            )
+        raise HTTPException(status_code=500, detail=f"Login failed: {error_msg}")
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
@@ -856,53 +911,64 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/auth/signup", response_model=TokenResponse)
 async def signup_tenant(tenant_data: TenantCreate):
-    existing_email = await db.users.find_one({"email": tenant_data.email}, {"_id": 0})
-    if existing_email:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    tenant = Tenant(
-        name=tenant_data.name,
-        email=tenant_data.email,
-        business_type=tenant_data.business_type,
-        modules_enabled=[tenant_data.business_type.value]
-    )
-    
-    doc = tenant.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['updated_at'] = doc['updated_at'].isoformat()
-    
-    await db.tenants.insert_one(doc)
-    
-    admin_user = User(
-        email=tenant_data.email,
-        full_name=f"{tenant_data.name} Admin",
-        role=UserRole.TENANT_ADMIN,
-        tenant_id=tenant.tenant_id,
-        hashed_password=hash_password(tenant_data.admin_password)
-    )
-    
-    admin_doc = admin_user.model_dump()
-    admin_doc['created_at'] = admin_doc['created_at'].isoformat()
-    admin_doc['updated_at'] = admin_doc['updated_at'].isoformat()
-    
-    await db.users.insert_one(admin_doc)
-    
-    token = create_access_token({
-        "sub": admin_user.id, 
-        "email": admin_user.email, 
-        "role": admin_user.role.value,
-        "business_type": tenant.business_type.value
-    })
-    
-    user_response = admin_user.model_dump()
-    user_response.pop("hashed_password")
-    user_response["business_type"] = tenant.business_type.value
-    
-    return TokenResponse(
-        access_token=token,
-        token_type="bearer",
-        user=user_response
-    )
+    try:
+        existing_email = await db.users.find_one({"email": tenant_data.email}, {"_id": 0})
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        tenant = Tenant(
+            name=tenant_data.name,
+            email=tenant_data.email,
+            business_type=tenant_data.business_type,
+            modules_enabled=[tenant_data.business_type.value]
+        )
+        
+        doc = tenant.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        
+        await db.tenants.insert_one(doc)
+        
+        admin_user = User(
+            email=tenant_data.email,
+            full_name=f"{tenant_data.name} Admin",
+            role=UserRole.TENANT_ADMIN,
+            tenant_id=tenant.tenant_id,
+            hashed_password=hash_password(tenant_data.admin_password)
+        )
+        
+        admin_doc = admin_user.model_dump()
+        admin_doc['created_at'] = admin_doc['created_at'].isoformat()
+        admin_doc['updated_at'] = admin_doc['updated_at'].isoformat()
+        
+        await db.users.insert_one(admin_doc)
+        
+        token = create_access_token({
+            "sub": admin_user.id, 
+            "email": admin_user.email, 
+            "role": admin_user.role.value,
+            "business_type": tenant.business_type.value
+        })
+        
+        user_response = admin_user.model_dump()
+        user_response.pop("hashed_password")
+        user_response["business_type"] = tenant.business_type.value
+        
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            user=user_response
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "SSL" in error_msg or "TLS" in error_msg or "ServerSelectionTimeoutError" in error_msg:
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection failed. MongoDB Atlas is not accessible. Please check server logs and verify IP whitelist settings."
+            )
+        raise HTTPException(status_code=500, detail=f"Signup failed: {error_msg}")
 
 # ========== TENANT ROUTES (Super Admin Only) ==========
 @api_router.post("/tenants", response_model=Tenant)
