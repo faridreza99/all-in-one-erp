@@ -43,18 +43,6 @@ const AuthPage = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 gradient-bg relative">
-      {/* Tech wallpaper background for Login/Signup only */}
-      <div 
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{
-          backgroundImage: 'url(/assets/tech-bg.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          opacity: 0.2
-        }}
-      />
-      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

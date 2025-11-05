@@ -148,18 +148,6 @@ const SectorDashboard = ({ user, onLogout }) => {
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
-      {/* Tech wallpaper background for Dashboard only */}
-      <div 
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{
-          backgroundImage: 'url(/assets/tech-bg.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          opacity: 0.2
-        }}
-      />
-      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
