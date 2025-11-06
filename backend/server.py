@@ -111,6 +111,7 @@ class BusinessType(str, Enum):
     WHOLESALE = "wholesale"
     ECOMMERCE = "ecommerce"
     REAL_ESTATE = "real_estate"
+    CNF = "cnf"
 
 class RepairStatus(str, Enum):
     RECEIVED = "received"
@@ -128,6 +129,28 @@ class TableStatus(str, Enum):
     AVAILABLE = "available"
     OCCUPIED = "occupied"
     RESERVED = "reserved"
+
+class ShipmentStatus(str, Enum):
+    PENDING = "pending"
+    IN_TRANSIT = "in_transit"
+    AT_PORT = "at_port"
+    CUSTOMS_CLEARANCE = "customs_clearance"
+    CLEARED = "cleared"
+    DELIVERED = "delivered"
+
+class JobFileStatus(str, Enum):
+    CREATED = "created"
+    IN_PROGRESS = "in_progress"
+    DOCUMENTATION = "documentation"
+    CLEARANCE = "clearance"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class TransportStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    IN_TRANSIT = "in_transit"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
 
 # ========== MODELS ==========
 class BaseDBModel(BaseModel):
@@ -778,6 +801,145 @@ class DeviceHistory(BaseDBModel):
     warranty_expiry: str
     sale_id: Optional[str] = None
     repair_history: List[str] = []  # Job card IDs
+
+class ShipmentCreate(BaseModel):
+    shipment_number: str
+    customer_name: str
+    consignee: str
+    origin_country: str
+    destination: str
+    shipping_line: str
+    vessel_name: Optional[str] = None
+    bl_number: str
+    container_number: Optional[str] = None
+    cargo_description: str
+    weight: float
+    arrival_date: str
+    clearance_date: Optional[str] = None
+    delivery_date: Optional[str] = None
+
+class Shipment(BaseDBModel):
+    tenant_id: str
+    shipment_number: str
+    customer_name: str
+    consignee: str
+    origin_country: str
+    destination: str
+    shipping_line: str
+    vessel_name: Optional[str] = None
+    bl_number: str
+    container_number: Optional[str] = None
+    cargo_description: str
+    weight: float
+    arrival_date: str
+    clearance_date: Optional[str] = None
+    delivery_date: Optional[str] = None
+    status: ShipmentStatus = ShipmentStatus.PENDING
+
+class JobFileCreate(BaseModel):
+    job_number: str
+    shipment_id: str
+    client_name: str
+    importer_name: str
+    exporter_name: str
+    port_of_loading: str
+    port_of_discharge: str
+    commodity: str
+    hs_code: Optional[str] = None
+    duty_amount: float = 0
+    vat_amount: float = 0
+    other_charges: float = 0
+
+class JobFile(BaseDBModel):
+    tenant_id: str
+    job_number: str
+    shipment_id: str
+    client_name: str
+    importer_name: str
+    exporter_name: str
+    port_of_loading: str
+    port_of_discharge: str
+    commodity: str
+    hs_code: Optional[str] = None
+    duty_amount: float = 0
+    vat_amount: float = 0
+    other_charges: float = 0
+    status: JobFileStatus = JobFileStatus.CREATED
+    completion_date: Optional[str] = None
+
+class CNFBillingCreate(BaseModel):
+    job_file_id: str
+    client_name: str
+    cnf_charges: float
+    transport_charges: float
+    documentation_charges: float
+    port_charges: float
+    other_charges: float = 0
+    discount: float = 0
+    payment_status: str = "pending"
+
+class CNFBilling(BaseDBModel):
+    tenant_id: str
+    invoice_number: str
+    job_file_id: str
+    client_name: str
+    cnf_charges: float
+    transport_charges: float
+    documentation_charges: float
+    port_charges: float
+    other_charges: float = 0
+    subtotal: float
+    discount: float = 0
+    total_amount: float
+    payment_status: str = "pending"
+    payment_date: Optional[str] = None
+
+class DocumentCreate(BaseModel):
+    shipment_id: str
+    job_file_id: str
+    document_type: str
+    document_number: str
+    issue_date: str
+    expiry_date: Optional[str] = None
+    file_path: Optional[str] = None
+    notes: Optional[str] = None
+
+class Document(BaseDBModel):
+    tenant_id: str
+    shipment_id: str
+    job_file_id: str
+    document_type: str
+    document_number: str
+    issue_date: str
+    expiry_date: Optional[str] = None
+    file_path: Optional[str] = None
+    notes: Optional[str] = None
+
+class TransportCreate(BaseModel):
+    job_file_id: str
+    shipment_id: str
+    vehicle_number: str
+    driver_name: str
+    driver_phone: str
+    pickup_location: str
+    delivery_location: str
+    scheduled_date: str
+    transport_cost: float
+
+class Transport(BaseDBModel):
+    tenant_id: str
+    transport_number: str
+    job_file_id: str
+    shipment_id: str
+    vehicle_number: str
+    driver_name: str
+    driver_phone: str
+    pickup_location: str
+    delivery_location: str
+    scheduled_date: str
+    actual_delivery_date: Optional[str] = None
+    transport_cost: float
+    status: TransportStatus = TransportStatus.SCHEDULED
 
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
@@ -3089,6 +3251,527 @@ async def add_repair_to_device(
     )
     
     return {"message": "Repair added to device history"}
+
+# ========== CNF SHIPMENT ROUTES ==========
+@api_router.post("/cnf/shipments", response_model=Shipment)
+async def create_shipment(
+    shipment_data: ShipmentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    shipment = Shipment(
+        tenant_id=current_user["tenant_id"],
+        **shipment_data.model_dump()
+    )
+    
+    doc = shipment.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.cnf_shipments.insert_one(doc)
+    return shipment
+
+@api_router.get("/cnf/shipments", response_model=List[Shipment])
+async def get_shipments(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    shipments = await db.cnf_shipments.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    for shipment in shipments:
+        if isinstance(shipment.get('created_at'), str):
+            shipment['created_at'] = datetime.fromisoformat(shipment['created_at'])
+        if isinstance(shipment.get('updated_at'), str):
+            shipment['updated_at'] = datetime.fromisoformat(shipment['updated_at'])
+    
+    return shipments
+
+@api_router.put("/cnf/shipments/{shipment_id}")
+async def update_shipment(
+    shipment_id: str,
+    shipment_data: ShipmentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    shipment = await db.cnf_shipments.find_one({
+        "id": shipment_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    
+    update_data = shipment_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.cnf_shipments.update_one(
+        {"id": shipment_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Shipment updated successfully"}
+
+@api_router.patch("/cnf/shipments/{shipment_id}/status")
+async def update_shipment_status(
+    shipment_id: str,
+    status: ShipmentStatus,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_shipments.update_one(
+        {"id": shipment_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {
+            "status": status.value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    
+    return {"message": "Shipment status updated"}
+
+@api_router.delete("/cnf/shipments/{shipment_id}")
+async def delete_shipment(
+    shipment_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_shipments.delete_one({
+        "id": shipment_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Shipment not found")
+    
+    return {"message": "Shipment deleted successfully"}
+
+# ========== CNF JOB FILE ROUTES ==========
+@api_router.post("/cnf/jobs", response_model=JobFile)
+async def create_job_file(
+    job_data: JobFileCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    job = JobFile(
+        tenant_id=current_user["tenant_id"],
+        **job_data.model_dump()
+    )
+    
+    doc = job.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.cnf_job_files.insert_one(doc)
+    return job
+
+@api_router.get("/cnf/jobs", response_model=List[JobFile])
+async def get_job_files(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    jobs = await db.cnf_job_files.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    for job in jobs:
+        if isinstance(job.get('created_at'), str):
+            job['created_at'] = datetime.fromisoformat(job['created_at'])
+        if isinstance(job.get('updated_at'), str):
+            job['updated_at'] = datetime.fromisoformat(job['updated_at'])
+    
+    return jobs
+
+@api_router.put("/cnf/jobs/{job_id}")
+async def update_job_file(
+    job_id: str,
+    job_data: JobFileCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    job = await db.cnf_job_files.find_one({
+        "id": job_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job file not found")
+    
+    update_data = job_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.cnf_job_files.update_one(
+        {"id": job_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Job file updated successfully"}
+
+@api_router.patch("/cnf/jobs/{job_id}/status")
+async def update_job_status(
+    job_id: str,
+    status: JobFileStatus,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_job_files.update_one(
+        {"id": job_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {
+            "status": status.value,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Job file not found")
+    
+    return {"message": "Job status updated"}
+
+@api_router.delete("/cnf/jobs/{job_id}")
+async def delete_job_file(
+    job_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_job_files.delete_one({
+        "id": job_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Job file not found")
+    
+    return {"message": "Job file deleted successfully"}
+
+# ========== CNF BILLING ROUTES ==========
+@api_router.post("/cnf/billing", response_model=CNFBilling)
+async def create_billing(
+    billing_data: CNFBillingCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Calculate totals
+    subtotal = (
+        billing_data.cnf_charges +
+        billing_data.transport_charges +
+        billing_data.documentation_charges +
+        billing_data.port_charges +
+        billing_data.other_charges
+    )
+    total_amount = subtotal - billing_data.discount
+    
+    # Generate invoice number
+    invoice_count = await db.cnf_billing.count_documents({"tenant_id": current_user["tenant_id"]})
+    invoice_number = f"INV-CNF-{invoice_count + 1:05d}"
+    
+    billing = CNFBilling(
+        tenant_id=current_user["tenant_id"],
+        invoice_number=invoice_number,
+        subtotal=subtotal,
+        total_amount=total_amount,
+        **billing_data.model_dump()
+    )
+    
+    doc = billing.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.cnf_billing.insert_one(doc)
+    return billing
+
+@api_router.get("/cnf/billing", response_model=List[CNFBilling])
+async def get_billings(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    billings = await db.cnf_billing.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    for billing in billings:
+        if isinstance(billing.get('created_at'), str):
+            billing['created_at'] = datetime.fromisoformat(billing['created_at'])
+        if isinstance(billing.get('updated_at'), str):
+            billing['updated_at'] = datetime.fromisoformat(billing['updated_at'])
+    
+    return billings
+
+@api_router.patch("/cnf/billing/{billing_id}/payment")
+async def update_payment_status(
+    billing_id: str,
+    payment_status: str,
+    payment_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    update_data = {
+        "payment_status": payment_status,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if payment_date:
+        update_data["payment_date"] = payment_date
+    
+    result = await db.cnf_billing.update_one(
+        {"id": billing_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Billing record not found")
+    
+    return {"message": "Payment status updated"}
+
+# ========== CNF DOCUMENT ROUTES ==========
+@api_router.post("/cnf/documents", response_model=Document)
+async def create_document(
+    document_data: DocumentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    document = Document(
+        tenant_id=current_user["tenant_id"],
+        **document_data.model_dump()
+    )
+    
+    doc = document.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.cnf_documents.insert_one(doc)
+    return document
+
+@api_router.get("/cnf/documents", response_model=List[Document])
+async def get_documents(
+    shipment_id: Optional[str] = None,
+    job_file_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if shipment_id:
+        query["shipment_id"] = shipment_id
+    if job_file_id:
+        query["job_file_id"] = job_file_id
+    
+    documents = await db.cnf_documents.find(query, {"_id": 0}).to_list(10000)
+    
+    for document in documents:
+        if isinstance(document.get('created_at'), str):
+            document['created_at'] = datetime.fromisoformat(document['created_at'])
+        if isinstance(document.get('updated_at'), str):
+            document['updated_at'] = datetime.fromisoformat(document['updated_at'])
+    
+    return documents
+
+@api_router.put("/cnf/documents/{document_id}")
+async def update_document(
+    document_id: str,
+    document_data: DocumentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    document = await db.cnf_documents.find_one({
+        "id": document_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    update_data = document_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.cnf_documents.update_one(
+        {"id": document_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Document updated successfully"}
+
+@api_router.delete("/cnf/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_documents.delete_one({
+        "id": document_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return {"message": "Document deleted successfully"}
+
+# ========== CNF TRANSPORT ROUTES ==========
+@api_router.post("/cnf/transport", response_model=Transport)
+async def create_transport(
+    transport_data: TransportCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Generate transport number
+    transport_count = await db.cnf_transport.count_documents({"tenant_id": current_user["tenant_id"]})
+    transport_number = f"TRN-{transport_count + 1:05d}"
+    
+    transport = Transport(
+        tenant_id=current_user["tenant_id"],
+        transport_number=transport_number,
+        **transport_data.model_dump()
+    )
+    
+    doc = transport.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.cnf_transport.insert_one(doc)
+    return transport
+
+@api_router.get("/cnf/transport", response_model=List[Transport])
+async def get_transports(
+    job_file_id: Optional[str] = None,
+    shipment_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    if job_file_id:
+        query["job_file_id"] = job_file_id
+    if shipment_id:
+        query["shipment_id"] = shipment_id
+    
+    transports = await db.cnf_transport.find(query, {"_id": 0}).to_list(10000)
+    
+    for transport in transports:
+        if isinstance(transport.get('created_at'), str):
+            transport['created_at'] = datetime.fromisoformat(transport['created_at'])
+        if isinstance(transport.get('updated_at'), str):
+            transport['updated_at'] = datetime.fromisoformat(transport['updated_at'])
+    
+    return transports
+
+@api_router.put("/cnf/transport/{transport_id}")
+async def update_transport(
+    transport_id: str,
+    transport_data: TransportCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    transport = await db.cnf_transport.find_one({
+        "id": transport_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not transport:
+        raise HTTPException(status_code=404, detail="Transport not found")
+    
+    update_data = transport_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.cnf_transport.update_one(
+        {"id": transport_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "Transport updated successfully"}
+
+@api_router.patch("/cnf/transport/{transport_id}/status")
+async def update_transport_status(
+    transport_id: str,
+    status: TransportStatus,
+    actual_delivery_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    update_data = {
+        "status": status.value,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if actual_delivery_date:
+        update_data["actual_delivery_date"] = actual_delivery_date
+    
+    result = await db.cnf_transport.update_one(
+        {"id": transport_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Transport not found")
+    
+    return {"message": "Transport status updated"}
+
+@api_router.delete("/cnf/transport/{transport_id}")
+async def delete_transport(
+    transport_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.cnf_transport.delete_one({
+        "id": transport_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Transport not found")
+    
+    return {"message": "Transport deleted successfully"}
+
+# ========== CNF REPORTS ROUTE ==========
+@api_router.get("/cnf/reports/summary")
+async def get_cnf_reports_summary(current_user: dict = Depends(get_current_user)):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    # Get counts
+    total_shipments = await db.cnf_shipments.count_documents({"tenant_id": tenant_id})
+    active_shipments = await db.cnf_shipments.count_documents({
+        "tenant_id": tenant_id,
+        "status": {"$nin": ["delivered"]}
+    })
+    total_jobs = await db.cnf_job_files.count_documents({"tenant_id": tenant_id})
+    active_jobs = await db.cnf_job_files.count_documents({
+        "tenant_id": tenant_id,
+        "status": {"$nin": ["completed", "cancelled"]}
+    })
+    
+    # Get billing summary
+    billings = await db.cnf_billing.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    total_revenue = sum(b.get("total_amount", 0) for b in billings)
+    pending_payments = sum(
+        b.get("total_amount", 0) for b in billings 
+        if b.get("payment_status") == "pending"
+    )
+    
+    # Get transport summary
+    total_transports = await db.cnf_transport.count_documents({"tenant_id": tenant_id})
+    active_transports = await db.cnf_transport.count_documents({
+        "tenant_id": tenant_id,
+        "status": {"$nin": ["delivered", "cancelled"]}
+    })
+    
+    return {
+        "total_shipments": total_shipments,
+        "active_shipments": active_shipments,
+        "total_jobs": total_jobs,
+        "active_jobs": active_jobs,
+        "total_revenue": total_revenue,
+        "pending_payments": pending_payments,
+        "total_transports": total_transports,
+        "active_transports": active_transports
+    }
 
 app.include_router(api_router)
 
