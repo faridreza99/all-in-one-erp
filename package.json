@@ -1,0 +1,15 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "A comprehensive, sector-specific ERP system supporting **15 business types** with complete multi-tenant data isolation, role-based access control, and specialized features for each industry.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
