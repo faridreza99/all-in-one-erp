@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Ship, Plus, Edit2, Trash2, Eye } from 'lucide-react';
+import { Ship, Plus, Edit2, Trash2 } from 'lucide-react';
 import SectorLayout from '../../components/SectorLayout';
 import { API } from '../../App';
 import { toast } from 'sonner';
@@ -14,19 +14,16 @@ const ShipmentsPage = ({ user, onLogout }) => {
   const [editingShipment, setEditingShipment] = useState(null);
   const [formData, setFormData] = useState({
     shipment_number: '',
-    customer_name: '',
-    consignee: '',
-    origin_country: '',
-    destination: '',
-    shipping_line: '',
+    bill_of_lading: '',
+    client_name: '',
     vessel_name: '',
-    bl_number: '',
-    container_number: '',
-    cargo_description: '',
+    port_of_loading: '',
+    port_of_discharge: '',
+    eta: '',
+    commodity: '',
     weight: '',
-    arrival_date: '',
-    clearance_date: '',
-    delivery_date: ''
+    volume: '',
+    container_numbers: ''
   });
 
   useEffect(() => {
@@ -45,11 +42,18 @@ const ShipmentsPage = ({ user, onLogout }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        weight: parseFloat(formData.weight),
+        volume: parseFloat(formData.volume),
+        container_numbers: formData.container_numbers.split(',').map(c => c.trim()).filter(c => c)
+      };
+      
       if (editingShipment) {
-        await axios.put(`${API}/cnf/shipments/${editingShipment.id}`, formData);
+        await axios.put(`${API}/cnf/shipments/${editingShipment.id}`, payload);
         toast.success('Shipment updated successfully');
       } else {
-        await axios.post(`${API}/cnf/shipments`, formData);
+        await axios.post(`${API}/cnf/shipments`, payload);
         toast.success('Shipment created successfully');
       }
       setShowModal(false);
@@ -75,19 +79,16 @@ const ShipmentsPage = ({ user, onLogout }) => {
   const resetForm = () => {
     setFormData({
       shipment_number: '',
-      customer_name: '',
-      consignee: '',
-      origin_country: '',
-      destination: '',
-      shipping_line: '',
+      bill_of_lading: '',
+      client_name: '',
       vessel_name: '',
-      bl_number: '',
-      container_number: '',
-      cargo_description: '',
+      port_of_loading: '',
+      port_of_discharge: '',
+      eta: '',
+      commodity: '',
       weight: '',
-      arrival_date: '',
-      clearance_date: '',
-      delivery_date: ''
+      volume: '',
+      container_numbers: ''
     });
     setEditingShipment(null);
   };
@@ -96,19 +97,16 @@ const ShipmentsPage = ({ user, onLogout }) => {
     setEditingShipment(shipment);
     setFormData({
       shipment_number: shipment.shipment_number,
-      customer_name: shipment.customer_name,
-      consignee: shipment.consignee,
-      origin_country: shipment.origin_country,
-      destination: shipment.destination,
-      shipping_line: shipment.shipping_line,
+      bill_of_lading: shipment.bill_of_lading,
+      client_name: shipment.client_name,
       vessel_name: shipment.vessel_name || '',
-      bl_number: shipment.bl_number,
-      container_number: shipment.container_number || '',
-      cargo_description: shipment.cargo_description,
-      weight: shipment.weight,
-      arrival_date: shipment.arrival_date,
-      clearance_date: shipment.clearance_date || '',
-      delivery_date: shipment.delivery_date || ''
+      port_of_loading: shipment.port_of_loading,
+      port_of_discharge: shipment.port_of_discharge,
+      eta: shipment.eta,
+      commodity: shipment.commodity,
+      weight: shipment.weight?.toString() || '',
+      volume: shipment.volume?.toString() || '',
+      container_numbers: shipment.container_numbers?.join(', ') || ''
     });
     setShowModal(true);
   };
@@ -119,8 +117,8 @@ const ShipmentsPage = ({ user, onLogout }) => {
       in_transit: 'bg-blue-500/20 text-blue-400',
       at_port: 'bg-purple-500/20 text-purple-400',
       customs_clearance: 'bg-orange-500/20 text-orange-400',
-      cleared: 'bg-green-500/20 text-green-400',
-      delivered: 'bg-gray-500/20 text-gray-400'
+      delivered: 'bg-green-500/20 text-green-400',
+      cancelled: 'bg-red-500/20 text-red-400'
     };
     return colors[status] || 'bg-gray-500/20 text-gray-400';
   };
@@ -160,7 +158,7 @@ const ShipmentsPage = ({ user, onLogout }) => {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-white">{shipment.shipment_number}</h3>
-                      <p className="text-gray-400">{shipment.customer_name}</p>
+                      <p className="text-gray-400">{shipment.client_name}</p>
                       <div className={`inline-block px-3 py-1 rounded-full text-sm mt-2 ${getStatusColor(shipment.status)}`}>
                         {shipment.status?.replace('_', ' ').toUpperCase()}
                       </div>
@@ -182,32 +180,53 @@ const ShipmentsPage = ({ user, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-gray-400">B/L Number</p>
-                    <p className="text-white font-semibold">{shipment.bl_number}</p>
+                    <p className="text-white font-semibold">{shipment.bill_of_lading}</p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Origin</p>
-                    <p className="text-white font-semibold">{shipment.origin_country}</p>
+                    <p className="text-gray-400">Vessel</p>
+                    <p className="text-white font-semibold">{shipment.vessel_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Port of Discharge</p>
+                    <p className="text-white font-semibold">{shipment.port_of_discharge}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">ETA</p>
+                    <p className="text-white font-semibold">{formatDate(shipment.eta)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Commodity</p>
+                    <p className="text-white font-semibold">{shipment.commodity}</p>
                   </div>
                   <div>
                     <p className="text-gray-400">Weight</p>
                     <p className="text-white font-semibold">{shipment.weight} kg</p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Shipping Line</p>
-                    <p className="text-white font-semibold">{shipment.shipping_line}</p>
+                    <p className="text-gray-400">Volume</p>
+                    <p className="text-white font-semibold">{shipment.volume} m³</p>
                   </div>
                   <div>
-                    <p className="text-gray-400">Arrival Date</p>
-                    <p className="text-white font-semibold">{formatDate(shipment.arrival_date)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Container</p>
-                    <p className="text-white font-semibold">{shipment.container_number || 'N/A'}</p>
+                    <p className="text-gray-400">Containers</p>
+                    <p className="text-white font-semibold">{shipment.container_numbers?.length || 0}</p>
                   </div>
                 </div>
+
+                {shipment.container_numbers && shipment.container_numbers.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <p className="text-gray-400 text-sm mb-2">Container Numbers:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {shipment.container_numbers.map((container, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-sm">
+                          {container}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -235,80 +254,72 @@ const ShipmentsPage = ({ user, onLogout }) => {
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">Customer Name *</label>
+                      <label className="block text-gray-300 mb-2">Bill of Lading *</label>
                       <input
                         type="text"
                         required
-                        value={formData.customer_name}
-                        onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                        value={formData.bill_of_lading}
+                        onChange={(e) => setFormData({ ...formData, bill_of_lading: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">Consignee *</label>
+                      <label className="block text-gray-300 mb-2">Client Name *</label>
                       <input
                         type="text"
                         required
-                        value={formData.consignee}
-                        onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
+                        value={formData.client_name}
+                        onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">Origin Country *</label>
+                      <label className="block text-gray-300 mb-2">Vessel Name *</label>
                       <input
                         type="text"
                         required
-                        value={formData.origin_country}
-                        onChange={(e) => setFormData({ ...formData, origin_country: e.target.value })}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Destination *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.destination}
-                        onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Shipping Line *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.shipping_line}
-                        onChange={(e) => setFormData({ ...formData, shipping_line: e.target.value })}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Vessel Name</label>
-                      <input
-                        type="text"
                         value={formData.vessel_name}
                         onChange={(e) => setFormData({ ...formData, vessel_name: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">B/L Number *</label>
+                      <label className="block text-gray-300 mb-2">Port of Loading *</label>
                       <input
                         type="text"
                         required
-                        value={formData.bl_number}
-                        onChange={(e) => setFormData({ ...formData, bl_number: e.target.value })}
+                        value={formData.port_of_loading}
+                        onChange={(e) => setFormData({ ...formData, port_of_loading: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">Container Number</label>
+                      <label className="block text-gray-300 mb-2">Port of Discharge *</label>
                       <input
                         type="text"
-                        value={formData.container_number}
-                        onChange={(e) => setFormData({ ...formData, container_number: e.target.value })}
+                        required
+                        value={formData.port_of_discharge}
+                        onChange={(e) => setFormData({ ...formData, port_of_discharge: e.target.value })}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">ETA (Estimated Time of Arrival) *</label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.eta}
+                        onChange={(e) => setFormData({ ...formData, eta: e.target.value })}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Commodity *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.commodity}
+                        onChange={(e) => setFormData({ ...formData, commodity: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
@@ -324,34 +335,27 @@ const ShipmentsPage = ({ user, onLogout }) => {
                       />
                     </div>
                     <div>
-                      <label className="block text-gray-300 mb-2">Arrival Date *</label>
+                      <label className="block text-gray-300 mb-2">Volume (m³) *</label>
                       <input
-                        type="date"
+                        type="number"
                         required
-                        value={formData.arrival_date}
-                        onChange={(e) => setFormData({ ...formData, arrival_date: e.target.value })}
+                        step="0.01"
+                        value={formData.volume}
+                        onChange={(e) => setFormData({ ...formData, volume: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-gray-300 mb-2">Clearance Date</label>
+                    <div className="md:col-span-2">
+                      <label className="block text-gray-300 mb-2">Container Numbers (comma-separated) *</label>
                       <input
-                        type="date"
-                        value={formData.clearance_date}
-                        onChange={(e) => setFormData({ ...formData, clearance_date: e.target.value })}
+                        type="text"
+                        required
+                        placeholder="e.g., MSCU1234567, MSCU1234568"
+                        value={formData.container_numbers}
+                        onChange={(e) => setFormData({ ...formData, container_numbers: e.target.value })}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
                       />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-gray-300 mb-2">Cargo Description *</label>
-                    <textarea
-                      required
-                      value={formData.cargo_description}
-                      onChange={(e) => setFormData({ ...formData, cargo_description: e.target.value })}
-                      rows="3"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                    />
                   </div>
                   <div className="flex gap-4 justify-end mt-6">
                     <button
