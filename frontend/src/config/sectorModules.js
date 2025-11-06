@@ -96,6 +96,12 @@ export const SECTOR_MODULES = {
     icon: '🏘️',
     color: 'green',
     modules: ['dashboard', 'properties', 'customers', 'expenses', 'reports']
+  },
+  cnf: {
+    name: 'CNF (C&F)',
+    icon: '🚢',
+    color: 'blue',
+    modules: ['dashboard', 'shipments', 'jobs', 'billing', 'documents', 'transport', 'cnf-reports']
   }
 };
 
@@ -135,7 +141,13 @@ export const MODULE_ROUTES = {
   'job-cards': { path: '/job-cards', label: 'Job Cards' },
   'device-history': { path: '/device-history', label: 'Device History' },
   purchases: { path: '/purchases', label: 'Purchases' },
-  'low-stock': { path: '/low-stock', label: 'Low Stock Alerts' }
+  'low-stock': { path: '/low-stock', label: 'Low Stock Alerts' },
+  shipments: { path: '/shipments', label: 'Shipments' },
+  jobs: { path: '/jobs', label: 'Job Files' },
+  billing: { path: '/billing', label: 'Billing' },
+  documents: { path: '/documents', label: 'Documents' },
+  transport: { path: '/transport', label: 'Transport' },
+  'cnf-reports': { path: '/cnf-reports', label: 'CNF Reports' }
 };
 
 export const getSectorModules = (businessType) => {

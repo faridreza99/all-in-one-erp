@@ -39,6 +39,13 @@ import DeviceHistoryPage from './pages/DeviceHistoryPage';
 import SuppliersPage from './pages/SuppliersPage';
 import PurchasesPage from './pages/PurchasesPage';
 import LowStockPage from './pages/LowStockPage';
+import CNFDashboard from './pages/cnf/CNFDashboard';
+import ShipmentsPage from './pages/cnf/ShipmentsPage';
+import JobFilesPage from './pages/cnf/JobFilesPage';
+import BillingPage from './pages/cnf/BillingPage';
+import DocumentsPage from './pages/cnf/DocumentsPage';
+import TransportPage from './pages/cnf/TransportPage';
+import CNFReportsPage from './pages/cnf/CNFReportsPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
@@ -259,6 +266,32 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/reports`} 
                     element={<SectorRoute user={user} module="reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  
+                  {/* CNF Routes */}
+                  <Route 
+                    path={`/${user.business_type}/shipments`} 
+                    element={<SectorRoute user={user} module="shipments" element={<ShipmentsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/jobs`} 
+                    element={<SectorRoute user={user} module="jobs" element={<JobFilesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/billing`} 
+                    element={<SectorRoute user={user} module="billing" element={<BillingPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/documents`} 
+                    element={<SectorRoute user={user} module="documents" element={<DocumentsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/transport`} 
+                    element={<SectorRoute user={user} module="transport" element={<TransportPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/cnf-reports`} 
+                    element={<SectorRoute user={user} module="cnf-reports" element={<CNFReportsPage user={user} onLogout={handleLogout} />} />}
                   />
                   
                   {/* Redirect root to sector dashboard */}
