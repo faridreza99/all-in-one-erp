@@ -132,10 +132,14 @@ const App = () => {
               {/* Sector-Specific Routes */}
               {user.business_type && (
                 <>
-                  {/* Dashboard */}
+                  {/* Dashboard - CNF gets special dashboard */}
                   <Route 
                     path={`/${user.business_type}`} 
-                    element={<SectorDashboard user={user} onLogout={handleLogout} />} 
+                    element={
+                      user.business_type === 'cnf' 
+                        ? <CNFDashboard user={user} onLogout={handleLogout} />
+                        : <SectorDashboard user={user} onLogout={handleLogout} />
+                    } 
                   />
                   
                   {/* Module Routes with access control */}

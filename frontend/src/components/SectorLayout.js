@@ -18,7 +18,11 @@ import {
   Car,
   Home,
   Tag,
-  Palette
+  Palette,
+  Ship,
+  FileText,
+  File,
+  Truck
 } from 'lucide-react';
 import { getSectorModules, MODULE_ROUTES } from '../config/sectorModules';
 
@@ -40,7 +44,13 @@ const ICON_MAP = {
   vehicles: Car,
   properties: Home,
   offers: Tag,
-  variants: Palette
+  variants: Palette,
+  shipments: Ship,
+  jobs: FileText,
+  billing: DollarSign,
+  documents: File,
+  transport: Truck,
+  'cnf-reports': LayoutDashboard
 };
 
 const SectorLayout = ({ children, user, onLogout }) => {
