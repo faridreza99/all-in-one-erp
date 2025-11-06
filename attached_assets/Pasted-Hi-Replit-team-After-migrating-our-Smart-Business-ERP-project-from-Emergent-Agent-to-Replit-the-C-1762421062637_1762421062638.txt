@@ -1,0 +1,131 @@
+Hi Replit team,
+
+After migrating our Smart Business ERP project from Emergent Agent to Replit, the CNF (Clearing & Forwarding) module is not visible/accessible in the Replit deploy.
+
+Context
+
+Project: Smart Business ERP (multi-tenant, multi-sector)
+
+New host: Replit (frontend React, backend FastAPI/Node)
+
+DB: MongoDB Atlas (Atlas IP allowlist set; app connects fine; other sectors work)
+
+Working sectors on Replit: Pharmacy, Mobile/Computer Shop, etc.
+
+Problem sector: CNF (Clearing & Forwarding)
+
+Expected vs Actual
+
+Expected:
+
+Login ➜ redirect to sector dashboard when user has business_type: "cnf"
+
+Sidebar should include CNF modules (Shipment, Job File, Billing, Document, Transport, Reports)
+
+Hitting /cnf should render CNF dashboard
+
+Actual:
+
+CNF doesn’t appear in the sidebar/menu.
+
+Direct navigation to /cnf shows blank/404 or generic page.
+
+Other sectors function normally.
+
+What we already checked
+
+Backend connectivity: OK (Atlas connected, other sectors read/write).
+
+JWT content: For working sectors, token includes business_type. Need to confirm the same for CNF.
+
+Routing: Frontend routes exist for many sectors; CNF route may be missing or not registered in the router.
+
+RBAC/Module map: sectorModules.js may not include "cnf" or allowed modules for CNF.
+
+Seed data: CNF tenant/user may not have been seeded in this environment.
+
+Please help verify/fix
+A) Backend (FastAPI)
+
+Confirm login returns business_type: "cnf" in access_token payload when logging in with a CNF user.
+
+Ensure the CNF tenant exists:
+
+tenants collection has business_type: "cnf" and valid id
+
+users collection has a user tied to that tenant_id, role tenant_admin or permitted role
+
+Endpoints to sanity-check (should return 200/empty list vs 404):
+
+GET /api/cnf/shipments
+
+GET /api/cnf/jobs
+
+GET /api/cnf/billing/summary
+
+(If your API groups aren’t namespaced, check the CNF service endpoints you created—replace with the actual paths you used.)
+
+B) Frontend (React)
+
+Router: Ensure a route entry like:
+
+<Route path="/cnf" element={<CnfDashboard />} />
+
+
+Sector module map: In src/config/sectorModules.js (or equivalent), add:
+
+cnf: {
+  label: "CNF",
+  icon: "Truck",
+  basePath: "/cnf",
+  modules: [
+    { key: "shipments", label: "Shipments", path: "/cnf/shipments" },
+    { key: "jobs", label: "Job Files", path: "/cnf/jobs" },
+    { key: "billing", label: "Billing", path: "/cnf/billing" },
+    { key: "documents", label: "Documents", path: "/cnf/documents" },
+    { key: "transport", label: "Transport", path: "/cnf/transport" },
+    { key: "reports", label: "Reports", path: "/cnf/reports" }
+  ]
+}
+
+
+JWT → redirect: Post-login redirect function should map business_type === "cnf" to /cnf.
+
+C) Seed / Demo user
+
+Please seed a demo tenant & admin for CNF on Replit so we can test quickly:
+
+Tenant: “MaxTech CNF Demo” (business_type: "cnf")
+
+User: cnf@example.com / cnf123 (role: tenant_admin)
+
+If a seed script exists (e.g., seed_cnf.py), run it in the Replit shell and confirm success.
+
+Quick diagnostic commands (safe to run)
+
+Decode JWT (see business_type):
+
+Log the decoded token after login and confirm business_type: "cnf" and correct tenant_id.
+
+API smoke test (adjust URL):
+
+curl -s -H "Authorization: Bearer <TOKEN>" https://<your-repl-backend>/api/cnf/shipments
+
+
+Console logs:
+Open browser devtools on /cnf and capture any route or permission errors.
+
+Request
+
+Add/repair CNF route + module map in frontend and ensure post-login redirect for "cnf".
+
+Verify backend returns business_type: "cnf" in JWT and CNF endpoints are registered.
+
+Seed a CNF demo tenant/user on Replit so we can validate end-to-end.
+
+If any env flags control sector availability, please enable CNF in this deployment.
+
+If you need repro videos or our current DEMO_LOGINS.md (without secrets), I can share. Thanks for helping us get CNF visible and working like the other sectors!
+
+— Farid
+MaxTech BD (Computer & CNF ERP)
