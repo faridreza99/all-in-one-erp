@@ -20,6 +20,7 @@ const SectorDashboard = ({ user, onLogout }) => {
   const [mobileShopStats, setMobileShopStats] = useState({
     pendingRepairs: 0,
     lowStockBreakdown: { critical: 0, danger: 0, warning: 0 },
+    lowStockProducts: [],
     recentPurchases: 0,
     topProducts: []
   });
@@ -56,17 +57,17 @@ const SectorDashboard = ({ user, onLogout }) => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       // Fetch all required data in parallel
-      const [repairsRes, productBranchesRes, productsRes, purchasesRes, topProductsRes] = await Promise.all([
+      const [repairsRes, lowStockRes, productsRes, purchasesRes, topProductsRes] = await Promise.all([
         fetch(`${process.env.REACT_APP_BACKEND_URL}/api/repairs`, { headers }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/product-branches`, { headers }),
+        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products/low-stock`, { headers }),
         fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products`, { headers }),
         fetch(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, { headers }),
         fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/top-products?limit=5`, { headers })
       ]);
 
-      if (repairsRes.ok && productBranchesRes.ok && productsRes.ok && purchasesRes.ok && topProductsRes.ok) {
+      if (repairsRes.ok && lowStockRes.ok && productsRes.ok && purchasesRes.ok && topProductsRes.ok) {
         const repairs = await repairsRes.json();
-        const productBranches = await productBranchesRes.json();
+        const lowStockProducts = await lowStockRes.json();
         const products = await productsRes.json();
         const purchases = await purchasesRes.json();
         const topProducts = await topProductsRes.json();
@@ -76,20 +77,11 @@ const SectorDashboard = ({ user, onLogout }) => {
           r.status === 'pending' || r.status === 'in_progress'
         ).length;
 
-        // Calculate low stock breakdown
-        const lowStockItems = productBranches.filter(pb => {
-          if (!pb.is_active) return false;
-          const stock = pb.stock || 0;
-          const reorderLevel = pb.reorder_level || 0;
-          return stock <= reorderLevel;
-        });
-
-        const critical = lowStockItems.filter(item => item.stock === 0).length;
-        const danger = lowStockItems.filter(item => {
-          const reorderLevel = item.reorder_level || 0;
-          return item.stock > 0 && item.stock <= reorderLevel * 0.5;
-        }).length;
-        const warning = lowStockItems.length - critical - danger;
+        // Calculate low stock breakdown (stock < 5)
+        // Critical: 0 stock, Danger: 1-2 stock, Warning: 3-4 stock
+        const critical = lowStockProducts.filter(item => item.stock === 0).length;
+        const danger = lowStockProducts.filter(item => item.stock >= 1 && item.stock <= 2).length;
+        const warning = lowStockProducts.filter(item => item.stock >= 3 && item.stock <= 4).length;
 
         // Get recent purchases (last 7 days)
         const sevenDaysAgo = new Date();
@@ -111,6 +103,7 @@ const SectorDashboard = ({ user, onLogout }) => {
         setMobileShopStats({
           pendingRepairs,
           lowStockBreakdown: { critical, danger, warning },
+          lowStockProducts: lowStockProducts.slice(0, 5), // Top 5 low stock items
           recentPurchases,
           topProducts: formattedTopProducts
         });
@@ -435,6 +428,67 @@ const SectorDashboard = ({ user, onLogout }) => {
               )}
             </div>
 
+            {/* Low Stock Products Alert */}
+            <div className="glass-card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <AlertTriangle className="w-6 h-6 text-orange-400" />
+                <h3 className="text-2xl font-semibold text-white">Low Stock Alert (Stock &lt; 5)</h3>
+                {mobileShopStats.lowStockProducts.length > 0 && (
+                  <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-sm font-medium rounded-full">
+                    {mobileShopStats.lowStockProducts.length} items
+                  </span>
+                )}
+              </div>
+              
+              {mobileShopStats.lowStockProducts.length > 0 ? (
+                <div className="space-y-4">
+                  {mobileShopStats.lowStockProducts.map((product, index) => {
+                    // Determine severity color based on stock level
+                    const getSeverity = (stock) => {
+                      if (stock === 0) return { color: 'red', label: 'Out of Stock', bgClass: 'bg-red-500/10 border-red-500/30', textClass: 'text-red-400' };
+                      if (stock <= 2) return { color: 'orange', label: 'Critical', bgClass: 'bg-orange-500/10 border-orange-500/30', textClass: 'text-orange-400' };
+                      return { color: 'yellow', label: 'Low', bgClass: 'bg-yellow-500/10 border-yellow-500/30', textClass: 'text-yellow-400' };
+                    };
+                    const severity = getSeverity(product.stock);
+                    
+                    return (
+                      <motion.div
+                        key={product.id || index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`flex items-center justify-between p-4 rounded-xl border ${severity.bgClass} hover:scale-[1.02] transition-all`}
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className={`w-10 h-10 ${severity.bgClass} rounded-lg flex items-center justify-center border ${severity.bgClass}`}>
+                            <Package className={`w-5 h-5 ${severity.textClass}`} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-semibold">{product.name}</p>
+                            <p className="text-slate-400 text-sm">SKU: {product.sku || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className={`text-2xl font-bold ${severity.textClass}`}>{product.stock}</p>
+                            <p className="text-slate-400 text-xs">In Stock</p>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium ${severity.bgClass} ${severity.textClass}`}>
+                            {severity.label}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="w-16 h-16 text-slate-600 mx-auto mb-3" />
+                  <p className="text-slate-400">All products well-stocked! 🎉</p>
+                </div>
+              )}
+            </div>
+
             {/* Stock Status Breakdown Chart */}
             <div className="glass-card p-6">
               <h3 className="text-2xl font-semibold text-white mb-6">Inventory Health</h3>
@@ -450,14 +504,14 @@ const SectorDashboard = ({ user, onLogout }) => {
                   <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <AlertTriangle className="w-8 h-8 text-orange-400" />
                   </div>
-                  <p className="text-orange-400 text-sm font-medium mb-1">Danger (≤50% Reorder)</p>
+                  <p className="text-orange-400 text-sm font-medium mb-1">Danger (1-2 Units)</p>
                   <p className="text-4xl font-bold text-white">{mobileShopStats.lowStockBreakdown.danger}</p>
                 </div>
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 text-center">
                   <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Package className="w-8 h-8 text-yellow-400" />
                   </div>
-                  <p className="text-yellow-400 text-sm font-medium mb-1">Warning (Low Stock)</p>
+                  <p className="text-yellow-400 text-sm font-medium mb-1">Warning (3-4 Units)</p>
                   <p className="text-4xl font-bold text-white">{mobileShopStats.lowStockBreakdown.warning}</p>
                 </div>
               </div>
