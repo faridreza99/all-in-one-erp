@@ -5,6 +5,7 @@ import { Lock, Mail, User, Building2 } from 'lucide-react';
 import { API } from '../App';
 import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
+import { SECTOR_MODULES } from '../config/sectorModules';
 
 const AuthPage = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -99,21 +100,11 @@ const AuthPage = ({ onLogin }) => {
                       className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"
                       required={!isLogin}
                     >
-                      <option value="mobile_shop">Mobile Shop 📱</option>
-                      <option value="pharmacy">Pharmacy 💊</option>
-                      <option value="salon">Salon & Spa ✂️</option>
-                      <option value="restaurant">Restaurant 🍽️</option>
-                      <option value="clinic">Clinic 🏥</option>
-                      <option value="grocery">Grocery Store 🛒</option>
-                      <option value="electronics">Electronics Store 💻</option>
-                      <option value="fashion">Fashion Boutique 👗</option>
-                      <option value="stationery">Stationery Shop 📚</option>
-                      <option value="hardware">Hardware Store 🔧</option>
-                      <option value="furniture">Furniture Store 🛋️</option>
-                      <option value="garage">Auto Garage 🚗</option>
-                      <option value="wholesale">Wholesale Business 📦</option>
-                      <option value="ecommerce">E-commerce 🛍️</option>
-                      <option value="real_estate">Real Estate 🏘️</option>
+                      {Object.entries(SECTOR_MODULES).map(([key, config]) => (
+                        <option key={key} value={key}>
+                          {config.name} {config.icon}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
