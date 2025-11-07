@@ -3,8 +3,8 @@ set -e
 
 echo "📦 Building React frontend..."
 cd frontend
-npm ci --legacy-peer-deps
-npm run build
+yarn install --frozen-lockfile
+yarn build
 cd ..
 
 echo "✅ Build complete!"
