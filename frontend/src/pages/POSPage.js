@@ -17,6 +17,7 @@ const POSPage = ({ user, onLogout }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
+  const [paidAmount, setPaidAmount] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -84,23 +85,45 @@ const POSPage = ({ user, onLogout }) => {
       return;
     }
 
+    const totalAmount = calculateTotal();
+    const paidAmountValue = paidAmount ? parseFloat(paidAmount) : totalAmount;
+
+    // Validation for partial payment
+    if (paidAmountValue > totalAmount) {
+      toast.error('Paid amount cannot exceed total amount');
+      return;
+    }
+
+    if (paidAmountValue < totalAmount && !customerName) {
+      toast.error('Customer name is required for partial payments');
+      return;
+    }
+
     try {
       const saleData = {
         items: cart,
         customer_name: customerName || null,
         payment_method: paymentMethod,
         discount: discount,
-        tax: tax
+        tax: tax,
+        paid_amount: paidAmountValue
       };
 
       const response = await axios.post(`${API}/sales`, saleData);
-      toast.success(`Sale completed! Invoice: ${response.data.sale_number}`);
+      
+      const dueAmount = totalAmount - paidAmountValue;
+      if (dueAmount > 0) {
+        toast.success(`Sale completed! Invoice: ${response.data.sale_number}\nDue Amount: ${formatCurrency(dueAmount)}`);
+      } else {
+        toast.success(`Sale completed! Invoice: ${response.data.sale_number}`);
+      }
       
       // Reset
       setCart([]);
       setCustomerName('');
       setDiscount(0);
       setTax(0);
+      setPaidAmount('');
       fetchProducts();
     } catch (error) {
       toast.error(formatErrorMessage(error, 'Checkout failed'));
@@ -238,6 +261,31 @@ const POSPage = ({ user, onLogout }) => {
                     className="w-20 text-right"
                   />
                 </div>
+              </div>
+
+              <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                <label className="block text-sm font-medium text-blue-300 mb-2">
+                  💰 Paid Amount (Partial Payment)
+                </label>
+                <input
+                  data-testid="paid-amount-input"
+                  type="number"
+                  step="0.01"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  placeholder={`Enter amount (Max: ${formatCurrency(total)})`}
+                  className="w-full text-lg"
+                  min="0"
+                  max={total}
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  Leave empty for full payment. Enter partial amount to create customer due.
+                </p>
+                {paidAmount && parseFloat(paidAmount) < total && (
+                  <div className="mt-3 p-2 bg-orange-500/20 border border-orange-500/30 rounded text-orange-300 text-sm">
+                    <strong>Due Amount:</strong> {formatCurrency(total - parseFloat(paidAmount || 0))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center mb-6">
