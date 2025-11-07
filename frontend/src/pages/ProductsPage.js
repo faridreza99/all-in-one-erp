@@ -46,6 +46,7 @@ const ProductsPage = ({ user, onLogout }) => {
     price: '',
     stock: '',
     description: '',
+    supplier_name: '',
     generic_name: '',
     brand: '',
     batch_number: '',
@@ -89,6 +90,7 @@ const ProductsPage = ({ user, onLogout }) => {
         sku: formData.sku,
         category: formData.category,
         description: formData.description,
+        supplier_name: formData.supplier_name,
         generic_name: formData.generic_name,
         brand: formData.brand,
         batch_number: formData.batch_number,
@@ -140,7 +142,7 @@ const ProductsPage = ({ user, onLogout }) => {
 
   const resetForm = () => {
     setFormData({
-      name: '', sku: '', category: '', price: '', stock: '', description: '',
+      name: '', sku: '', category: '', price: '', stock: '', description: '', supplier_name: '',
       generic_name: '', brand: '', batch_number: '', expiry_date: '', imei: '', warranty_months: '', branch_id: ''
     });
     setEditingProduct(null);
@@ -355,6 +357,16 @@ const ProductsPage = ({ user, onLogout }) => {
                       value={formData.brand}
                       onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                       className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name</label>
+                    <input
+                      type="text"
+                      value={formData.supplier_name}
+                      onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
+                      className="w-full"
+                      placeholder="Enter supplier name"
                     />
                   </div>
                 </div>

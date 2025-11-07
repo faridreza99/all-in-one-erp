@@ -205,6 +205,7 @@ class ProductCreate(BaseModel):
     price: float
     stock: int = 0
     description: Optional[str] = None
+    supplier_name: Optional[str] = None
     # Pharmacy specific
     generic_name: Optional[str] = None
     brand: Optional[str] = None
@@ -222,6 +223,7 @@ class Product(BaseDBModel):
     price: float
     stock: int
     description: Optional[str] = None
+    supplier_name: Optional[str] = None
     generic_name: Optional[str] = None
     brand: Optional[str] = None
     batch_number: Optional[str] = None
@@ -303,6 +305,7 @@ class SaleCreate(BaseModel):
     payment_method: str = "cash"
     discount: float = 0
     tax: float = 0
+    paid_amount: Optional[float] = None
 
 class Sale(BaseDBModel):
     tenant_id: str
@@ -314,6 +317,23 @@ class Sale(BaseDBModel):
     total: float
     customer_name: Optional[str] = None
     payment_method: str
+    paid_amount: Optional[float] = None
+
+class CustomerDueCreate(BaseModel):
+    customer_name: str
+    sale_id: str
+    total_amount: float
+    paid_amount: float
+
+class CustomerDue(BaseDBModel):
+    tenant_id: str
+    customer_name: str
+    sale_id: str
+    sale_number: str
+    total_amount: float
+    paid_amount: float
+    due_amount: float
+    transaction_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DashboardStats(BaseModel):
     total_sales: float
@@ -1500,11 +1520,14 @@ async def create_sale(
     subtotal = sum(item.price * item.quantity for item in sale_data.items)
     total = subtotal - sale_data.discount + sale_data.tax
     
+    # Handle paid amount - defaults to full amount if not specified
+    paid_amount = sale_data.paid_amount if sale_data.paid_amount is not None else total
+    
     # Generate sale number
     count = await db.sales.count_documents({"tenant_id": current_user["tenant_id"]})
     sale_number = f"SALE-{count + 1:06d}"
     
-    # Update stock
+    # Update stock (auto stock adjustment)
     for item in sale_data.items:
         await db.products.update_one(
             {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
@@ -1520,14 +1543,37 @@ async def create_sale(
         tax=sale_data.tax,
         total=total,
         customer_name=sale_data.customer_name,
-        payment_method=sale_data.payment_method
+        payment_method=sale_data.payment_method,
+        paid_amount=paid_amount
     )
     
     doc = sale.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
+    sale_id = doc['id']
     await db.sales.insert_one(doc)
+    
+    # Create customer due if partial payment
+    if paid_amount < total and sale_data.customer_name:
+        due_amount = total - paid_amount
+        customer_due = CustomerDue(
+            tenant_id=current_user["tenant_id"],
+            customer_name=sale_data.customer_name,
+            sale_id=sale_id,
+            sale_number=sale_number,
+            total_amount=total,
+            paid_amount=paid_amount,
+            due_amount=due_amount
+        )
+        
+        due_doc = customer_due.model_dump()
+        due_doc['created_at'] = due_doc['created_at'].isoformat()
+        due_doc['updated_at'] = due_doc['updated_at'].isoformat()
+        due_doc['transaction_date'] = due_doc['transaction_date'].isoformat()
+        
+        await db.customer_dues.insert_one(due_doc)
+    
     return sale
 
 @api_router.get("/sales", response_model=List[Sale])
@@ -1549,6 +1595,75 @@ async def get_sales(
             sale['updated_at'] = datetime.fromisoformat(sale['updated_at'])
     
     return sales
+
+# ========== CUSTOMER DUES ROUTES ==========
+@api_router.get("/customer-dues", response_model=List[CustomerDue])
+async def get_customer_dues(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    dues = await db.customer_dues.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for due in dues:
+        if isinstance(due.get('created_at'), str):
+            due['created_at'] = datetime.fromisoformat(due['created_at'])
+        if isinstance(due.get('updated_at'), str):
+            due['updated_at'] = datetime.fromisoformat(due['updated_at'])
+        if isinstance(due.get('transaction_date'), str):
+            due['transaction_date'] = datetime.fromisoformat(due['transaction_date'])
+    
+    return dues
+
+@api_router.get("/customer-dues/{due_id}", response_model=CustomerDue)
+async def get_customer_due(
+    due_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    due = await db.customer_dues.find_one(
+        {"id": due_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not due:
+        raise HTTPException(status_code=404, detail="Customer due not found")
+    
+    if isinstance(due.get('created_at'), str):
+        due['created_at'] = datetime.fromisoformat(due['created_at'])
+    if isinstance(due.get('updated_at'), str):
+        due['updated_at'] = datetime.fromisoformat(due['updated_at'])
+    if isinstance(due.get('transaction_date'), str):
+        due['transaction_date'] = datetime.fromisoformat(due['transaction_date'])
+    
+    return due
+
+# ========== LOW STOCK ROUTES ==========
+@api_router.get("/products/low-stock", response_model=List[Product])
+async def get_low_stock_products(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    products = await db.products.find(
+        {"tenant_id": current_user["tenant_id"], "stock": {"$lt": 5}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for product in products:
+        if isinstance(product.get('created_at'), str):
+            product['created_at'] = datetime.fromisoformat(product['created_at'])
+        if isinstance(product.get('updated_at'), str):
+            product['updated_at'] = datetime.fromisoformat(product['updated_at'])
+    
+    return products
 
 # ========== DASHBOARD ROUTES ==========
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
@@ -1582,7 +1697,7 @@ async def get_dashboard_stats(
     # Products stats
     products = await db.products.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
     total_products = len(products)
-    low_stock_items = len([p for p in products if p.get("stock", 0) < 10])
+    low_stock_items = len([p for p in products if p.get("stock", 0) < 5])
     
     return DashboardStats(
         total_sales=total_sales,

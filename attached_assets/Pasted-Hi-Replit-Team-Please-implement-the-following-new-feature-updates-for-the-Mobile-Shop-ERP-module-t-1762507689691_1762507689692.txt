@@ -1,0 +1,73 @@
+Hi Replit Team,
+
+Please implement the following new feature updates for the Mobile Shop ERP module to improve inventory and billing automation:
+
+📋 Project Feature Requirements
+1. Customer Due Tracking
+
+Description:
+If a customer does not pay the full amount for a purchase, the remaining balance should be recorded as a “due.”
+Please add a new route/page to show all customer dues with:
+
+Customer name
+
+Total purchase amount
+
+Amount paid
+
+Remaining due
+
+Transaction date
+
+Expected Behavior:
+Whenever a sale occurs with a partial payment, it automatically creates or updates a “due record” linked to that customer.
+
+2. Pending & Return Stock Update
+
+Description:
+Stock quantities should automatically adjust during sales and returns.
+Example:
+
+Customer buys 10 units → Stock decreases by 10
+
+Customer returns 5 units → Stock increases by 5
+
+Expected Behavior:
+Stock should update automatically in both purchase and return operations — no manual entry required.
+
+3. Low Stock Alert
+
+Description:
+Trigger a low stock alert whenever a product quantity drops below 5 units.
+This alert should appear on the dashboard and optionally as a notification badge.
+
+Expected Behavior:
+
+Real-time monitoring of product stock
+
+“Low Stock” section or alert count visible on the dashboard
+
+4. Supplier Information in Product Add Form
+
+Description:
+When adding a new product, there should be a dropdown or input field for selecting or entering the Supplier Name.
+The supplier should be saved with the product details and displayed in the product list.
+
+Expected Behavior:
+
+Supplier name linked with each product
+
+Helps trace product sources and manage supplier relationships
+
+⚙️ Expected Integration Notes
+
+All updates should apply only to Mobile Shop ERP tenants (business_type = "mobile_shop")
+
+Maintain data isolation for other modules (e.g., CNF, Computer Shop, Pharmacy)
+
+New pages should follow existing layout and sidebar styling
+
+Thanks for your consistent work — once implemented, these features will make Mobile Shop ERP more powerful and production-ready. 🚀
+
+— Farid
+MaxTech BD

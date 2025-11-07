@@ -23,7 +23,7 @@ export const SECTOR_MODULES = {
     name: 'Mobile Shop',
     icon: '📱',
     color: 'purple',
-    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'purchases', 'suppliers', 'pos', 'sales', 'customers', 'low-stock', 'reports']
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'purchases', 'suppliers', 'pos', 'sales', 'customers', 'customer-dues', 'low-stock', 'reports']
   },
   computer_shop: {
     name: 'Computer Shop',
@@ -119,6 +119,7 @@ export const MODULE_ROUTES = {
   pos: { path: '/pos', label: 'POS' },
   sales: { path: '/sales', label: 'Sales' },
   customers: { path: '/customers', label: 'Customers' },
+  'customer-dues': { path: '/customer-dues', label: 'Customer Dues' },
   suppliers: { path: '/suppliers', label: 'Suppliers' },
   expenses: { path: '/expenses', label: 'Expenses' },
   reports: { path: '/reports', label: 'Reports' },

@@ -14,6 +14,7 @@ import RepairsPage from './pages/RepairsPage';
 import TablesPage from './pages/TablesPage';
 import SalesPage from './pages/SalesPage';
 import CustomersPage from './pages/CustomersPage';
+import CustomerDuesPage from './pages/CustomerDuesPage';
 import ExpensesPage from './pages/ExpensesPage';
 import ReportsPage from './pages/ReportsPage';
 import ClinicPage from './pages/ClinicPage';
@@ -170,6 +171,10 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/customers`} 
                     element={<SectorRoute user={user} module="customers" element={<CustomersPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/customer-dues`} 
+                    element={<SectorRoute user={user} module="customer-dues" element={<CustomerDuesPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/suppliers`} 
