@@ -91,7 +91,7 @@ function StockTransferPage({ user, onLogout }) {
   const getAvailableStock = (productId, branchId) => {
     if (!productId || !branchId) return 0;
     const pb = productBranches.find(
-      pb => pb.product_id === parseInt(productId) && pb.branch_id === parseInt(branchId)
+      pb => pb.product_id === productId && pb.branch_id === branchId
     );
     return pb?.stock || 0;
   };
@@ -131,11 +131,11 @@ function StockTransferPage({ user, onLogout }) {
           : item
       ));
     } else {
-      const product = products.find(p => p.id === parseInt(selectedProductId));
+      const product = products.find(p => p.id === selectedProductId);
       setTransferCart([...transferCart, {
         product_id: selectedProductId,
-        product_name: product.name,
-        product_sku: product.sku,
+        product_name: product?.name || 'Unknown',
+        product_sku: product?.sku || '',
         quantity: quantity,
         available_stock: availableStock
       }]);

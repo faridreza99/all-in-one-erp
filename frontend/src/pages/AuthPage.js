@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Lock, Mail, User, Building2 } from 'lucide-react';
@@ -16,6 +16,26 @@ const AuthPage = ({ onLogin }) => {
     name: '',
     business_type: 'mobile_shop'
   });
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [websiteName, setWebsiteName] = useState(null);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await axios.get(`${API}/api/settings`);
+        if (response.data) {
+          setLogoUrl(response.data.logo_url || null);
+          setWebsiteName(response.data.website_name || null);
+          setBackgroundImageUrl(response.data.background_image_url || null);
+        }
+      } catch (error) {
+        console.log('Using default branding');
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,8 +62,20 @@ const AuthPage = ({ onLogin }) => {
     }
   };
 
+  const containerStyle = backgroundImageUrl
+    ? {
+        backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), url(${backgroundImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }
+    : {};
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 gradient-bg relative">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 gradient-bg relative"
+      style={containerStyle}
+    >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -55,12 +87,22 @@ const AuthPage = ({ onLogin }) => {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
-              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl mb-4"
+              className="inline-flex items-center justify-center mb-4"
             >
-              <Building2 className="w-8 h-8 text-white" />
+              {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  className="w-16 h-16 rounded-xl object-cover" 
+                />
+              ) : (
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center">
+                  <Building2 className="w-8 h-8 text-white" />
+                </div>
+              )}
             </motion.div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-              Smart Business ERP
+              {websiteName || "Smart Business ERP"}
             </h1>
             <p className="text-slate-400 mt-2">
               {isLogin ? 'Welcome back' : 'Create your account'}

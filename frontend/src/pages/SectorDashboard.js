@@ -90,13 +90,12 @@ const SectorDashboard = ({ user, onLogout }) => {
           new Date(p.date) >= sevenDaysAgo
         ).length;
 
-        // Format top products with names
+        // Format top products with names (backend now returns product_name directly)
         const formattedTopProducts = topProducts.map(tp => {
-          const product = products.find(p => p.product_id === tp.product_id);
           return {
-            name: product?.name || 'Unknown',
-            quantity: tp.total_quantity,
-            revenue: tp.total_revenue
+            name: tp.product_name || 'Unknown',
+            quantity: tp.quantity,
+            revenue: tp.revenue
           };
         });
 

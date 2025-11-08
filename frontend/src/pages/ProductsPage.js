@@ -78,11 +78,14 @@ const ProductsPage = ({ user, onLogout }) => {
     description: ''
   });
 
+  const [suppliers, setSuppliers] = useState([]);
+
   useEffect(() => {
     fetchProducts();
     fetchBranches();
     fetchCategories();
     fetchBrands();
+    fetchSuppliers();
   }, []);
 
   const fetchProducts = async () => {
@@ -251,6 +254,15 @@ const ProductsPage = ({ user, onLogout }) => {
       setBrands(response.data);
     } catch (error) {
       toast.error('Failed to fetch brands');
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const response = await axios.get(`${API}/suppliers`);
+      setSuppliers(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch suppliers');
     }
   };
 
@@ -680,13 +692,18 @@ const ProductsPage = ({ user, onLogout }) => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name</label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.supplier_name}
                       onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
-                      className="w-full"
-                      placeholder="Enter supplier name"
-                    />
+                      className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="">Select Supplier</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.name}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 

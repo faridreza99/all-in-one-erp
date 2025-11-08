@@ -49,6 +49,7 @@ import BillingPage from './pages/cnf/BillingPage';
 import DocumentsPage from './pages/cnf/DocumentsPage';
 import TransportPage from './pages/cnf/TransportPage';
 import CNFReportsPage from './pages/cnf/CNFReportsPage';
+import SettingsPage from './pages/SettingsPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
@@ -285,6 +286,10 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/notifications`} 
                     element={<NotificationsPage user={user} onLogout={handleLogout} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/settings`} 
+                    element={<SettingsPage user={user} onLogout={handleLogout} />}
                   />
                   
                   {/* CNF Routes */}

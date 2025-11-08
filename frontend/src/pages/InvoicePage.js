@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -12,8 +12,12 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Plus
+  Plus,
+  Printer,
+  Download
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import SectorLayout from '../components/SectorLayout';
 import BackButton from '../components/BackButton';
 import { API } from '../App';
@@ -32,6 +36,8 @@ const InvoicePage = ({ user, onLogout }) => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [reference, setReference] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const invoiceRef = useRef(null);
 
   useEffect(() => {
     fetchInvoice();
@@ -77,6 +83,49 @@ const InvoicePage = ({ user, onLogout }) => {
       toast.error(formatErrorMessage(error));
     } finally {
       setProcessingPayment(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoiceRef.current) return;
+    
+    setGeneratingPDF(true);
+    try {
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Invoice-${invoice.sale.invoice_no}.pdf`);
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -129,9 +178,29 @@ const InvoicePage = ({ user, onLogout }) => {
   return (
     <SectorLayout user={user} onLogout={onLogout}>
       <div className="space-y-6 pb-24">
-        <BackButton />
+        <div className="flex items-center justify-between">
+          <BackButton />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
+            >
+              <Printer size={18} />
+              <span>Print</span>
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={generatingPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
+            >
+              <Download size={18} />
+              <span>{generatingPDF ? 'Generating...' : 'Download PDF'}</span>
+            </button>
+          </div>
+        </div>
 
-        {/* Sticky Unpaid Banner */}
+        <div ref={invoiceRef}>
+          {/* Sticky Unpaid Banner */}
         {sale.payment_status !== 'paid' && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -235,7 +304,14 @@ const InvoicePage = ({ user, onLogout }) => {
               <tbody className="divide-y divide-gray-700/50">
                 {sale.items.map((item, index) => (
                   <tr key={index} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="px-6 py-4">{item.name}</td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-medium">{item.product_name || item.name || 'Unknown Product'}</p>
+                        {item.product_sku && (
+                          <p className="text-sm text-gray-400">SKU: {item.product_sku}</p>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right">{formatCurrency(item.price)}</td>
                     <td className="px-6 py-4 text-right">{item.quantity}</td>
                     <td className="px-6 py-4 text-right font-medium">{formatCurrency(item.price * item.quantity)}</td>
@@ -321,6 +397,7 @@ const InvoicePage = ({ user, onLogout }) => {
             </div>
           </motion.div>
         )}
+        </div>
 
         {/* Payment Modal */}
         {showPaymentModal && (

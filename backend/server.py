@@ -1062,6 +1062,18 @@ class Transport(BaseDBModel):
     transport_cost: float
     status: TransportStatus = TransportStatus.SCHEDULED
 
+# ========== SETTINGS MODELS ==========
+class SettingsCreate(BaseModel):
+    logo_url: Optional[str] = None
+    website_name: Optional[str] = None
+    background_image_url: Optional[str] = None
+
+class Settings(BaseDBModel):
+    tenant_id: str
+    logo_url: Optional[str] = None
+    website_name: Optional[str] = "Smart Business ERP"
+    background_image_url: Optional[str] = None
+
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -1255,6 +1267,48 @@ async def signup_tenant(tenant_data: TenantCreate):
             )
         raise HTTPException(status_code=500, detail=f"Signup failed: {error_msg}")
 
+@api_router.post("/auth/change-password")
+async def change_password(
+    password_data: Dict[str, str],
+    current_user: dict = Depends(get_current_user)
+):
+    old_password = password_data.get("old_password")
+    new_password = password_data.get("new_password")
+    
+    if not old_password or not new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Both old_password and new_password are required"
+        )
+    
+    if len(new_password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be at least 6 characters"
+        )
+    
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not verify_password(old_password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=401,
+            detail="Old password is incorrect"
+        )
+    
+    new_hashed_password = hash_password(new_password)
+    
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {
+            "hashed_password": new_hashed_password,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Password changed successfully"}
+
 # ========== TENANT ROUTES (Super Admin Only) ==========
 @api_router.post("/tenants", response_model=Tenant)
 async def create_tenant(
@@ -1326,6 +1380,87 @@ async def toggle_tenant_module(
     )
     
     return {"message": "Module toggled", "modules_enabled": modules}
+
+# ========== SETTINGS ROUTES ==========
+@api_router.get("/settings", response_model=Settings)
+async def get_settings(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    settings = await db.settings.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not settings:
+        default_settings = Settings(
+            tenant_id=current_user["tenant_id"]
+        )
+        
+        doc = default_settings.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        
+        await db.settings.insert_one(doc)
+        return default_settings
+    
+    if isinstance(settings.get('created_at'), str):
+        settings['created_at'] = datetime.fromisoformat(settings['created_at'])
+    if isinstance(settings.get('updated_at'), str):
+        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
+    
+    return Settings(**settings)
+
+@api_router.put("/settings", response_model=Settings)
+async def update_settings(
+    settings_data: SettingsCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    existing_settings = await db.settings.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    update_data = settings_data.model_dump(exclude_unset=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    if existing_settings:
+        await db.settings.update_one(
+            {"tenant_id": current_user["tenant_id"]},
+            {"$set": update_data}
+        )
+        
+        updated_settings = await db.settings.find_one(
+            {"tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        )
+        
+        if not updated_settings:
+            raise HTTPException(status_code=500, detail="Failed to retrieve updated settings")
+        
+        if isinstance(updated_settings.get('created_at'), str):
+            updated_settings['created_at'] = datetime.fromisoformat(updated_settings['created_at'])
+        if isinstance(updated_settings.get('updated_at'), str):
+            updated_settings['updated_at'] = datetime.fromisoformat(updated_settings['updated_at'])
+        
+        return Settings(**updated_settings)
+    else:
+        new_settings = Settings(
+            tenant_id=current_user["tenant_id"],
+            **settings_data.model_dump(exclude_unset=True)
+        )
+        
+        doc = new_settings.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        
+        await db.settings.insert_one(doc)
+        return new_settings
 
 # ========== CATEGORY ROUTES ==========
 @api_router.post("/categories", response_model=Category)
@@ -2061,6 +2196,21 @@ async def get_sale_invoice(
     
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Enrich sale items with full product details
+    if sale.get('items'):
+        for item in sale['items']:
+            product_id = item.get('product_id')
+            if product_id:
+                product = await db.products.find_one(
+                    {"id": product_id, "tenant_id": current_user["tenant_id"]},
+                    {"_id": 0}
+                )
+                if product:
+                    item['product_name'] = product.get('name')
+                    item['product_sku'] = product.get('sku')
+                    item['product_category'] = product.get('category')
+                    item['product_brand'] = product.get('brand')
     
     # Get all payments for this sale
     payments = await db.payments.find(
@@ -2914,7 +3064,24 @@ async def get_top_products(
         reverse=True
     )[:limit]
     
-    return [{"product_id": pid, **data} for pid, data in top_products]
+    # Enrich with product details
+    enriched_products = []
+    for pid, data in top_products:
+        product = await db.products.find_one(
+            {"id": pid, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        )
+        enriched_data = {
+            "product_id": pid,
+            "quantity": data["quantity"],
+            "revenue": data["revenue"]
+        }
+        if product:
+            enriched_data["product_name"] = product.get("name")
+            enriched_data["product_sku"] = product.get("sku")
+        enriched_products.append(enriched_data)
+    
+    return enriched_products
 
 # ========== DOCTOR ROUTES (Clinic) ==========
 @api_router.post("/doctors", response_model=Doctor)
