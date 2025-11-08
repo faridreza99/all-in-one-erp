@@ -1,0 +1,262 @@
+Perfect—here’s a **single, copy-paste master prompt** for the Replit Agent to implement the missing ERP functionalities in your **already-running project**. It tells the agent exactly what to build, how to wire it, and how to test it. Use it as-is.
+
+---
+
+## 🔧 Replit Agent — Implementation Prompt
+
+**Role:** You are a senior full-stack engineer joining an already running ERP project (Smart Business ERP) hosted on Replit. Implement the features below end-to-end using the project’s existing stack and conventions. Detect the stack (likely Node/Express + Prisma + Postgres + React/Next) from the repo and adapt accordingly.
+
+### 0) Repo Recon
+
+1. Inspect the repo structure (backend, frontend, DB/migrations).
+2. Identify ORM (Prisma/Sequelize/TypeORM) or raw SQL.
+3. Identify auth/session method and base API patterns.
+4. Confirm database connection (Neon/Postgres) and run migrations locally.
+5. Do **not** break existing features; add code in a backward-compatible way.
+
+---
+
+## A) Branch Management & Product Assignment
+
+### Data Model (add if missing)
+
+* **branches**: `id, name (unique within company), address, phone, is_active, created_at`
+* **suppliers** (already present)
+* **products** (already present; ensure fields: `id, name, sku(unique), category, sale_price, cost_price, supplier_id, tax_rate, reorder_level, is_active`)
+* **stocks** (per-branch inventory) — unique composite key (`branch_id, product_id`):
+
+  * `id, branch_id(FK), product_id(FK), quantity_on_hand INT DEFAULT 0, quantity_reserved INT DEFAULT 0, created_at, updated_at`
+
+### API
+
+* `POST /api/branches` create branch
+* `GET /api/branches` list
+* `PATCH /api/branches/:id` update
+* `POST /api/branches/:id/assign-product` → body: `{ productId, openingQty }`
+
+  * Creates or upserts into **stocks** with opening quantity.
+* `GET /api/branches/:id/stocks` → list products + qty for that branch
+
+### UI
+
+* **Branches** page:
+
+  * Create/Edit branch
+  * Tab “Products” with: Assign Product, Opening Qty, Current Qty
+  * Low-stock chip if `quantity_on_hand < reorder_level`
+
+**Acceptance:**
+
+* Assigning a product to a branch creates/updates a `stocks` row.
+* Dashboard counts reflect distinct branches and total products per branch.
+
+---
+
+## B) POS → Complete Sale (Auto Invoice, Customer Save, Payments)
+
+### Data Model (add if missing)
+
+* **customers**: `id, name, phone(unique?), address, created_at`
+* **sales**: `id, invoice_no(unique per branch), branch_id, customer_id?, status(enum: DRAFT|COMPLETED|CANCELLED), payment_status(enum: UNPAID|PARTIALLY_PAID|PAID), subtotal, discount, tax, total, amount_paid, balance_due, created_by, created_at`
+* **sale_items**: `id, sale_id, product_id, quantity, unit_price, line_discount, line_tax, line_total, unit_cost_snapshot`
+* **payments**: `id, sale_id, method(enum: CASH|CARD|BKASH|NAGAD|BANK), amount, received_at`
+* **notifications**: `id, type(UNPAID_INVOICE|LOW_STOCK), sale_id?, message, is_sticky, is_read, created_at`
+
+### Transactional Behavior
+
+* On **Complete Sale**:
+
+  1. Upsert customer from POS form.
+  2. Create `sale` + `sale_items` snapshotting `unit_price` and `unit_cost_snapshot`.
+  3. Decrement `stocks.quantity_on_hand` for each `(branch_id, product_id)`.
+  4. Create payment row if an initial amount was paid.
+  5. Recalculate: `amount_paid`, `balance_due`, `payment_status`.
+  6. If `balance_due > 0`, create sticky notification `UNPAID_INVOICE`.
+  7. Return `{ saleId, invoiceNo }`.
+
+**All of the above must run in a single DB transaction** and fail atomically if stock is insufficient.
+
+### API
+
+* `POST /api/pos/complete-sale`
+
+  * Body: `{ branchId, customer:{name,phone,address}?, items:[{productId, qty, unitPrice, lineDiscount?, tax?}], invoiceDiscount?, invoiceTax?, payment:{method, amount}? }`
+* `GET /api/sales/:id` → sale with items, payments, customer
+* `POST /api/sales/:id/payments` → add partial/full payment; recompute status
+* `GET /api/notifications?type=UNPAID_INVOICE` → for banner
+
+### UI
+
+* After sale → redirect to `/invoices/:id`.
+* On invoice page: sticky top banner if `balance_due > 0` with “Take Payment” modal.
+
+**Acceptance:**
+
+* Completing a sale reduces stock.
+* Partial payment leaves banner visible; paying full hides it instantly.
+* Customer page shows the sale in history with due.
+
+---
+
+## C) Branch-to-Branch Stock Transfer
+
+### Data Model
+
+* **stock_transfers**:
+  `id, source_branch_id, destination_branch_id, created_by, note, created_at`
+* **stock_transfer_items**:
+  `id, transfer_id, product_id, quantity`
+
+### Business Rules
+
+* When a transfer is created:
+
+  * Decrement `stocks.quantity_on_hand` from **source**.
+  * Increment `stocks.quantity_on_hand` in **destination**.
+  * All inside **one transaction**; prevent negative stock.
+  * Append transfer record for audit/history.
+
+### API
+
+* `POST /api/stock-transfers`
+
+  * Body: `{ sourceBranchId, destinationBranchId, items:[{productId, quantity}], note? }`
+* `GET /api/stock-transfers?branchId=` → history and status
+
+### UI
+
+* **Stock Transfer** page:
+
+  * Select source branch, destination branch.
+  * Add multiple product rows with quantities.
+  * Confirmation dialog shows before/after quantities.
+
+**Acceptance:**
+
+* If Agrabad has 20 laptops and transfer 10 to GEC, Agrabad shows 10, GEC shows +10 immediately; transfer appears in history.
+
+---
+
+## D) Returns & Sale Cancellation
+
+### API
+
+* `POST /api/sales/:saleItemId/return` → body: `{ qty, reason? }`
+
+  * Increases stock for that sale’s branch by returned quantity.
+  * Adjusts sale totals proportionally; recompute payment status (may trigger refund).
+* `PATCH /api/sales/:id/cancel`
+
+  * Reverses stock for all items; marks sale `CANCELLED`; clears balances.
+
+**Acceptance:**
+
+* Returning an item increases branch stock; cancellation restores all stock.
+
+---
+
+## E) Dashboard Metrics (Last 7 days)
+
+Update/ensure endpoints powering the Dashboard cards and chart:
+
+* Total Sales amount (sum of completed sales `total`)
+* Total Orders (count of completed sales)
+* Total Products (count of active products)
+* Alerts (count of unread `LOW_STOCK` + `UNPAID_INVOICE`)
+* Sales Overview (last 7 days): date, total
+
+---
+
+## F) Validations & Edge Cases
+
+* No negative stock unless a `settings.allowNegativeStock` flag is true (default false).
+* Transfer cannot have same source and destination.
+* Return qty ≤ sold qty − previously returned qty.
+* Invoice numbers must be unique per branch (sequence or safe generator).
+* All multi-step operations must be DB-transactional.
+
+---
+
+## G) Tests & Seed
+
+* Add seed script with:
+
+  * 2 branches (Agrabad, GEC)
+  * 1 supplier, 2 products
+  * Stocks per branch
+* Add basic integration tests (or endpoint test scripts) for:
+
+  * Complete Sale → stock decreases
+  * Partial payment → banner shows
+  * Pay remaining → banner hides
+  * Stock transfer → quantities update correctly
+  * Return → stock increases
+
+Provide example **curl** commands in `docs/api_examples.md`.
+
+---
+
+## H) Deliverables
+
+1. DB migrations & models
+2. REST endpoints & validation
+3. Frontend pages/components:
+
+   * Branches (assign product)
+   * Stock Transfer
+   * Invoice with sticky due banner + payment modal
+4. Notification bell feed
+5. Docs: `README.md` quick start + `docs/api_examples.md`
+6. Seed and tests pass in Replit
+
+**Definition of Done:**
+All acceptance criteria above pass. Existing routes remain functional. Build succeeds and app runs in Replit with seed data.
+
+---
+
+## I) Quick Test Commands (include in docs)
+
+```bash
+# Complete Sale
+curl -X POST http://localhost:3000/api/pos/complete-sale \
+  -H "Content-Type: application/json" \
+  -d '{
+    "branchId":"BR_AGRABAD",
+    "customer":{"name":"Naim","phone":"017xxxxxxx","address":"Agrabad"},
+    "items":[{"productId":"PROD_MB_14","qty":1,"unitPrice":120000}],
+    "payment":{"method":"CASH","amount":50000}
+  }'
+
+# Add Remaining Payment
+curl -X POST http://localhost:3000/api/sales/SALE_ID/payments \
+  -H "Content-Type: application/json" \
+  -d '{"method":"BKASH","amount":69800}'
+
+# Transfer Stock
+curl -X POST http://localhost:3000/api/stock-transfers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sourceBranchId":"BR_AGRABAD",
+    "destinationBranchId":"BR_GEC",
+    "items":[{"productId":"PROD_MB_14","quantity":10}],
+    "note":"Move 10 laptops to GEC"
+  }'
+
+# Return Item
+curl -X POST http://localhost:3000/api/sales/SALE_ITEM_ID/return \
+  -H "Content-Type: application/json" \
+  -d '{"qty":1,"reason":"Customer return"}'
+```
+
+---
+
+### Notes for the Agent
+
+* Reuse existing UI components and styles (shadcn/ui or Tailwind) to match the current look.
+* Keep code self-documented and add concise comments on transactional steps.
+* Ensure all money values use a decimal-safe type (not float).
+* Commit in small, reviewable chunks with clear messages.
+
+---
+
+If you want a **Bangla version** of this prompt for your team, say “Bangla prompt please” and I’ll translate the same implementation brief.
