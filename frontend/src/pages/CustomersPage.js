@@ -69,10 +69,18 @@ const CustomersPage = ({ user, onLogout }) => {
         const allSales = await salesRes.json();
         const productsData = await productsRes.json();
         
-        // Filter sales for this customer (by customer name since backend uses customer_name)
-        const customerSales = allSales.filter(sale => 
-          sale.customer_name && sale.customer_name.toLowerCase() === customer.name.toLowerCase()
-        );
+        // Filter sales for this customer by customer_id (primary) or fallback to name
+        const customerSales = allSales.filter(sale => {
+          // First priority: match by customer_id
+          if (sale.customer_id && customer.id) {
+            return sale.customer_id === customer.id;
+          }
+          // Fallback: match by customer name (for older sales without customer_id)
+          if (sale.customer_name && customer.name) {
+            return sale.customer_name.toLowerCase() === customer.name.toLowerCase();
+          }
+          return false;
+        });
         
         setSalesHistory(customerSales);
         setProducts(productsData);

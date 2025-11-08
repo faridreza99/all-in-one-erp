@@ -1639,12 +1639,69 @@ async def create_sale(
                 {"$inc": {"stock": -item.quantity}}
             )
     
+    # Auto-create or update customer if customer details are provided
+    actual_customer_id = sale_data.customer_id
+    if sale_data.customer_name and (sale_data.customer_phone or sale_data.customer_address):
+        # Try to find existing customer by phone (more reliable) or name
+        existing_customer = None
+        if sale_data.customer_phone:
+            existing_customer = await db.customers.find_one({
+                "tenant_id": current_user["tenant_id"],
+                "phone": sale_data.customer_phone
+            }, {"_id": 0})
+        
+        if not existing_customer and sale_data.customer_name:
+            # Fallback: try to find by name
+            existing_customer = await db.customers.find_one({
+                "tenant_id": current_user["tenant_id"],
+                "name": sale_data.customer_name
+            }, {"_id": 0})
+        
+        if existing_customer:
+            # Update existing customer
+            actual_customer_id = existing_customer['id']
+            update_data = {}
+            
+            # Update fields if provided and different
+            if sale_data.customer_address and sale_data.customer_address != existing_customer.get('address'):
+                update_data['address'] = sale_data.customer_address
+            if sale_data.customer_phone and sale_data.customer_phone != existing_customer.get('phone'):
+                update_data['phone'] = sale_data.customer_phone
+            
+            # Always increment total_purchases
+            update_data['total_purchases'] = existing_customer.get('total_purchases', 0) + total
+            update_data['updated_at'] = datetime.utcnow().isoformat()
+            
+            if update_data:
+                await db.customers.update_one(
+                    {"id": actual_customer_id, "tenant_id": current_user["tenant_id"]},
+                    {"$set": update_data}
+                )
+        else:
+            # Create new customer
+            from uuid import uuid4
+            new_customer_id = str(uuid4())
+            new_customer = {
+                "id": new_customer_id,
+                "tenant_id": current_user["tenant_id"],
+                "name": sale_data.customer_name,
+                "phone": sale_data.customer_phone or "",
+                "email": None,
+                "address": sale_data.customer_address or "",
+                "credit_limit": 0.0,
+                "total_purchases": total,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await db.customers.insert_one(new_customer)
+            actual_customer_id = new_customer_id
+    
     sale = Sale(
         tenant_id=current_user["tenant_id"],
         sale_number=sale_number,
         invoice_no=invoice_no,
         branch_id=sale_data.branch_id,
-        customer_id=sale_data.customer_id,
+        customer_id=actual_customer_id,
         customer_name=sale_data.customer_name,
         customer_phone=sale_data.customer_phone,
         customer_address=sale_data.customer_address,
