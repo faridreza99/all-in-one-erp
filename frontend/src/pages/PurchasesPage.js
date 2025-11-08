@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Plus, Search, Package, DollarSign, Calendar, Hash, Building2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '../components/BackButton';
+import SectorLayout from '../components/SectorLayout';
 
-const PurchasesPage = () => {
+const PurchasesPage = ({ user, onLogout }) => {
   const [purchases, setPurchases] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -189,7 +190,7 @@ const PurchasesPage = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-bg p-6">
+    <SectorLayout user={user} onLogout={onLogout}>
       <BackButton />
       
       <div className="max-w-7xl mx-auto">
@@ -452,7 +453,7 @@ const PurchasesPage = () => {
           )}
         </div>
       </div>
-    </div>
+    </SectorLayout>
   );
 };
 

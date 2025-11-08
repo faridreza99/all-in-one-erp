@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Phone, Mail, MapPin, User, Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '../components/BackButton';
+import SectorLayout from '../components/SectorLayout';
 
-const SuppliersPage = () => {
+const SuppliersPage = ({ user, onLogout }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
@@ -130,7 +131,7 @@ const SuppliersPage = () => {
   );
 
   return (
-    <div className="min-h-screen gradient-bg p-6">
+    <SectorLayout user={user} onLogout={onLogout}>
       <BackButton />
       
       <div className="max-w-7xl mx-auto">
@@ -333,7 +334,7 @@ const SuppliersPage = () => {
           )}
         </div>
       </div>
-    </div>
+    </SectorLayout>
   );
 };
 

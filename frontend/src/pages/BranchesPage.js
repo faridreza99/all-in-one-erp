@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
+import SectorLayout from '../components/SectorLayout';
 import { Building2, Phone, MapPin, User, CheckCircle, XCircle, Hash, Save } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
@@ -10,7 +11,7 @@ const generateBranchCode = () => {
   return 'BR-' + Math.random().toString(36).substr(2, 6).toUpperCase();
 };
 
-function BranchesPage() {
+function BranchesPage({ user, onLogout }) {
   const [branches, setBranches] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState(null);
@@ -103,7 +104,7 @@ function BranchesPage() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg p-6">
+    <SectorLayout user={user} onLogout={onLogout}>
       <BackButton className="mb-4" />
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -342,7 +343,7 @@ function BranchesPage() {
           </button>
         </div>
       )}
-    </div>
+    </SectorLayout>
   );
 }
 
