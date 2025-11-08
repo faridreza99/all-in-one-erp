@@ -1125,12 +1125,8 @@ def require_role(allowed_roles: List[UserRole]):
     return role_checker
 
 async def require_user_management_access(current_user: dict = Depends(get_current_user)):
-    """Allow super_admin from any business type OR any user from mobile-shop"""
-    if current_user["role"] == UserRole.SUPER_ADMIN.value:
-        return current_user
-    if current_user.get("business_type") == "mobile-shop":
-        return current_user
-    raise HTTPException(status_code=403, detail="Insufficient permissions")
+    """Allow all authenticated users to access user management"""
+    return current_user
 
 # ========== AUTH ROUTES ==========
 @api_router.post("/auth/register", response_model=TokenResponse)
@@ -1398,6 +1394,13 @@ async def update_user(
     if not existing_user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Safety guard: Only super_admin can manage other super_admin accounts
+    if existing_user.get("role") == UserRole.SUPER_ADMIN.value and current_user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=403,
+            detail="Only super administrators can manage super admin accounts"
+        )
+    
     # Remove fields that shouldn't be updated
     update_data = {k: v for k, v in user_data.items() if k not in ["id", "tenant_id", "hashed_password", "created_at"]}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -1444,6 +1447,21 @@ async def delete_user(
         raise HTTPException(
             status_code=400,
             detail="Cannot delete your own account"
+        )
+    
+    # Verify user exists and belongs to same tenant
+    existing_user = await db.users.find_one(
+        {"id": user_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Safety guard: Only super_admin can delete other super_admin accounts
+    if existing_user.get("role") == UserRole.SUPER_ADMIN.value and current_user["role"] != UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=403,
+            detail="Only super administrators can delete super admin accounts"
         )
     
     result = await db.users.delete_one(

@@ -42,15 +42,26 @@ _This section can be used to track user-specific preferences and coding styles a
 **Complete CRUD system for managing users with role-based permissions:**
 - **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment
 - **Route Permissions**: Assign page access via checkboxes (Dashboard, POS, Products, Sales, etc.) stored in `allowed_routes` array
-- **Security Features**: Email/username uniqueness validation, self-update/deletion protection, tenant isolation
-- **Access Control**: Available to all Mobile Shop users (any role) and super_admin users from other business types
-- **Navigation**: User Management link in sidebar (visible to all Mobile Shop users and super_admin users)
+- **Access Control**: ⚠️ **OPEN ACCESS** - Available to ALL users (all roles, all business types)
+- **Navigation**: User Management link visible in sidebar for all users
+
+**Security Safeguards (Minimal Protection):**
+- ✅ Email/username uniqueness validation
+- ✅ Users cannot edit/delete themselves
+- ✅ Only super_admin can manage other super_admin accounts
+- ✅ Tenant isolation (users only see their own business)
+- ⚠️ **WARNING**: Any admin/staff can create/edit/delete other admin/staff accounts
 
 **API Endpoints:**
-- `GET /api/users` - List all users (excludes passwords, Mobile Shop or super_admin)
-- `POST /api/users` - Create new user with validation (Mobile Shop or super_admin)
-- `PUT /api/users/{user_id}` - Update user with email/username uniqueness checks (Mobile Shop or super_admin)
-- `DELETE /api/users/{user_id}` - Delete user (prevents self-deletion, Mobile Shop or super_admin)
+- `GET /api/users` - List all users (excludes passwords, all authenticated users)
+- `POST /api/users` - Create new user with validation (all authenticated users)
+- `PUT /api/users/{user_id}` - Update user with uniqueness checks (all authenticated users, cannot manage super_admins unless super_admin)
+- `DELETE /api/users/{user_id}` - Delete user (all authenticated users, prevents self-deletion, cannot delete super_admins unless super_admin)
+
+**⚠️ SECURITY CONSIDERATIONS:**
+- This configuration allows broad user management access
+- Recommended for development/testing environments only
+- For production, consider restricting to admin/super_admin roles only
 
 ### Settings & File Upload System (November 8, 2025)
 - **File Upload Endpoints**: Upload logo/background images via `POST /api/upload/logo` and `POST /api/upload/background`
