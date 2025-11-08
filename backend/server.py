@@ -162,6 +162,29 @@ class TransportStatus(str, Enum):
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
+class SaleStatus(str, Enum):
+    DRAFT = "draft"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class PaymentStatus(str, Enum):
+    UNPAID = "unpaid"
+    PARTIALLY_PAID = "partially_paid"
+    PAID = "paid"
+
+class PaymentMethod(str, Enum):
+    CASH = "cash"
+    CARD = "card"
+    BKASH = "bkash"
+    NAGAD = "nagad"
+    ROCKET = "rocket"
+    BANK = "bank"
+
+class NotificationType(str, Enum):
+    UNPAID_INVOICE = "unpaid_invoice"
+    LOW_STOCK = "low_stock"
+    PAYMENT_RECEIVED = "payment_received"
+
 # ========== MODELS ==========
 class BaseDBModel(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -308,10 +331,15 @@ class SaleItemCreate(BaseModel):
     product_id: str
     quantity: int
     price: float
+    unit_cost: Optional[float] = None
 
 class SaleCreate(BaseModel):
     items: List[SaleItemCreate]
+    branch_id: Optional[str] = None
+    customer_id: Optional[str] = None
     customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
     payment_method: str = "cash"
     discount: float = 0
     tax: float = 0
@@ -320,14 +348,51 @@ class SaleCreate(BaseModel):
 class Sale(BaseDBModel):
     tenant_id: str
     sale_number: str
+    invoice_no: str
+    branch_id: Optional[str] = None
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
     items: List[Dict[str, Any]]
     subtotal: float
     discount: float
     tax: float
     total: float
-    customer_name: Optional[str] = None
-    payment_method: str
-    paid_amount: Optional[float] = None
+    amount_paid: float = 0
+    balance_due: float = 0
+    status: SaleStatus = SaleStatus.COMPLETED
+    payment_status: PaymentStatus = PaymentStatus.UNPAID
+    payment_method: str = "cash"
+    created_by: Optional[str] = None
+
+class PaymentCreate(BaseModel):
+    sale_id: str
+    amount: float
+    method: PaymentMethod
+    reference: Optional[str] = None
+
+class Payment(BaseDBModel):
+    tenant_id: str
+    sale_id: str
+    amount: float
+    method: PaymentMethod
+    reference: Optional[str] = None
+    received_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class NotificationCreate(BaseModel):
+    type: NotificationType
+    sale_id: Optional[str] = None
+    message: str
+    is_sticky: bool = False
+
+class Notification(BaseDBModel):
+    tenant_id: str
+    type: NotificationType
+    sale_id: Optional[str] = None
+    message: str
+    is_sticky: bool = False
+    is_read: bool = False
 
 class CustomerDueCreate(BaseModel):
     customer_name: str
@@ -1530,31 +1595,69 @@ async def create_sale(
     subtotal = sum(item.price * item.quantity for item in sale_data.items)
     total = subtotal - sale_data.discount + sale_data.tax
     
-    # Handle paid amount - defaults to full amount if not specified
-    paid_amount = sale_data.paid_amount if sale_data.paid_amount is not None else total
+    # Validate and handle paid amount
+    if sale_data.paid_amount is not None:
+        if sale_data.paid_amount < 0:
+            raise HTTPException(status_code=400, detail="Payment amount cannot be negative")
+        if sale_data.paid_amount > total:
+            raise HTTPException(status_code=400, detail=f"Payment amount (৳{sale_data.paid_amount:.2f}) cannot exceed total (৳{total:.2f})")
+        paid_amount = sale_data.paid_amount
+    else:
+        paid_amount = total
     
-    # Generate sale number
+    balance_due = total - paid_amount
+    
+    # Determine payment status
+    if paid_amount >= total:
+        payment_status = PaymentStatus.PAID
+    elif paid_amount > 0:
+        payment_status = PaymentStatus.PARTIALLY_PAID
+    else:
+        payment_status = PaymentStatus.UNPAID
+    
+    # Generate sale number and invoice number
     count = await db.sales.count_documents({"tenant_id": current_user["tenant_id"]})
     sale_number = f"SALE-{count + 1:06d}"
+    invoice_no = f"INV-{count + 1:06d}"
     
     # Update stock (auto stock adjustment)
+    # If branch_id is provided, use product_branches, otherwise use products
     for item in sale_data.items:
-        await db.products.update_one(
-            {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
-            {"$inc": {"stock": -item.quantity}}
-        )
+        if sale_data.branch_id:
+            # Update branch-specific stock
+            result = await db.product_branches.update_one(
+                {"product_id": item.product_id, "branch_id": sale_data.branch_id, "tenant_id": current_user["tenant_id"]},
+                {"$inc": {"stock": -item.quantity}}
+            )
+            if result.matched_count == 0:
+                raise HTTPException(status_code=400, detail=f"Product {item.product_id} not assigned to branch or insufficient stock")
+        else:
+            # Update global stock
+            await db.products.update_one(
+                {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
+                {"$inc": {"stock": -item.quantity}}
+            )
     
     sale = Sale(
         tenant_id=current_user["tenant_id"],
         sale_number=sale_number,
+        invoice_no=invoice_no,
+        branch_id=sale_data.branch_id,
+        customer_id=sale_data.customer_id,
+        customer_name=sale_data.customer_name,
+        customer_phone=sale_data.customer_phone,
+        customer_address=sale_data.customer_address,
         items=[item.model_dump() for item in sale_data.items],
         subtotal=subtotal,
         discount=sale_data.discount,
         tax=sale_data.tax,
         total=total,
-        customer_name=sale_data.customer_name,
+        amount_paid=paid_amount,
+        balance_due=balance_due,
+        status=SaleStatus.COMPLETED,
+        payment_status=payment_status,
         payment_method=sale_data.payment_method,
-        paid_amount=paid_amount
+        created_by=current_user.get("email")
     )
     
     doc = sale.model_dump()
@@ -1563,6 +1666,20 @@ async def create_sale(
     
     sale_id = doc['id']
     await db.sales.insert_one(doc)
+    
+    # Create payment record if initial payment was made
+    if paid_amount > 0:
+        payment = Payment(
+            tenant_id=current_user["tenant_id"],
+            sale_id=sale_id,
+            amount=paid_amount,
+            method=PaymentMethod(sale_data.payment_method.lower())
+        )
+        payment_doc = payment.model_dump()
+        payment_doc['created_at'] = payment_doc['created_at'].isoformat()
+        payment_doc['updated_at'] = payment_doc['updated_at'].isoformat()
+        payment_doc['received_at'] = payment_doc['received_at'].isoformat()
+        await db.payments.insert_one(payment_doc)
     
     # Create customer due if partial payment
     if paid_amount < total and sale_data.customer_name:
@@ -1583,6 +1700,20 @@ async def create_sale(
         due_doc['transaction_date'] = due_doc['transaction_date'].isoformat()
         
         await db.customer_dues.insert_one(due_doc)
+    
+    # Create sticky notification for unpaid/partially paid invoices
+    if balance_due > 0:
+        notification = Notification(
+            tenant_id=current_user["tenant_id"],
+            type=NotificationType.UNPAID_INVOICE,
+            sale_id=sale_id,
+            message=f"Invoice {invoice_no} has outstanding balance: ৳{balance_due:.2f}",
+            is_sticky=True
+        )
+        notif_doc = notification.model_dump()
+        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+        await db.notifications.insert_one(notif_doc)
     
     return sale
 
@@ -1605,6 +1736,180 @@ async def get_sales(
             sale['updated_at'] = datetime.fromisoformat(sale['updated_at'])
     
     return sales
+
+@api_router.get("/sales/{sale_id}/invoice")
+async def get_sale_invoice(
+    sale_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Get the sale
+    sale = await db.sales.find_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Get all payments for this sale
+    payments = await db.payments.find(
+        {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Get customer info if customer_id exists
+    customer = None
+    if sale.get('customer_id'):
+        customer = await db.customers.find_one(
+            {"id": sale['customer_id'], "tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        )
+    
+    # Format dates
+    if isinstance(sale.get('created_at'), str):
+        sale['created_at'] = datetime.fromisoformat(sale['created_at'])
+    if isinstance(sale.get('updated_at'), str):
+        sale['updated_at'] = datetime.fromisoformat(sale['updated_at'])
+    
+    for payment in payments:
+        if isinstance(payment.get('created_at'), str):
+            payment['created_at'] = datetime.fromisoformat(payment['created_at'])
+        if isinstance(payment.get('updated_at'), str):
+            payment['updated_at'] = datetime.fromisoformat(payment['updated_at'])
+        if isinstance(payment.get('received_at'), str):
+            payment['received_at'] = datetime.fromisoformat(payment['received_at'])
+    
+    return {
+        "sale": sale,
+        "payments": payments,
+        "customer": customer
+    }
+
+@api_router.post("/sales/{sale_id}/payments")
+async def add_payment_to_sale(
+    sale_id: str,
+    payment_data: PaymentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Get the sale
+    sale = await db.sales.find_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Validate payment amount
+    if payment_data.amount < 0:
+        raise HTTPException(status_code=400, detail="Payment amount cannot be negative")
+    
+    if payment_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+    
+    current_balance = sale.get('balance_due', 0)
+    
+    # Strict validation: ensure payment doesn't exceed remaining balance
+    if payment_data.amount > current_balance:
+        raise HTTPException(status_code=400, detail=f"Payment amount (৳{payment_data.amount:.2f}) exceeds remaining balance (৳{current_balance:.2f})")
+    
+    # Additional safeguard: verify total payments won't exceed sale total
+    current_amount_paid = sale.get('amount_paid', 0)
+    total_after_payment = current_amount_paid + payment_data.amount
+    if total_after_payment > sale['total']:
+        raise HTTPException(status_code=400, detail=f"Total payments (৳{total_after_payment:.2f}) would exceed sale total (৳{sale['total']:.2f})")
+    
+    # Create payment record
+    payment = Payment(
+        tenant_id=current_user["tenant_id"],
+        sale_id=sale_id,
+        amount=payment_data.amount,
+        method=payment_data.method,
+        reference=payment_data.reference
+    )
+    
+    payment_doc = payment.model_dump()
+    payment_doc['created_at'] = payment_doc['created_at'].isoformat()
+    payment_doc['updated_at'] = payment_doc['updated_at'].isoformat()
+    payment_doc['received_at'] = payment_doc['received_at'].isoformat()
+    await db.payments.insert_one(payment_doc)
+    
+    # Update sale amounts and status
+    new_amount_paid = sale.get('amount_paid', 0) + payment_data.amount
+    new_balance_due = sale['total'] - new_amount_paid
+    
+    # Determine new payment status (use == 0 for exact zero check to avoid negative balance edge cases)
+    if new_balance_due == 0:
+        new_payment_status = PaymentStatus.PAID
+    elif new_amount_paid > 0:
+        new_payment_status = PaymentStatus.PARTIALLY_PAID
+    else:
+        new_payment_status = PaymentStatus.UNPAID
+    
+    # Update sale
+    await db.sales.update_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "amount_paid": new_amount_paid,
+                "balance_due": new_balance_due,
+                "payment_status": new_payment_status.value,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Update customer due if exists
+    if sale.get('customer_name'):
+        await db.customer_dues.update_one(
+            {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
+            {
+                "$set": {
+                    "paid_amount": new_amount_paid,
+                    "due_amount": new_balance_due,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+    
+    # Remove sticky notification only when balance is exactly zero (fully paid)
+    if new_balance_due == 0:
+        await db.notifications.update_many(
+            {"sale_id": sale_id, "tenant_id": current_user["tenant_id"], "type": NotificationType.UNPAID_INVOICE.value},
+            {
+                "$set": {
+                    "is_read": True,
+                    "is_sticky": False,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        # Create payment received notification
+        notif = Notification(
+            tenant_id=current_user["tenant_id"],
+            type=NotificationType.PAYMENT_RECEIVED,
+            sale_id=sale_id,
+            message=f"Payment of ৳{payment_data.amount:.2f} received for Invoice {sale['invoice_no']}",
+            is_sticky=False
+        )
+        notif_doc = notif.model_dump()
+        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+        await db.notifications.insert_one(notif_doc)
+    
+    return {
+        "message": "Payment added successfully",
+        "payment_id": payment.id,
+        "new_balance_due": new_balance_due,
+        "payment_status": new_payment_status.value
+    }
 
 # ========== CUSTOMER DUES ROUTES ==========
 @api_router.get("/customer-dues", response_model=List[CustomerDue])
@@ -1653,6 +1958,54 @@ async def get_customer_due(
         due['transaction_date'] = datetime.fromisoformat(due['transaction_date'])
     
     return due
+
+# ========== NOTIFICATIONS ROUTES ==========
+@api_router.get("/notifications")
+async def get_notifications(
+    type: Optional[NotificationType] = None,
+    unread_only: bool = False,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    
+    if type:
+        query["type"] = type.value
+    
+    if unread_only:
+        query["is_read"] = False
+    
+    notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    for notif in notifications:
+        if isinstance(notif.get('created_at'), str):
+            notif['created_at'] = datetime.fromisoformat(notif['created_at'])
+        if isinstance(notif.get('updated_at'), str):
+            notif['updated_at'] = datetime.fromisoformat(notif['updated_at'])
+    
+    return notifications
+
+@api_router.patch("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    result = await db.notifications.update_one(
+        {"id": notification_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "is_read": True,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    return {"message": "Notification marked as read"}
 
 # ========== LOW STOCK ROUTES ==========
 @api_router.get("/products/low-stock", response_model=List[Product])
