@@ -38,6 +38,30 @@ _This section can be used to track user-specific preferences and coding styles a
 
 ## Recent Changes
 
+### User Management System (November 8, 2025)
+**Complete CRUD system for managing users with role-based permissions:**
+- **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment
+- **Route Permissions**: Assign page access via checkboxes (Dashboard, POS, Products, Sales, etc.) stored in `allowed_routes` array
+- **Security Features**: Email/username uniqueness validation, super_admin-only access, self-update/deletion protection, tenant isolation
+- **Navigation**: User Management link in sidebar (visible only to super_admin users)
+
+**API Endpoints:**
+- `GET /api/users` - List all users (excludes passwords, super_admin only)
+- `POST /api/users` - Create new user with validation
+- `PUT /api/users/{user_id}` - Update user with email/username uniqueness checks
+- `DELETE /api/users/{user_id}` - Delete user (prevents self-deletion)
+
+### Settings & File Upload System (November 8, 2025)
+- **File Upload Endpoints**: Upload logo/background images via `POST /api/upload/logo` and `POST /api/upload/background`
+- **Server-Side Validation**: 5MB max file size enforced, files stored in `/static/uploads/settings/`
+- **Settings Page**: Enhanced with file input controls and image preview functionality
+- **Navigation**: Settings link added to sidebar for easy access
+
+### POS Auto-Branch Selection (November 8, 2025)
+- **Smart Branch Detection**: Automatically selects branch with stock when adding products to cart
+- **Priority Logic**: Prioritizes user's default branch if product has stock there
+- **Products API Enhancement**: Added `branch_stock` mapping (branch_id: available_quantity) to products endpoint
+
 ### Enhanced Sales & Payment System (November 8, 2025)
 **Backend Features Implemented:**
 - **Invoice Generation**: Auto-generated invoice numbers (INV-XXXXXX format)
