@@ -16,6 +16,8 @@ const POSPage = ({ user, onLogout }) => {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
@@ -105,6 +107,8 @@ const POSPage = ({ user, onLogout }) => {
       const saleData = {
         items: cart,
         customer_name: customerName || null,
+        customer_phone: customerPhone || null,
+        customer_address: customerAddress || null,
         payment_method: paymentMethod,
         discount: discount,
         tax: tax,
@@ -114,6 +118,15 @@ const POSPage = ({ user, onLogout }) => {
       const response = await axios.post(`${API}/sales`, saleData);
       
       toast.success('Sale completed! Redirecting to invoice...');
+      
+      // Clear form
+      setCart([]);
+      setCustomerName('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+      setPaidAmount('');
+      setDiscount(0);
+      setTax(0);
       
       // Redirect to invoice page
       setTimeout(() => {
@@ -210,19 +223,40 @@ const POSPage = ({ user, onLogout }) => {
               </div>
 
               <div className="space-y-3 mb-6">
-                <input
-                  data-testid="customer-name-input"
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer Name (Optional)"
-                  className="w-full"
-                />
+                <div className="border-b border-slate-700 pb-3">
+                  <h3 className="text-sm font-semibold text-slate-300 mb-3">Customer Details</h3>
+                  <div className="space-y-2">
+                    <input
+                      data-testid="customer-name-input"
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Customer Name (Optional)"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      data-testid="customer-phone-input"
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder="Phone Number (Optional)"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                    <input
+                      data-testid="customer-address-input"
+                      type="text"
+                      value={customerAddress}
+                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      placeholder="Address (Optional)"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
                 <select
                   data-testid="payment-method-select"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="cash">Cash</option>
                   <option value="card">Card</option>
