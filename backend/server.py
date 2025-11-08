@@ -184,6 +184,7 @@ class NotificationType(str, Enum):
     UNPAID_INVOICE = "unpaid_invoice"
     LOW_STOCK = "low_stock"
     PAYMENT_RECEIVED = "payment_received"
+    SALE_CANCELLED = "sale_cancelled"
 
 # ========== MODELS ==========
 class BaseDBModel(BaseModel):
@@ -1911,6 +1912,108 @@ async def add_payment_to_sale(
         "payment_status": new_payment_status.value
     }
 
+@api_router.patch("/sales/{sale_id}/cancel")
+async def cancel_sale(
+    sale_id: str,
+    reason: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Get the sale
+    sale = await db.sales.find_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Check if sale is already cancelled
+    if sale.get('status') == SaleStatus.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Sale is already cancelled")
+    
+    # Prevent cancellation if payments have been made (business rule)
+    if sale.get('amount_paid', 0) > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot cancel sale with payments. Please process a return instead."
+        )
+    
+    # Restore stock for each item
+    for item in sale.get('items', []):
+        if sale.get('branch_id'):
+            # Restore branch-specific stock
+            await db.product_branches.update_one(
+                {
+                    "product_id": item['product_id'],
+                    "branch_id": sale['branch_id'],
+                    "tenant_id": current_user["tenant_id"]
+                },
+                {
+                    "$inc": {"stock": item['quantity']},
+                    "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+        else:
+            # Restore global stock
+            await db.products.update_one(
+                {"id": item['product_id'], "tenant_id": current_user["tenant_id"]},
+                {
+                    "$inc": {"stock": item['quantity']},
+                    "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+    
+    # Update sale status
+    await db.sales.update_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "status": SaleStatus.CANCELLED.value,
+                "cancelled_by": current_user["id"],
+                "cancellation_reason": reason,
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Remove customer due if exists
+    if sale.get('customer_name'):
+        await db.customer_dues.delete_one(
+            {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]}
+        )
+    
+    # Remove unpaid invoice notifications
+    await db.notifications.delete_many(
+        {
+            "sale_id": sale_id,
+            "tenant_id": current_user["tenant_id"],
+            "type": NotificationType.UNPAID_INVOICE.value
+        }
+    )
+    
+    # Create cancellation notification
+    notif = Notification(
+        tenant_id=current_user["tenant_id"],
+        type=NotificationType.SALE_CANCELLED,
+        sale_id=sale_id,
+        message=f"Sale {sale['sale_number']} has been cancelled",
+        is_sticky=False
+    )
+    notif_doc = notif.model_dump()
+    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+    await db.notifications.insert_one(notif_doc)
+    
+    return {
+        "message": "Sale cancelled successfully",
+        "sale_id": sale_id,
+        "stock_restored": len(sale.get('items', []))
+    }
+
 # ========== CUSTOMER DUES ROUTES ==========
 @api_router.get("/customer-dues", response_model=List[CustomerDue])
 async def get_customer_dues(
@@ -2739,12 +2842,100 @@ async def approve_return(
     if not return_req:
         raise HTTPException(status_code=404, detail="Return request not found")
     
-    await db.returns.update_one(
-        {"id": return_id, "tenant_id": current_user["tenant_id"]},
-        {"$set": {"status": "approved", "approved_by": current_user["id"], "updated_at": datetime.now(timezone.utc).isoformat()}}
+    # Check if already approved
+    if return_req.get('status') == 'approved':
+        raise HTTPException(status_code=400, detail="Return already approved")
+    
+    # Get the associated sale to find branch_id
+    sale = await db.sales.find_one(
+        {"id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
     )
     
-    return {"message": "Return request approved"}
+    if sale:
+        # Restore stock based on branch_id
+        if sale.get('branch_id'):
+            # Restore to branch-specific stock
+            await db.product_branches.update_one(
+                {
+                    "product_id": return_req['product_id'],
+                    "branch_id": sale['branch_id'],
+                    "tenant_id": current_user["tenant_id"]
+                },
+                {
+                    "$inc": {"stock": return_req['quantity']},
+                    "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+        else:
+            # Restore to global stock
+            await db.products.update_one(
+                {"id": return_req['product_id'], "tenant_id": current_user["tenant_id"]},
+                {
+                    "$inc": {"stock": return_req['quantity']},
+                    "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+        
+        # Update sale total and payment status if needed
+        refund_amount = return_req.get('refund_amount', 0)
+        if refund_amount > 0:
+            new_total = sale['total'] - refund_amount
+            new_amount_paid = max(0, sale.get('amount_paid', 0) - refund_amount)
+            new_balance_due = new_total - new_amount_paid
+            
+            # Determine new payment status
+            if new_balance_due == 0:
+                new_payment_status = PaymentStatus.PAID
+            elif new_amount_paid > 0:
+                new_payment_status = PaymentStatus.PARTIALLY_PAID
+            else:
+                new_payment_status = PaymentStatus.UNPAID
+            
+            await db.sales.update_one(
+                {"id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
+                {
+                    "$set": {
+                        "total": new_total,
+                        "amount_paid": new_amount_paid,
+                        "balance_due": new_balance_due,
+                        "payment_status": new_payment_status.value,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
+            
+            # Update customer due if exists
+            if sale.get('customer_name'):
+                await db.customer_dues.update_one(
+                    {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
+                    {
+                        "$set": {
+                            "total_amount": new_total,
+                            "paid_amount": new_amount_paid,
+                            "due_amount": new_balance_due,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+    
+    # Update return request status
+    await db.returns.update_one(
+        {"id": return_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "status": "approved",
+                "approved_by": current_user["id"],
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {
+        "message": "Return request approved and stock restored",
+        "refund_amount": return_req.get('refund_amount', 0)
+    }
 
 # ========== BOOK ROUTES (Stationery) ==========
 @api_router.post("/books", response_model=Book)
