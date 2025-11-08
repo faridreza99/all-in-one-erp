@@ -1369,8 +1369,8 @@ async def create_user(
     
     await db.users.insert_one(doc)
     
-    # Return user without hashed_password
-    user_response = {k: v for k, v in doc.items() if k != "hashed_password"}
+    # Return user without hashed_password and _id (MongoDB ObjectId)
+    user_response = {k: v for k, v in doc.items() if k not in ["hashed_password", "_id"]}
     return user_response
 
 @api_router.put("/users/{user_id}")

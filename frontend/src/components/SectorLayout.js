@@ -240,7 +240,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 {sidebarOpen && <span>Settings</span>}
               </motion.div>
             </Link>
-            
+
             <Link
               to={`/${businessType}/user-management`}
               onClick={() => isMobile && setSidebarOpen(false)}
@@ -265,7 +265,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 {sidebarOpen && <span>User Management</span>}
               </motion.div>
             </Link>
-            
+
             <motion.button
               whileHover={{ scale: 1.02, x: 2 }}
               transition={{

@@ -7,8 +7,6 @@ import {
   Calendar,
   User,
   Phone,
-  CreditCard,
-  DollarSign,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -26,20 +24,27 @@ import { formatErrorMessage } from "../utils/errorHandler";
 import { formatCurrency } from "../utils/formatters";
 import Footer from "../components/Footer";
 
+// Safe string humanizer (prevents .replace on undefined)
+const humanize = (val, fallback = "Unknown") =>
+  typeof val === "string" && val.length ? val.replace(/_/g, " ") : fallback;
+
 const InvoicePage = ({ user, onLogout }) => {
   const { saleId } = useParams();
   const navigate = useNavigate();
+
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [reference, setReference] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
   const [generatingPDF, setGeneratingPDF] = useState(false);
+
   const invoiceRef = useRef(null);
 
-  // Branding
+  // Branding from /api/settings
   const [branding, setBranding] = useState({
     name: "Smart Business ERP",
     tagline: "Powered by MaxTech BD",
@@ -62,6 +67,7 @@ const InvoicePage = ({ user, onLogout }) => {
           withCredentials: true,
         });
         const raw = data?.data ?? data ?? {};
+
         const pick = (keys, fallback = "") =>
           keys.reduce((acc, k) => acc ?? raw[k], undefined) ?? fallback;
 
@@ -86,11 +92,10 @@ const InvoicePage = ({ user, onLogout }) => {
         const email = pick(["email", "company_email", "contact_email"]);
         const website = pick(["website", "site_url"]);
 
-        if (mounted) {
+        if (mounted)
           setBranding({ name, tagline, logo, address, phone, email, website });
-        }
       } catch {
-        // keep defaults silently
+        // keep defaults
       }
     })();
     return () => {
@@ -112,14 +117,18 @@ const InvoicePage = ({ user, onLogout }) => {
   };
 
   const handleAddPayment = async () => {
+    const { sale = {} } = invoice || {};
+    const balanceDue = Number(sale.balance_due ?? 0);
+
     if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
       toast.error("Please enter a valid payment amount");
       return;
     }
+
     const amount = parseFloat(paymentAmount);
-    if (amount > invoice.sale.balance_due) {
+    if (amount > balanceDue) {
       toast.error(
-        `Payment amount cannot exceed balance due (${formatCurrency(invoice.sale.balance_due)})`,
+        `Payment amount cannot exceed balance due (${formatCurrency(balanceDue)})`,
       );
       return;
     }
@@ -128,19 +137,14 @@ const InvoicePage = ({ user, onLogout }) => {
     try {
       await axios.post(
         `${API}/sales/${saleId}/payments`,
-        {
-          amount,
-          method: paymentMethod,
-          reference: reference || undefined,
-        },
+        { amount, method: paymentMethod, reference: reference || undefined },
         { withCredentials: true },
       );
-
       toast.success("Payment added successfully!");
       setShowPaymentModal(false);
       setPaymentAmount("");
       setReference("");
-      fetchInvoice(); // Refresh invoice data
+      fetchInvoice(); // refresh
     } catch (error) {
       toast.error(formatErrorMessage(error));
     } finally {
@@ -156,14 +160,12 @@ const InvoicePage = ({ user, onLogout }) => {
     if (!invoiceRef.current) return;
     setGeneratingPDF(true);
     try {
-      // Ensure fonts/images loaded
       await document.fonts?.ready;
 
       const node = invoiceRef.current;
-
       const canvas = await html2canvas(node, {
-        scale: 2, // crisp text
-        useCORS: true, // allow cross-origin logo render
+        scale: 2,
+        useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
         windowWidth: node.scrollWidth,
@@ -174,18 +176,16 @@ const InvoicePage = ({ user, onLogout }) => {
 
       const pageWidth = 210; // A4 width in mm
       const pageHeight = 297; // A4 height in mm
-      const margin = 8; // small margin
+      const margin = 8;
       const imgWidth = pageWidth - margin * 2;
-
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
 
-      // First page
+      let heightLeft = imgHeight;
       let position = margin;
+
       pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
       heightLeft -= pageHeight - margin * 2;
 
-      // Additional pages
       while (heightLeft > 0) {
         pdf.addPage();
         position = margin - (imgHeight - heightLeft);
@@ -225,7 +225,7 @@ const InvoicePage = ({ user, onLogout }) => {
         label: "Unpaid",
       },
     };
-    const badge = badges[status] || badges.unpaid;
+    const badge = status ? badges[status] || badges.unpaid : badges.unpaid;
     const Icon = badge.icon;
     return (
       <div
@@ -266,11 +266,25 @@ const InvoicePage = ({ user, onLogout }) => {
     );
   }
 
-  const { sale, payments } = invoice;
+  // Normalize and guard invoice data
+  const { sale = {}, payments = [] } = invoice;
+  const items = Array.isArray(sale.items) ? sale.items : [];
+
+  const subtotal = items.reduce(
+    (sum, i) => sum + Number(i?.price ?? 0) * Number(i?.quantity ?? 0),
+    0,
+  );
+  const discount = Number(sale.discount ?? 0);
+  const tax = Number(sale.tax ?? 0);
+  const total = Number(sale.total ?? subtotal - discount + tax);
+  const amountPaid = Number(sale.amount_paid ?? 0);
+  const balanceDue = Number(
+    sale.balance_due ?? Math.max(total - amountPaid, 0),
+  );
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
-      {/* Print styles injected locally for this page */}
+      {/* Print styles for clean A4 output */}
       <style>{`
         @page { size: A4; margin: 10mm; }
         @media print {
@@ -282,12 +296,13 @@ const InvoicePage = ({ user, onLogout }) => {
       `}</style>
 
       <div className="space-y-6 pb-24">
+        {/* Actions (screen only) */}
         <div className="flex items-center justify-between no-print">
           <BackButton />
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
             >
               <Printer size={18} />
               <span>Print</span>
@@ -295,7 +310,7 @@ const InvoicePage = ({ user, onLogout }) => {
             <button
               onClick={handleDownloadPDF}
               disabled={generatingPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50"
             >
               <Download size={18} />
               <span>{generatingPDF ? "Generating..." : "Download PDF"}</span>
@@ -303,11 +318,12 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
         </div>
 
+        {/* Invoice card */}
         <div
           ref={invoiceRef}
           className="invoice-sheet mx-auto max-w-[900px] bg-white text-slate-800 rounded-2xl shadow-2xl border border-slate-200 print:bg-white"
         >
-          {/* Top edge accent */}
+          {/* Accent */}
           <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 rounded-t-2xl" />
 
           {/* Header */}
@@ -360,33 +376,39 @@ const InvoicePage = ({ user, onLogout }) => {
                 <div className="mt-3 space-y-1.5 text-sm">
                   <p>
                     <span className="text-slate-500">Invoice No:</span>{" "}
-                    <span className="font-semibold">{sale.invoice_no}</span>
+                    <span className="font-semibold">
+                      {sale?.invoice_no || "—"}
+                    </span>
                   </p>
                   <p>
                     <span className="text-slate-500">Sale No:</span>{" "}
-                    <span className="font-semibold">{sale.sale_number}</span>
+                    <span className="font-semibold">
+                      {sale?.sale_number || "—"}
+                    </span>
                   </p>
                   <p>
                     <span className="text-slate-500">Date:</span>{" "}
                     <span className="font-semibold">
-                      {new Date(sale.created_at).toLocaleDateString()}
+                      {sale?.created_at
+                        ? new Date(sale.created_at).toLocaleDateString()
+                        : "—"}
                     </span>
                   </p>
                   <div className="pt-1">
-                    {getPaymentStatusBadge(sale.payment_status)}
+                    {getPaymentStatusBadge(sale?.payment_status)}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Bill To */}
+            {/* Bill To / Payment */}
             <div className="mt-6 grid sm:grid-cols-2 gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-slate-500">BILL TO</p>
                 <p className="text-base font-semibold">
-                  {sale.customer_name || "Walk-in Customer"}
+                  {sale?.customer_name || "Walk-in Customer"}
                 </p>
-                {sale.customer_phone && (
+                {sale?.customer_phone && (
                   <p className="text-sm text-slate-600">
                     Phone: {sale.customer_phone}
                   </p>
@@ -395,12 +417,12 @@ const InvoicePage = ({ user, onLogout }) => {
               <div className="space-y-1 sm:text-right">
                 <p className="text-xs font-semibold text-slate-500">PAYMENT</p>
                 <p className="text-sm text-slate-600 capitalize">
-                  Method: {sale.payment_method || "—"}
+                  Method: {humanize(sale?.payment_method, "—")}
                 </p>
                 <p className="text-sm text-slate-600">
                   Status:{" "}
                   <span className="font-semibold capitalize">
-                    {sale.payment_status.replace("_", " ")}
+                    {humanize(sale?.payment_status)}
                   </span>
                 </p>
               </div>
@@ -428,24 +450,31 @@ const InvoicePage = ({ user, onLogout }) => {
                   </tr>
                 </thead>
                 <tbody className="[&>tr:nth-child(even)]:bg-slate-50">
-                  {sale.items.map((item, idx) => (
+                  {items.map((item, idx) => (
                     <tr key={idx} className="border-t border-slate-200">
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-800">
-                          {item.product_name || item.name || "Unknown Product"}
+                          {item?.product_name ||
+                            item?.name ||
+                            "Unknown Product"}
                         </p>
-                        {item.product_sku && (
+                        {item?.product_sku && (
                           <p className="text-xs text-slate-500">
                             SKU: {item.product_sku}
                           </p>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {formatCurrency(item.price)}
+                        {formatCurrency(Number(item?.price ?? 0))}
                       </td>
-                      <td className="px-4 py-3 text-right">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right">
+                        {Number(item?.quantity ?? 0)}
+                      </td>
                       <td className="px-4 py-3 text-right font-semibold">
-                        {formatCurrency(item.price * item.quantity)}
+                        {formatCurrency(
+                          Number(item?.price ?? 0) *
+                            Number(item?.quantity ?? 0),
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -463,43 +492,36 @@ const InvoicePage = ({ user, onLogout }) => {
                 <div className="rounded-xl border border-slate-200 p-4 bg-slate-50 space-y-2">
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal:</span>
-                    <span>
-                      {formatCurrency(
-                        sale.items.reduce(
-                          (sum, i) => sum + i.price * i.quantity,
-                          0,
-                        ),
-                      )}
-                    </span>
+                    <span>{formatCurrency(subtotal)}</span>
                   </div>
-                  {sale.discount > 0 && (
+                  {discount > 0 && (
                     <div className="flex justify-between text-slate-600">
                       <span>Discount:</span>
                       <span className="text-green-600">
-                        -{formatCurrency(sale.discount)}
+                        -{formatCurrency(discount)}
                       </span>
                     </div>
                   )}
-                  {sale.tax > 0 && (
+                  {tax > 0 && (
                     <div className="flex justify-between text-slate-600">
                       <span>Tax:</span>
-                      <span>{formatCurrency(sale.tax)}</span>
+                      <span>{formatCurrency(tax)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-extrabold pt-2 border-t border-slate-200">
                     <span>Total:</span>
                     <span className="text-slate-900">
-                      {formatCurrency(sale.total)}
+                      {formatCurrency(total)}
                     </span>
                   </div>
                   <div className="flex justify-between text-base text-green-700">
                     <span>Paid:</span>
-                    <span>{formatCurrency(sale.amount_paid)}</span>
+                    <span>{formatCurrency(amountPaid)}</span>
                   </div>
-                  {sale.balance_due > 0 && (
+                  {balanceDue > 0 && (
                     <div className="flex justify-between text-base text-red-600 font-semibold">
                       <span>Balance Due:</span>
-                      <span>{formatCurrency(sale.balance_due)}</span>
+                      <span>{formatCurrency(balanceDue)}</span>
                     </div>
                   )}
                 </div>
@@ -508,7 +530,7 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
 
           {/* Payment History */}
-          {payments && payments.length > 0 && (
+          {payments.length > 0 && (
             <div className="px-8 mt-8 pb-8">
               <h3 className="text-base font-semibold text-slate-800 mb-3">
                 Payment History
@@ -534,20 +556,25 @@ const InvoicePage = ({ user, onLogout }) => {
                   <tbody className="[&>tr:nth-child(even)]:bg-slate-50">
                     {payments.map((payment) => (
                       <tr
-                        key={payment.id}
+                        key={
+                          payment?.id ??
+                          `${payment?.received_at}-${payment?.amount}`
+                        }
                         className="border-t border-slate-200"
                       >
                         <td className="px-4 py-3">
-                          {new Date(payment.received_at).toLocaleDateString()}
+                          {payment?.received_at
+                            ? new Date(payment.received_at).toLocaleDateString()
+                            : "—"}
                         </td>
                         <td className="px-4 py-3 capitalize">
-                          {payment.method}
+                          {humanize(payment?.method, "—")}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          {payment.reference || "-"}
+                          {payment?.reference || "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-green-700">
-                          {formatCurrency(payment.amount)}
+                          {formatCurrency(Number(payment?.amount ?? 0))}
                         </td>
                       </tr>
                     ))}
@@ -566,7 +593,7 @@ const InvoicePage = ({ user, onLogout }) => {
         </div>
 
         {/* Sticky Unpaid Banner (screen only) */}
-        {sale.payment_status !== "paid" && (
+        {sale?.payment_status !== "paid" && balanceDue > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -580,8 +607,8 @@ const InvoicePage = ({ user, onLogout }) => {
                     Outstanding Balance
                   </h3>
                   <p className="text-sm text-slate-700">
-                    {formatCurrency(sale.balance_due)} remaining of{" "}
-                    {formatCurrency(sale.total)}
+                    {formatCurrency(balanceDue)} remaining of{" "}
+                    {formatCurrency(total)}
                   </p>
                 </div>
               </div>
@@ -617,17 +644,16 @@ const InvoicePage = ({ user, onLogout }) => {
                       step="0.01"
                       value={paymentAmount}
                       onChange={(e) => setPaymentAmount(e.target.value)}
-                      placeholder={`Max: ${formatCurrency(sale.balance_due)}`}
+                      placeholder={`Max: ${formatCurrency(balanceDue)}`}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                     <button
                       type="button"
-                      onClick={() =>
-                        setPaymentAmount(sale.balance_due.toString())
-                      }
+                      onClick={() => setPaymentAmount(String(balanceDue))}
                       className="w-full px-4 py-2 bg-green-600/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-600/30 transition-all text-sm font-medium"
+                      disabled={balanceDue <= 0}
                     >
-                      Mark Full Paid ({formatCurrency(sale.balance_due)})
+                      Mark Full Paid ({formatCurrency(balanceDue)})
                     </button>
                   </div>
                 </div>
