@@ -232,10 +232,29 @@ class TokenResponse(BaseModel):
     token_type: str
     user: Dict[str, Any]
 
+class CategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class Category(BaseDBModel):
+    tenant_id: str
+    name: str
+    description: Optional[str] = None
+
+class BrandCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class Brand(BaseDBModel):
+    tenant_id: str
+    name: str
+    description: Optional[str] = None
+
 class ProductCreate(BaseModel):
     name: str
     sku: Optional[str] = None
-    category: str
+    category: Optional[str] = None
+    category_id: Optional[str] = None
     price: float
     stock: int = 0
     description: Optional[str] = None
@@ -243,6 +262,7 @@ class ProductCreate(BaseModel):
     # Pharmacy specific
     generic_name: Optional[str] = None
     brand: Optional[str] = None
+    brand_id: Optional[str] = None
     batch_number: Optional[str] = None
     expiry_date: Optional[str] = None
     # Mobile shop specific
@@ -253,13 +273,15 @@ class Product(BaseDBModel):
     tenant_id: str
     name: str
     sku: Optional[str] = None
-    category: str
+    category: Optional[str] = None
+    category_id: Optional[str] = None
     price: float
     stock: int
     description: Optional[str] = None
     supplier_name: Optional[str] = None
     generic_name: Optional[str] = None
     brand: Optional[str] = None
+    brand_id: Optional[str] = None
     batch_number: Optional[str] = None
     expiry_date: Optional[str] = None
     imei: Optional[str] = None
@@ -345,6 +367,7 @@ class SaleCreate(BaseModel):
     discount: float = 0
     tax: float = 0
     paid_amount: Optional[float] = None
+    reference: Optional[str] = None
 
 class Sale(BaseDBModel):
     tenant_id: str
@@ -365,6 +388,7 @@ class Sale(BaseDBModel):
     status: SaleStatus = SaleStatus.COMPLETED
     payment_status: PaymentStatus = PaymentStatus.UNPAID
     payment_method: str = "cash"
+    reference: Optional[str] = None
     created_by: Optional[str] = None
 
 class PaymentCreate(BaseModel):
@@ -383,6 +407,7 @@ class Payment(BaseDBModel):
 class NotificationCreate(BaseModel):
     type: NotificationType
     sale_id: Optional[str] = None
+    reference_id: Optional[str] = None
     message: str
     is_sticky: bool = False
 
@@ -390,6 +415,7 @@ class Notification(BaseDBModel):
     tenant_id: str
     type: NotificationType
     sale_id: Optional[str] = None
+    reference_id: Optional[str] = None
     message: str
     is_sticky: bool = False
     is_read: bool = False
@@ -1301,6 +1327,166 @@ async def toggle_tenant_module(
     
     return {"message": "Module toggled", "modules_enabled": modules}
 
+# ========== CATEGORY ROUTES ==========
+@api_router.post("/categories", response_model=Category)
+async def create_category(
+    category_data: CategoryCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    category = Category(
+        tenant_id=current_user["tenant_id"],
+        **category_data.model_dump()
+    )
+    
+    doc = category.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.categories.insert_one(doc)
+    return category
+
+@api_router.get("/categories", response_model=List[Category])
+async def get_categories(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    categories = await db.categories.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for category in categories:
+        if isinstance(category.get('created_at'), str):
+            category['created_at'] = datetime.fromisoformat(category['created_at'])
+        if isinstance(category.get('updated_at'), str):
+            category['updated_at'] = datetime.fromisoformat(category['updated_at'])
+    
+    return categories
+
+@api_router.patch("/categories/{category_id}")
+async def update_category(
+    category_id: str,
+    category_data: CategoryCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    update_data = category_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.categories.update_one(
+        {"id": category_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    return {"message": "Category updated"}
+
+@api_router.delete("/categories/{category_id}")
+async def delete_category(
+    category_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    result = await db.categories.delete_one(
+        {"id": category_id, "tenant_id": current_user["tenant_id"]}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    return {"message": "Category deleted"}
+
+# ========== BRAND ROUTES ==========
+@api_router.post("/brands", response_model=Brand)
+async def create_brand(
+    brand_data: BrandCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    brand = Brand(
+        tenant_id=current_user["tenant_id"],
+        **brand_data.model_dump()
+    )
+    
+    doc = brand.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.brands.insert_one(doc)
+    return brand
+
+@api_router.get("/brands", response_model=List[Brand])
+async def get_brands(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    brands = await db.brands.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for brand in brands:
+        if isinstance(brand.get('created_at'), str):
+            brand['created_at'] = datetime.fromisoformat(brand['created_at'])
+        if isinstance(brand.get('updated_at'), str):
+            brand['updated_at'] = datetime.fromisoformat(brand['updated_at'])
+    
+    return brands
+
+@api_router.patch("/brands/{brand_id}")
+async def update_brand(
+    brand_id: str,
+    brand_data: BrandCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    update_data = brand_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.brands.update_one(
+        {"id": brand_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    return {"message": "Brand updated"}
+
+@api_router.delete("/brands/{brand_id}")
+async def delete_brand(
+    brand_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    result = await db.brands.delete_one(
+        {"id": brand_id, "tenant_id": current_user["tenant_id"]}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    return {"message": "Brand deleted"}
+
 # ========== PRODUCT ROUTES ==========
 @api_router.post("/products", response_model=Product)
 async def create_product(
@@ -1638,6 +1824,70 @@ async def create_sale(
                 {"$inc": {"stock": -item.quantity}}
             )
     
+    # Check for low stock and create notifications (≤5 units)
+    for item in sale_data.items:
+        if sale_data.branch_id:
+            # Check branch-specific stock
+            product_branch = await db.product_branches.find_one({
+                "product_id": item.product_id,
+                "branch_id": sale_data.branch_id,
+                "tenant_id": current_user["tenant_id"]
+            }, {"_id": 0})
+            
+            if product_branch and product_branch.get("stock", 0) <= 5:
+                # Get product name
+                product = await db.products.find_one(
+                    {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
+                    {"_id": 0, "name": 1}
+                )
+                if product:
+                    # Check if notification already exists for this product
+                    existing_notif = await db.notifications.find_one({
+                        "tenant_id": current_user["tenant_id"],
+                        "type": NotificationType.LOW_STOCK,
+                        "reference_id": f"{item.product_id}_{sale_data.branch_id}"
+                    })
+                    
+                    if not existing_notif:
+                        notification = Notification(
+                            tenant_id=current_user["tenant_id"],
+                            type=NotificationType.LOW_STOCK,
+                            reference_id=f"{item.product_id}_{sale_data.branch_id}",
+                            message=f"Low stock alert: {product['name']} (Branch) - Only {product_branch['stock']} units left!",
+                            is_sticky=False
+                        )
+                        notif_doc = notification.model_dump()
+                        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+                        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+                        await db.notifications.insert_one(notif_doc)
+        else:
+            # Check global stock
+            product = await db.products.find_one(
+                {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
+                {"_id": 0}
+            )
+            
+            if product and product.get("stock", 0) <= 5:
+                # Check if notification already exists for this product
+                existing_notif = await db.notifications.find_one({
+                    "tenant_id": current_user["tenant_id"],
+                    "type": NotificationType.LOW_STOCK,
+                    "reference_id": item.product_id
+                })
+                
+                if not existing_notif:
+                    notification = Notification(
+                        tenant_id=current_user["tenant_id"],
+                        type=NotificationType.LOW_STOCK,
+                        reference_id=item.product_id,
+                        message=f"Low stock alert: {product['name']} - Only {product['stock']} units left!",
+                        is_sticky=False
+                    )
+                    notif_doc = notification.model_dump()
+                    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+                    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+                    await db.notifications.insert_one(notif_doc)
+    
     # Auto-create or update customer if customer details are provided
     actual_customer_id = sale_data.customer_id
     if sale_data.customer_name and (sale_data.customer_phone or sale_data.customer_address):
@@ -1714,6 +1964,7 @@ async def create_sale(
         status=SaleStatus.COMPLETED,
         payment_status=payment_status,
         payment_method=sale_data.payment_method,
+        reference=sale_data.reference,
         created_by=current_user.get("email")
     )
     
@@ -2165,6 +2416,88 @@ async def mark_notification_read(
         raise HTTPException(status_code=404, detail="Notification not found")
     
     return {"message": "Notification marked as read"}
+
+@api_router.post("/notifications/scheduled-check")
+async def scheduled_notification_check(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    tenant_id = current_user["tenant_id"]
+    created_count = 0
+    
+    # 1. Check for low stock products (≤5 units)
+    low_stock_products = await db.products.find(
+        {"tenant_id": tenant_id, "stock": {"$lte": 5}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for product in low_stock_products:
+        # Check if notification already exists
+        existing_notif = await db.notifications.find_one({
+            "tenant_id": tenant_id,
+            "type": NotificationType.LOW_STOCK,
+            "reference_id": product['id']
+        })
+        
+        if not existing_notif:
+            notification = Notification(
+                tenant_id=tenant_id,
+                type=NotificationType.LOW_STOCK,
+                reference_id=product['id'],
+                message=f"Low stock alert: {product['name']} - Only {product['stock']} units left!",
+                is_sticky=False
+            )
+            notif_doc = notification.model_dump()
+            notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+            notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+            await db.notifications.insert_one(notif_doc)
+            created_count += 1
+    
+    # 2. Check for unpaid/partially paid invoices older than 7 days
+    from datetime import timedelta
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    overdue_sales = await db.sales.find(
+        {
+            "tenant_id": tenant_id,
+            "payment_status": {"$in": [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID]},
+            "created_at": {"$lt": seven_days_ago.isoformat()}
+        },
+        {"_id": 0}
+    ).to_list(1000)
+    
+    for sale in overdue_sales:
+        # Check if notification already exists and is still unread
+        existing_notif = await db.notifications.find_one({
+            "tenant_id": tenant_id,
+            "type": NotificationType.UNPAID_INVOICE,
+            "sale_id": sale['id'],
+            "is_read": False
+        })
+        
+        # Only create if no unread notification exists
+        if not existing_notif:
+            notification = Notification(
+                tenant_id=tenant_id,
+                type=NotificationType.UNPAID_INVOICE,
+                sale_id=sale['id'],
+                message=f"Overdue invoice {sale['invoice_no']}: ৳{sale.get('balance_due', 0):.2f} outstanding for 7+ days",
+                is_sticky=True
+            )
+            notif_doc = notification.model_dump()
+            notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+            notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+            await db.notifications.insert_one(notif_doc)
+            created_count += 1
+    
+    return {
+        "message": "Scheduled check completed",
+        "notifications_created": created_count,
+        "low_stock_products": len(low_stock_products),
+        "overdue_invoices": len(overdue_sales)
+    }
 
 # ========== LOW STOCK ROUTES ==========
 @api_router.get("/products/low-stock", response_model=List[Product])

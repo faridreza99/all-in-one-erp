@@ -18,6 +18,7 @@ import CustomersPage from './pages/CustomersPage';
 import CustomerDuesPage from './pages/CustomerDuesPage';
 import ExpensesPage from './pages/ExpensesPage';
 import ReportsPage from './pages/ReportsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import ClinicPage from './pages/ClinicPage';
 import WarrantiesPage from './pages/WarrantiesPage';
 import ReturnsPage from './pages/ReturnsPage';
@@ -280,6 +281,10 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/reports`} 
                     element={<SectorRoute user={user} module="reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/notifications`} 
+                    element={<NotificationsPage user={user} onLogout={handleLogout} />}
                   />
                   
                   {/* CNF Routes */}

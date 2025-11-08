@@ -22,9 +22,13 @@ const POSPage = ({ user, onLogout }) => {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
   const [paidAmount, setPaidAmount] = useState("");
+  const [reference, setReference] = useState("");
+  const [branchId, setBranchId] = useState("");
+  const [branches, setBranches] = useState([]);
 
   useEffect(() => {
     fetchProducts();
+    fetchBranches();
   }, []);
 
   const fetchProducts = async () => {
@@ -33,6 +37,15 @@ const POSPage = ({ user, onLogout }) => {
       setProducts(response.data.filter((p) => p.stock > 0));
     } catch (error) {
       toast.error("Failed to fetch products");
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const response = await axios.get(`${API}/branches`);
+      setBranches(response.data);
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
     }
   };
 
@@ -123,6 +136,8 @@ const POSPage = ({ user, onLogout }) => {
         discount: discount,
         tax: tax,
         paid_amount: paidAmountValue,
+        reference: reference || null,
+        branch_id: branchId || null,
       };
 
       const response = await axios.post(`${API}/sales`, saleData);
@@ -328,6 +343,14 @@ const POSPage = ({ user, onLogout }) => {
                       placeholder="Address "
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
+                    <input
+                      data-testid="reference-input"
+                      type="text"
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="Reference (Optional)"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
                   </div>
                 </div>
                 <select
@@ -339,6 +362,19 @@ const POSPage = ({ user, onLogout }) => {
                   <option value="cash">Cash</option>
                   <option value="card">Card</option>
                   <option value="mobile">Mobile Payment</option>
+                </select>
+                <select
+                  data-testid="branch-select"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">Select Branch (Optional)</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} - {branch.branch_code}
+                    </option>
+                  ))}
                 </select>
               </div>
 
