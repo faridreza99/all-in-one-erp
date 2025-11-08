@@ -1,27 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
-import SectorLayout from '../components/SectorLayout';
-import BackButton from '../components/BackButton';
-import { API } from '../App';
-import { toast } from 'sonner';
-import { formatErrorMessage } from '../utils/errorHandler';
-import { formatCurrency } from '../utils/formatters';
-import Footer from '../components/Footer';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Plus, Minus, Trash2, ShoppingCart, X } from "lucide-react";
+import SectorLayout from "../components/SectorLayout";
+import BackButton from "../components/BackButton";
+import { API } from "../App";
+import { toast } from "sonner";
+import { formatErrorMessage } from "../utils/errorHandler";
+import { formatCurrency } from "../utils/formatters";
+import Footer from "../components/Footer";
 
 const POSPage = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
-  const [paidAmount, setPaidAmount] = useState('');
+  const [paidAmount, setPaidAmount] = useState("");
 
   useEffect(() => {
     fetchProducts();
@@ -30,62 +30,74 @@ const POSPage = ({ user, onLogout }) => {
   const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API}/products`);
-      setProducts(response.data.filter(p => p.stock > 0));
+      setProducts(response.data.filter((p) => p.stock > 0));
     } catch (error) {
-      toast.error('Failed to fetch products');
+      toast.error("Failed to fetch products");
     }
   };
 
   const addToCart = (product) => {
-    const existingItem = cart.find(item => item.product_id === product.id);
+    const existingItem = cart.find((item) => item.product_id === product.id);
     if (existingItem) {
       if (existingItem.quantity < product.stock) {
-        setCart(cart.map(item =>
-          item.product_id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        ));
+        setCart(
+          cart.map((item) =>
+            item.product_id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item,
+          ),
+        );
       } else {
-        toast.error('Not enough stock');
+        toast.error("Not enough stock");
       }
     } else {
-      setCart([...cart, {
-        product_id: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1
-      }]);
+      setCart([
+        ...cart,
+        {
+          product_id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+        },
+      ]);
     }
   };
 
   const removeFromCart = (productId) => {
-    setCart(cart.filter(item => item.product_id !== productId));
+    setCart(cart.filter((item) => item.product_id !== productId));
   };
 
   const updateQuantity = (productId, change) => {
-    const product = products.find(p => p.id === productId);
-    setCart(cart.map(item => {
-      if (item.product_id === productId) {
-        const newQty = item.quantity + change;
-        if (newQty <= 0) return null;
-        if (newQty > product.stock) {
-          toast.error('Not enough stock');
+    const product = products.find((p) => p.id === productId);
+    setCart(
+      cart
+        .map((item) => {
+          if (item.product_id === productId) {
+            const newQty = item.quantity + change;
+            if (newQty <= 0) return null;
+            if (newQty > product.stock) {
+              toast.error("Not enough stock");
+              return item;
+            }
+            return { ...item, quantity: newQty };
+          }
           return item;
-        }
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    }).filter(Boolean));
+        })
+        .filter(Boolean),
+    );
   };
 
   const calculateTotal = () => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = cart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
     return subtotal - discount + tax;
   };
 
   const handleCheckout = async () => {
     if (cart.length === 0) {
-      toast.error('Cart is empty');
+      toast.error("Cart is empty");
       return;
     }
 
@@ -94,12 +106,12 @@ const POSPage = ({ user, onLogout }) => {
 
     // Validation for partial payment
     if (paidAmountValue > totalAmount) {
-      toast.error('Paid amount cannot exceed total amount');
+      toast.error("Paid amount cannot exceed total amount");
       return;
     }
 
     if (paidAmountValue < totalAmount && !customerName) {
-      toast.error('Customer name is required for partial payments');
+      toast.error("Customer name is required for partial payments");
       return;
     }
 
@@ -112,32 +124,35 @@ const POSPage = ({ user, onLogout }) => {
         payment_method: paymentMethod,
         discount: discount,
         tax: tax,
-        paid_amount: paidAmountValue
+        paid_amount: paidAmountValue,
       };
 
       const response = await axios.post(`${API}/sales`, saleData);
-      
-      toast.success('Sale completed! Redirecting to invoice...');
-      
+
+      toast.success("Sale completed! Redirecting to invoice...");
+
       // Clear form
       setCart([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-      setPaidAmount('');
+      setCustomerName("");
+      setCustomerPhone("");
+      setCustomerAddress("");
+      setPaidAmount("");
       setDiscount(0);
       setTax(0);
-      
+
       // Redirect to invoice page
       setTimeout(() => {
         navigate(`/${user.business_type}/invoice/${response.data.id}`);
       }, 1000);
     } catch (error) {
-      toast.error(formatErrorMessage(error, 'Checkout failed'));
+      toast.error(formatErrorMessage(error, "Checkout failed"));
     }
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
   const total = calculateTotal();
 
   return (
@@ -167,11 +182,19 @@ const POSPage = ({ user, onLogout }) => {
                     className="glass-card p-4 cursor-pointer hover:border-blue-400"
                     data-testid={`pos-product-${product.id}`}
                   >
-                    <h3 className="font-semibold text-white mb-1">{product.name}</h3>
-                    <p className="text-slate-400 text-sm mb-2">{product.category}</p>
+                    <h3 className="font-semibold text-white mb-1">
+                      {product.name}
+                    </h3>
+                    <p className="text-slate-400 text-sm mb-2">
+                      {product.category}
+                    </p>
                     <div className="flex justify-between items-center">
-                      <span className="text-green-400 font-bold">{formatCurrency(product.price)}</span>
-                      <span className="text-xs text-slate-400">Stock: {product.stock}</span>
+                      <span className="text-green-400 font-bold">
+                        {formatCurrency(product.price)}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Stock: {product.stock}
+                      </span>
                     </div>
                   </motion.div>
                 ))}
@@ -184,15 +207,25 @@ const POSPage = ({ user, onLogout }) => {
             <div className="glass-card p-6 sticky top-6">
               <div className="flex items-center gap-2 mb-6">
                 <ShoppingCart className="w-6 h-6 text-blue-400" />
-                <h2 className="text-xl font-bold text-white">Cart ({cart.length})</h2>
+                <h2 className="text-xl font-bold text-white">
+                  Cart ({cart.length})
+                </h2>
               </div>
 
               <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
                 {cart.map((item) => (
-                  <div key={item.product_id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg" data-testid={`cart-item-${item.product_id}`}>
+                  <div
+                    key={item.product_id}
+                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg"
+                    data-testid={`cart-item-${item.product_id}`}
+                  >
                     <div className="flex-1">
-                      <p className="font-semibold text-white text-sm">{item.name}</p>
-                      <p className="text-slate-400 text-xs">{formatCurrency(item.price)} each</p>
+                      <p className="font-semibold text-white text-sm">
+                        {item.name}
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        {formatCurrency(item.price)} each
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -202,7 +235,9 @@ const POSPage = ({ user, onLogout }) => {
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-white font-semibold w-8 text-center">{item.quantity}</span>
+                      <span className="text-white font-semibold w-8 text-center">
+                        {item.quantity}
+                      </span>
                       <button
                         onClick={() => updateQuantity(item.product_id, 1)}
                         className="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/30 rounded"
@@ -224,14 +259,16 @@ const POSPage = ({ user, onLogout }) => {
 
               <div className="space-y-3 mb-6">
                 <div className="border-b border-slate-700 pb-3">
-                  <h3 className="text-sm font-semibold text-slate-300 mb-3">Customer Details</h3>
+                  <h3 className="text-sm font-semibold text-slate-300 mb-3">
+                    Customer Details
+                  </h3>
                   <div className="space-y-2">
                     <input
                       data-testid="customer-name-input"
                       type="text"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Customer Name (Optional)"
+                      placeholder="Customer Name "
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                     <input
@@ -239,7 +276,7 @@ const POSPage = ({ user, onLogout }) => {
                       type="tel"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="Phone Number (Optional)"
+                      placeholder="Phone Number "
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                     <input
@@ -247,7 +284,7 @@ const POSPage = ({ user, onLogout }) => {
                       type="text"
                       value={customerAddress}
                       onChange={(e) => setCustomerAddress(e.target.value)}
-                      placeholder="Address (Optional)"
+                      placeholder="Address "
                       className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
@@ -307,18 +344,23 @@ const POSPage = ({ user, onLogout }) => {
                   max={total}
                 />
                 <p className="text-xs text-slate-400 mt-2">
-                  Leave empty for full payment. Enter partial amount to create customer due.
+                  Leave empty for full payment. Enter partial amount to create
+                  customer due.
                 </p>
                 {paidAmount && parseFloat(paidAmount) < total && (
                   <div className="mt-3 p-2 bg-orange-500/20 border border-orange-500/30 rounded text-orange-300 text-sm">
-                    <strong>Due Amount:</strong> {formatCurrency(total - parseFloat(paidAmount || 0))}
+                    <strong>Due Amount:</strong>{" "}
+                    {formatCurrency(total - parseFloat(paidAmount || 0))}
                   </div>
                 )}
               </div>
 
               <div className="flex justify-between items-center mb-6">
                 <span className="text-xl font-bold text-white">Total:</span>
-                <span className="text-3xl font-bold text-green-400" data-testid="total">
+                <span
+                  className="text-3xl font-bold text-green-400"
+                  data-testid="total"
+                >
                   {formatCurrency(total)}
                 </span>
               </div>
@@ -334,7 +376,7 @@ const POSPage = ({ user, onLogout }) => {
             </div>
           </div>
         </div>
-        
+
         <Footer />
       </motion.div>
     </SectorLayout>

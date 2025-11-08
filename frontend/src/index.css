@@ -13,10 +13,10 @@ body {
 }
 
 code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
+/* ===== Theme tokens ===== */
 @layer base {
     :root {
         --background: 0 0% 100%;
@@ -45,6 +45,7 @@ code {
         --chart-5: 27 87% 67%;
         --radius: 0.5rem;
     }
+
     .dark {
         --background: 0 0% 3.9%;
         --foreground: 0 0% 98%;
@@ -73,15 +74,16 @@ code {
     }
 }
 
+/* ===== Base resets & inputs ===== */
 @layer base {
     * {
         @apply border-border;
     }
+
     body {
         @apply bg-background text-foreground;
     }
-    
-    /* Fix for input visibility - ensure dark text on light backgrounds */
+
     input[type="text"],
     input[type="email"],
     input[type="password"],
@@ -94,7 +96,7 @@ code {
     select {
         @apply text-gray-900 bg-white;
     }
-    
+
     input[type="text"]::placeholder,
     input[type="email"]::placeholder,
     input[type="password"]::placeholder,
@@ -106,15 +108,28 @@ code {
     textarea::placeholder {
         @apply text-gray-400;
     }
-    
-    /* Ensure checkboxes and radio buttons are visible */
+
     input[type="checkbox"],
     input[type="radio"] {
         @apply cursor-pointer;
     }
+
+    /* Debug wrapper passthrough */
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"]>* {
+        margin: inherit;
+        padding: inherit;
+        gap: inherit;
+        border-width: inherit;
+        border-style: inherit;
+        border-color: inherit;
+    }
 }
 
-/* Custom Scrollbar Styles */
+/* ===== Custom scrollbar (thin) – keep for places you want it visible ===== */
 .scrollbar-thin {
     scrollbar-width: thin;
 }
@@ -136,34 +151,32 @@ code {
     background-color: rgba(71, 85, 105, 0.8);
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
+/* ===== Hide scrollbar but keep scroll functionality ===== */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ===== Collapsed sidebar: remove all possible scroll tracks ===== */
+.sidebar.collapsed,
+.sidebar.collapsed * {
+    overflow: hidden !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+.sidebar.collapsed::-webkit-scrollbar,
+.sidebar.collapsed *::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+}
+
+/* ===== Sidebar item hover glow ===== */
+.sidebar-item:hover {
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
 }

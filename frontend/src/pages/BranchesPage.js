@@ -205,7 +205,7 @@ function BranchesPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Branch manager's name (optional)"
+                  placeholder="Branch manager's name "
                   value={formData.manager_name}
                   onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all outline-none bg-white text-slate-800"

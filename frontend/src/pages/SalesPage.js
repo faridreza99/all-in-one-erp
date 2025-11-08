@@ -238,7 +238,7 @@ const SalesPage = ({ user, onLogout }) => {
 
               <div className="mb-6">
                 <label className="block text-slate-300 font-semibold mb-2">
-                  Cancellation Reason (Optional)
+                  Cancellation Reason 
                 </label>
                 <textarea
                   value={cancellationReason}

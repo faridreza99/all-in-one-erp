@@ -70,9 +70,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      // auto-collapse on mobile; desktop may start mini
-      if (mobile && sidebarOpen) setSidebarOpen(false);
-      if (!mobile && !sidebarOpen) setSidebarOpen(false);
+      if (mobile && sidebarOpen) setSidebarOpen(false); // auto-close on mobile
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -92,7 +90,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
     };
   });
 
-  // Layout math
+  // Layout/scroll behavior
+  const isDesktopMini = !isMobile && !sidebarOpen;
   const sidebarWidth = isMobile
     ? sidebarOpen
       ? 256
@@ -102,9 +101,14 @@ const SectorLayout = ({ children, user, onLogout }) => {
       : 80;
   const sidebarX = isMobile && !sidebarOpen ? -256 : 0;
   const contentMarginLeft = isMobile ? 0 : sidebarOpen ? 256 : 80;
+  const sidebarScrollClass =
+    sidebarOpen || isDesktopMini
+      ? "overflow-y-auto scrollbar-hide"
+      : "overflow-hidden";
 
   return (
     <div className="min-h-screen gradient-bg">
+      {/* Mobile backdrop */}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40"
@@ -116,29 +120,18 @@ const SectorLayout = ({ children, user, onLogout }) => {
       <motion.div
         initial={false}
         animate={{ x: sidebarX, width: sidebarWidth }}
-        className={`fixed left-0 top-0 h-full sidebar z-50
-          ${
-            sidebarOpen
-              ? "overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent"
-              : "overflow-y-hidden collapsed"
-          }
-        `}
+        className={`fixed left-0 top-0 h-full sidebar z-50 ${sidebarScrollClass}`}
         style={{ scrollBehavior: "smooth" }}
       >
-        {/* Wrapper */}
         <div
-          className={`h-full flex flex-col ${sidebarOpen ? "px-4 py-4" : "px-0 py-3 overflow-hidden"}`}
+          className={`h-full flex flex-col ${sidebarOpen ? "px-4 py-4" : "px-0 py-3"}`}
         >
           {/* Header / Toggle */}
           <div
             className={`${sidebarOpen ? "flex items-center justify-between" : "flex items-center justify-center"} mb-6 flex-shrink-0`}
           >
             {sidebarOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-3"
-              >
+              <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                   <Building2 className="w-7 h-7 text-white" />
                 </div>
@@ -150,7 +143,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     Powered by MaxTech BD
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -168,7 +161,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
           {/* Nav */}
           <nav
-            className={`${sidebarOpen ? "overflow-y-auto" : "overflow-hidden"} flex-1 space-y-2`}
+            className={`${sidebarOpen || isDesktopMini ? "overflow-y-auto scrollbar-hide" : "overflow-hidden"} flex-1 space-y-2`}
           >
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -183,45 +176,65 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   to={item.path}
                   onClick={() => isMobile && setSidebarOpen(false)}
                 >
-                  <div
+                  <motion.div
+                    whileHover={{ scale: 1.02, x: 2 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 20,
+                      mass: 0.3,
+                    }}
                     className={`
+                      flex items-center w-full rounded-xl hover:bg-white/10
+                      ${sidebarOpen ? "px-3 py-2 gap-3 justify-start" : "justify-center h-12"}
                       sidebar-item ${isActive ? "active" : ""}
-                      ${sidebarOpen ? "px-3 py-2 gap-3 justify-start" : "px-0 py-2 gap-0 justify-center"}
-                      flex items-center w-full
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60
                     `}
                     data-testid={`menu-${item.label.toLowerCase()}`}
                     title={!sidebarOpen ? item.label : undefined}
                   >
-                    <Icon className="w-5 h-5" />
+                    <motion.span className="grid place-items-center">
+                      <Icon className="w-5 h-5 mx-auto" />
+                    </motion.span>
                     {sidebarOpen && (
                       <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={{ duration: 0.15 }}
+                        className="truncate"
                       >
                         {item.label}
                       </motion.span>
                     )}
-                  </div>
+                  </motion.div>
                 </Link>
               );
             })}
           </nav>
 
           {/* Footer */}
-          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0 overflow-hidden">
-            <button
+          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0">
+            <motion.button
+              whileHover={{ scale: 1.02, x: 2 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 20,
+                mass: 0.3,
+              }}
               onClick={onLogout}
-              className={`sidebar-item w-full text-left flex items-center ${sidebarOpen ? "px-3 py-2 gap-3 justify-start" : "px-0 py-2 gap-0 justify-center"}`}
+              className={`sidebar-item w-full text-left flex items-center rounded-xl hover:bg-white/10 ${
+                sidebarOpen
+                  ? "px-3 py-2 gap-3 justify-start"
+                  : "justify-center h-12"
+              }`}
               data-testid="logout-button"
               title={!sidebarOpen ? "Logout" : undefined}
             >
-              <LogOut className="w-5 h-5" />
-              {sidebarOpen && (
-                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  Logout
-                </motion.span>
-              )}
-            </button>
+              <LogOut className="w-5 h-5 mx-auto" />
+              {sidebarOpen && <span>Logout</span>}
+            </motion.button>
           </div>
         </div>
       </motion.div>

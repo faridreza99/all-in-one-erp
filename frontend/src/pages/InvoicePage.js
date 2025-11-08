@@ -367,7 +367,7 @@ const InvoicePage = ({ user, onLogout }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Reference (Optional)
+                    Reference 
                   </label>
                   <input
                     type="text"

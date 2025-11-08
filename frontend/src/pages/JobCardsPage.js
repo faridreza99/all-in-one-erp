@@ -143,7 +143,7 @@ function JobCardsPage() {
             />
             <input
               type="text"
-              placeholder="Serial Number (Optional)"
+              placeholder="Serial Number "
               value={formData.serial_number}
               onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
               className="p-2 border rounded"

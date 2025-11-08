@@ -520,7 +520,7 @@ function StockTransferPage({ user, onLogout }) {
                   <div>
                     <label className="block text-slate-300 font-semibold mb-2 flex items-center gap-2">
                       <FileText className="w-4 h-4 text-slate-400" />
-                      Reference Note (Optional)
+                      Reference Note 
                     </label>
                     <textarea
                       value={referenceNote}

@@ -368,7 +368,6 @@ class Sale(BaseDBModel):
     created_by: Optional[str] = None
 
 class PaymentCreate(BaseModel):
-    sale_id: str
     amount: float
     method: PaymentMethod
     reference: Optional[str] = None

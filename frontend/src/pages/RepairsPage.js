@@ -197,7 +197,7 @@ const RepairsPage = ({ user, onLogout }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">IMEI (Optional)</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">IMEI </label>
                   <input
                     type="text"
                     value={formData.imei}

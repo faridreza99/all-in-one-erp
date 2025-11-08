@@ -220,7 +220,7 @@ Password: mobile123
 4. Add tax
 5. Select payment method
 6. Complete sale
-7. Download invoice (optional)
+7. Download invoice 
 
 ### **Inventory Management**
 1. Monitor stock levels
