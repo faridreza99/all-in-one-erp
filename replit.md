@@ -42,14 +42,15 @@ _This section can be used to track user-specific preferences and coding styles a
 **Complete CRUD system for managing users with role-based permissions:**
 - **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment
 - **Route Permissions**: Assign page access via checkboxes (Dashboard, POS, Products, Sales, etc.) stored in `allowed_routes` array
-- **Security Features**: Email/username uniqueness validation, super_admin-only access, self-update/deletion protection, tenant isolation
+- **Security Features**: Email/username uniqueness validation, self-update/deletion protection, tenant isolation
+- **Access Control**: Available to all Mobile Shop users (any role) and super_admin users from other business types
 - **Navigation**: User Management link in sidebar (visible to all Mobile Shop users and super_admin users)
 
 **API Endpoints:**
-- `GET /api/users` - List all users (excludes passwords, super_admin only)
-- `POST /api/users` - Create new user with validation
-- `PUT /api/users/{user_id}` - Update user with email/username uniqueness checks
-- `DELETE /api/users/{user_id}` - Delete user (prevents self-deletion)
+- `GET /api/users` - List all users (excludes passwords, Mobile Shop or super_admin)
+- `POST /api/users` - Create new user with validation (Mobile Shop or super_admin)
+- `PUT /api/users/{user_id}` - Update user with email/username uniqueness checks (Mobile Shop or super_admin)
+- `DELETE /api/users/{user_id}` - Delete user (prevents self-deletion, Mobile Shop or super_admin)
 
 ### Settings & File Upload System (November 8, 2025)
 - **File Upload Endpoints**: Upload logo/background images via `POST /api/upload/logo` and `POST /api/upload/background`

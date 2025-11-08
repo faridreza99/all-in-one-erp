@@ -1124,6 +1124,14 @@ def require_role(allowed_roles: List[UserRole]):
         return current_user
     return role_checker
 
+async def require_user_management_access(current_user: dict = Depends(get_current_user)):
+    """Allow super_admin from any business type OR any user from mobile-shop"""
+    if current_user["role"] == UserRole.SUPER_ADMIN.value:
+        return current_user
+    if current_user.get("business_type") == "mobile-shop":
+        return current_user
+    raise HTTPException(status_code=403, detail="Insufficient permissions")
+
 # ========== AUTH ROUTES ==========
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
@@ -1316,10 +1324,10 @@ async def change_password(
     
     return {"message": "Password changed successfully"}
 
-# ========== USER MANAGEMENT ROUTES (Super Admin Only) ==========
+# ========== USER MANAGEMENT ROUTES (Super Admin or Mobile Shop) ==========
 @api_router.get("/users")
 async def get_users(
-    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+    current_user: dict = Depends(require_user_management_access)
 ):
     users = await db.users.find(
         {"tenant_id": current_user["tenant_id"]},
@@ -1337,7 +1345,7 @@ async def get_users(
 @api_router.post("/users")
 async def create_user(
     user_data: UserCreate,
-    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+    current_user: dict = Depends(require_user_management_access)
 ):
     # Check if email exists
     existing_email = await db.users.find_one({"email": user_data.email}, {"_id": 0})
@@ -1373,7 +1381,7 @@ async def create_user(
 async def update_user(
     user_id: str,
     user_data: Dict[str, Any],
-    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+    current_user: dict = Depends(require_user_management_access)
 ):
     # Don't allow updating super admin's own account through this endpoint
     if user_id == current_user["id"]:
@@ -1429,7 +1437,7 @@ async def update_user(
 @api_router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,
-    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+    current_user: dict = Depends(require_user_management_access)
 ):
     # Don't allow deleting own account
     if user_id == current_user["id"]:
