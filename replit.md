@@ -36,6 +36,37 @@ This project is a comprehensive, sector-specific ERP system designed to support 
 ## User Preferences
 _This section can be used to track user-specific preferences and coding styles as the project evolves._
 
+## Recent Changes
+
+### Enhanced Sales & Payment System (November 8, 2025)
+**Backend Features Implemented:**
+- **Invoice Generation**: Auto-generated invoice numbers (INV-XXXXXX format)
+- **Payment Tracking**: Full support for partial/full payments with status tracking (UNPAID → PARTIALLY_PAID → PAID)
+- **Payment Validation**: Production-safe validation prevents negative amounts, overpayments, and ensures balance == 0 for PAID status
+- **Customer Due Tracking**: Automatic customer due records for unpaid/partially paid invoices
+- **Notifications System**: Four notification types (UNPAID_INVOICE, LOW_STOCK, PAYMENT_RECEIVED, SALE_CANCELLED) with sticky alerts for unpaid invoices
+- **Returns & Cancellations**: Sale cancellation with stock restoration (prevented if payments made), return approval with refund handling
+- **Stock Transfer**: Branch-to-branch transfers with atomic stock updates (already existed, verified functional)
+- **Dashboard Alerts**: Notification counts endpoint with breakdown by type and recent activity
+
+**New API Endpoints:**
+- `POST /api/sales` - Enhanced with partial payment support and invoice generation
+- `GET /api/sales/{id}/invoice` - Retrieve sale details with full payment history
+- `POST /api/sales/{id}/payments` - Add payments to existing sales with cumulative validation
+- `PATCH /api/sales/{id}/cancel` - Cancel sale with automatic stock restoration
+- `GET /api/notifications` - Fetch notifications (filter by type/unread)
+- `PATCH /api/notifications/{id}/read` - Mark notification as read
+- `PATCH /api/returns/{id}/approve` - Enhanced to restore stock and handle refunds
+- `GET /api/dashboard/alerts` - Notification counts and recent alerts
+- `GET /api/dashboard/sales-chart` - Last 7 days sales data (already existed)
+
+**Frontend Work Pending:**
+- Invoice page with payment modal
+- Notification bell component
+- Stock transfer UI (backend ready)
+- Returns UI with cancel buttons
+- POS flow redirect to invoice page
+
 ## System Architecture
 The ERP system is built as a full-stack application.
 - **Backend**: Developed with FastAPI (Python) and utilizes MongoDB Atlas for data persistence. Database name: `erp_database` (configured in `backend/.env`). It implements JWT-based authentication with role-based access control to ensure secure, multi-tenant data isolation. Key features include a Point of Sale (POS) system, inventory management, sales and purchase management, customer/supplier management, expense tracking, and comprehensive reports/analytics. Sector-specific modules are integrated for all 16 supported business types.
