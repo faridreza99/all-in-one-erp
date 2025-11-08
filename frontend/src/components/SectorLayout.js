@@ -23,6 +23,7 @@ import {
   FileText,
   File,
   Truck,
+  Settings,
 } from "lucide-react";
 import { getSectorModules, MODULE_ROUTES } from "../config/sectorModules";
 import NotificationBell from "./NotificationBell";
@@ -214,7 +215,31 @@ const SectorLayout = ({ children, user, onLogout }) => {
           </nav>
 
           {/* Footer */}
-          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0">
+          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0 space-y-2">
+            <Link
+              to={`/${businessType}/settings`}
+              onClick={() => isMobile && setSidebarOpen(false)}
+            >
+              <motion.div
+                whileHover={{ scale: 1.02, x: 2 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20,
+                  mass: 0.3,
+                }}
+                className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
+                  sidebarOpen
+                    ? "px-3 py-2 gap-3 justify-start"
+                    : "justify-center h-12"
+                } ${location.pathname === `/${businessType}/settings` ? "active" : ""}`}
+                data-testid="settings-button"
+                title={!sidebarOpen ? "Settings" : undefined}
+              >
+                <Settings className="w-5 h-5 mx-auto" />
+                {sidebarOpen && <span>Settings</span>}
+              </motion.div>
+            </Link>
             <motion.button
               whileHover={{ scale: 1.02, x: 2 }}
               transition={{

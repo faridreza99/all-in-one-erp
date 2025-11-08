@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Settings, Lock, Image, Type, Save, Eye, EyeOff } from 'lucide-react';
+import { Settings, Lock, Image, Type, Save, Eye, EyeOff, Upload } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
 import BackButton from '../components/BackButton';
 import { API } from '../App';
@@ -30,6 +30,8 @@ const SettingsPage = ({ user, onLogout }) => {
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBackground, setUploadingBackground] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -134,6 +136,94 @@ const SettingsPage = ({ user, onLogout }) => {
     }
   };
 
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingLogo(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axios.post(`${API}/upload/logo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        logo_url: response.data.url
+      }));
+
+      toast.success('Logo uploaded successfully');
+      fetchSettings();
+    } catch (error) {
+      toast.error(formatErrorMessage(error, 'Failed to upload logo'));
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = null;
+    }
+  };
+
+  const handleBackgroundUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingBackground(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axios.post(`${API}/upload/background`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        background_image_url: response.data.url
+      }));
+
+      toast.success('Background image uploaded successfully');
+      fetchSettings();
+    } catch (error) {
+      toast.error(formatErrorMessage(error, 'Failed to upload background image'));
+    } finally {
+      setUploadingBackground(false);
+      e.target.value = null;
+    }
+  };
+
   if (loading) {
     return (
       <SectorLayout user={user} onLogout={onLogout}>
@@ -184,66 +274,94 @@ const SettingsPage = ({ user, onLogout }) => {
                 />
               </div>
 
-              {/* Logo URL */}
+              {/* Logo Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
                   <Image className="w-4 h-4" />
-                  Logo URL
+                  Logo Image
                 </label>
-                <input
-                  type="text"
-                  name="logo_url"
-                  value={formData.logo_url}
-                  onChange={handleSettingsChange}
-                  placeholder="https://example.com/logo.png"
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-                {/* Logo Preview */}
-                {formData.logo_url && (
-                  <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                    <p className="text-xs text-slate-400 mb-2">Preview:</p>
-                    <img
-                      src={formData.logo_url}
-                      alt="Logo preview"
-                      className="h-16 object-contain rounded"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        toast.error('Invalid logo URL');
-                      }}
+                <div className="space-y-3">
+                  <label className="w-full cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                      disabled={uploadingLogo}
                     />
-                  </div>
-                )}
+                    <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                      {uploadingLogo ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          <span>Upload Logo</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  {formData.logo_url && (
+                    <div className="p-3 bg-slate-800/50 rounded-lg">
+                      <p className="text-xs text-slate-400 mb-2">Current Logo:</p>
+                      <img
+                        src={formData.logo_url}
+                        alt="Logo preview"
+                        className="h-16 object-contain rounded"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Background Image URL */}
+              {/* Background Image Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
                   <Image className="w-4 h-4" />
-                  Background Image URL
+                  Background Image
                 </label>
-                <input
-                  type="text"
-                  name="background_image_url"
-                  value={formData.background_image_url}
-                  onChange={handleSettingsChange}
-                  placeholder="https://example.com/background.jpg"
-                  className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-                {/* Background Preview */}
-                {formData.background_image_url && (
-                  <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                    <p className="text-xs text-slate-400 mb-2">Preview:</p>
-                    <img
-                      src={formData.background_image_url}
-                      alt="Background preview"
-                      className="w-full h-24 object-cover rounded"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        toast.error('Invalid background URL');
-                      }}
+                <div className="space-y-3">
+                  <label className="w-full cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      onChange={handleBackgroundUpload}
+                      className="hidden"
+                      disabled={uploadingBackground}
                     />
-                  </div>
-                )}
+                    <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                      {uploadingBackground ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          <span>Upload Background Image</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  {formData.background_image_url && (
+                    <div className="p-3 bg-slate-800/50 rounded-lg">
+                      <p className="text-xs text-slate-400 mb-2">Current Background:</p>
+                      <img
+                        src={formData.background_image_url}
+                        alt="Background preview"
+                        className="w-full h-24 object-cover rounded"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Save Button */}

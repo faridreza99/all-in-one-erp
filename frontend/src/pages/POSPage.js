@@ -55,6 +55,37 @@ const POSPage = ({ user, onLogout }) => {
   };
 
   const addToCart = (product) => {
+    // Auto-detect branch based on product stock availability
+    if (!branchId && product.branch_stock) {
+      const branchStockEntries = Object.entries(product.branch_stock);
+      
+      // Filter branches with available stock
+      const availableBranches = branchStockEntries.filter(([_, stock]) => stock > 0);
+      
+      if (availableBranches.length === 0) {
+        toast.error("Product not available in any branch");
+        return;
+      }
+      
+      // Prioritize user's branch if they have one and it has stock
+      let selectedBranch = null;
+      if (user.branch_id) {
+        const userBranchStock = product.branch_stock[user.branch_id];
+        if (userBranchStock && userBranchStock > 0) {
+          selectedBranch = user.branch_id;
+        }
+      }
+      
+      // Otherwise, use first available branch
+      if (!selectedBranch) {
+        selectedBranch = availableBranches[0][0];
+      }
+      
+      setBranchId(selectedBranch);
+      const branchName = branches.find(b => b.id === selectedBranch)?.name || 'selected branch';
+      toast.success(`Auto-selected branch: ${branchName}`);
+    }
+    
     const existing = cart.find((item) => item.product_id === product.id);
     if (existing) {
       if (existing.quantity < product.stock) {

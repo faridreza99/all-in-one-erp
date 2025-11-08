@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -8,6 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
+import shutil
+import secrets
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
@@ -1462,6 +1464,103 @@ async def update_settings(
         await db.settings.insert_one(doc)
         return new_settings
 
+# ========== FILE UPLOAD ROUTES ==========
+@api_router.post("/upload/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Validate file type
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (5MB max)
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be less than 5MB"
+        )
+    
+    # Create secure filename
+    secure_filename = f"logo_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
+    upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    file_path = upload_dir / secure_filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        buffer.write(file_content)
+    
+    # Generate URL
+    file_url = f"/uploads/settings/{secure_filename}"
+    
+    # Update settings with new logo URL
+    await db.settings.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"$set": {"logo_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"url": file_url, "filename": secure_filename}
+
+@api_router.post("/upload/background")
+async def upload_background(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Validate file type
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (5MB max)
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be less than 5MB"
+        )
+    
+    # Create secure filename
+    secure_filename = f"background_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
+    upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    file_path = upload_dir / secure_filename
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        buffer.write(file_content)
+    
+    # Generate URL
+    file_url = f"/uploads/settings/{secure_filename}"
+    
+    # Update settings with new background URL
+    await db.settings.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"$set": {"background_image_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"url": file_url, "filename": secure_filename}
+
 # ========== CATEGORY ROUTES ==========
 @api_router.post("/categories", response_model=Category)
 async def create_category(
@@ -1660,6 +1759,21 @@ async def get_products(
             product['created_at'] = datetime.fromisoformat(product['created_at'])
         if isinstance(product.get('updated_at'), str):
             product['updated_at'] = datetime.fromisoformat(product['updated_at'])
+        
+        # Add branch stock mapping
+        product_assignments = await db.product_assignments.find(
+            {
+                "tenant_id": current_user["tenant_id"],
+                "product_id": product["id"]
+            },
+            {"_id": 0, "branch_id": 1, "stock": 1}
+        ).to_list(100)
+        
+        # Create branch_stock mapping
+        product["branch_stock"] = {
+            assignment["branch_id"]: assignment.get("stock", 0)
+            for assignment in product_assignments
+        }
     
     return products
 
@@ -5045,6 +5159,11 @@ async def get_cnf_reports_summary(current_user: dict = Depends(get_current_user)
     }
 
 app.include_router(api_router)
+
+# Mount uploads directory for settings images
+uploads_path = Path(__file__).parent / "static" / "uploads"
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")
 
 # Add OPTIONS handler for CORS preflight requests
 @app.options("/{full_path:path}")
