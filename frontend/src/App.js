@@ -50,6 +50,7 @@ import DocumentsPage from './pages/cnf/DocumentsPage';
 import TransportPage from './pages/cnf/TransportPage';
 import CNFReportsPage from './pages/cnf/CNFReportsPage';
 import SettingsPage from './pages/SettingsPage';
+import UserManagementPage from './pages/UserManagementPage';
 import { Toaster } from './components/ui/sonner';
 import { isSectorAllowed } from './config/sectorModules';
 
@@ -290,6 +291,10 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/settings`} 
                     element={<SettingsPage user={user} onLogout={handleLogout} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/user-management`} 
+                    element={<UserManagementPage user={user} onLogout={handleLogout} />}
                   />
                   
                   {/* CNF Routes */}

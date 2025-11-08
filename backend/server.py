@@ -215,6 +215,9 @@ class UserCreate(BaseModel):
     full_name: str
     role: UserRole
     tenant_id: Optional[str] = None
+    username: Optional[str] = None
+    branch_id: Optional[str] = None
+    allowed_routes: Optional[List[str]] = None
 
 class User(BaseDBModel):
     email: EmailStr
@@ -224,6 +227,8 @@ class User(BaseDBModel):
     branch_id: Optional[str] = None
     hashed_password: str
     is_active: bool = True
+    username: Optional[str] = None
+    allowed_routes: Optional[List[str]] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -1310,6 +1315,137 @@ async def change_password(
     )
     
     return {"message": "Password changed successfully"}
+
+# ========== USER MANAGEMENT ROUTES (Super Admin Only) ==========
+@api_router.get("/users")
+async def get_users(
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    users = await db.users.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "hashed_password": 0}
+    ).to_list(1000)
+    
+    for user in users:
+        if isinstance(user.get('created_at'), str):
+            user['created_at'] = datetime.fromisoformat(user['created_at'])
+        if isinstance(user.get('updated_at'), str):
+            user['updated_at'] = datetime.fromisoformat(user['updated_at'])
+    
+    return users
+
+@api_router.post("/users")
+async def create_user(
+    user_data: UserCreate,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    # Check if email exists
+    existing_email = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check if username exists (if provided)
+    if user_data.username:
+        existing_username = await db.users.find_one(
+            {"username": user_data.username, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        )
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
+    
+    # Create user under same tenant as super admin
+    user_dict = user_data.model_dump()
+    user_dict["tenant_id"] = current_user["tenant_id"]
+    user_dict["hashed_password"] = hash_password(user_dict.pop("password"))
+    user = User(**user_dict)
+    
+    doc = user.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.users.insert_one(doc)
+    
+    # Return user without hashed_password
+    user_response = {k: v for k, v in doc.items() if k != "hashed_password"}
+    return user_response
+
+@api_router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    user_data: Dict[str, Any],
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    # Don't allow updating super admin's own account through this endpoint
+    if user_id == current_user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Use profile settings to update your own account"
+        )
+    
+    # Verify user exists and belongs to same tenant
+    existing_user = await db.users.find_one(
+        {"id": user_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Remove fields that shouldn't be updated
+    update_data = {k: v for k, v in user_data.items() if k not in ["id", "tenant_id", "hashed_password", "created_at"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # If email is being updated, check it's not taken
+    if "email" in update_data and update_data["email"]:
+        existing_email = await db.users.find_one(
+            {
+                "email": update_data["email"],
+                "id": {"$ne": user_id}
+            },
+            {"_id": 0}
+        )
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already in use")
+    
+    # If username is being updated, check it's not taken
+    if "username" in update_data and update_data["username"]:
+        existing_username = await db.users.find_one(
+            {
+                "username": update_data["username"],
+                "tenant_id": current_user["tenant_id"],
+                "id": {"$ne": user_id}
+            },
+            {"_id": 0}
+        )
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
+    
+    await db.users.update_one(
+        {"id": user_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    return {"message": "User updated successfully"}
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    # Don't allow deleting own account
+    if user_id == current_user["id"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete your own account"
+        )
+    
+    result = await db.users.delete_one(
+        {"id": user_id, "tenant_id": current_user["tenant_id"]}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User deleted successfully"}
 
 # ========== TENANT ROUTES (Super Admin Only) ==========
 @api_router.post("/tenants", response_model=Tenant)
