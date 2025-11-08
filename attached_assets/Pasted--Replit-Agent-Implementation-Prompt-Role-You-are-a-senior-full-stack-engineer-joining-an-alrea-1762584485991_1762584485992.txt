@@ -1,0 +1,117 @@
+🔧 Replit Agent — Implementation Prompt
+
+Role: You are a senior full-stack engineer joining an already running ERP project (Smart Business ERP) hosted on Replit. Implement the features below end-to-end using the project’s existing stack and conventions. Detect the stack (likely Node/Express + Prisma + Postgres + React/Next) from the repo and adapt accordingly.
+
+0) Repo Recon
+
+Inspect the repo structure (backend, frontend, DB/migrations).
+
+Identify ORM (Prisma/Sequelize/TypeORM) or raw SQL.
+
+Identify auth/session method and base API patterns.
+
+Confirm database connection (Neon/Postgres) and run migrations locally.
+
+Do not break existing features; add code in a backward-compatible way.
+
+A) Branch Management & Product Assignment
+Data Model (add if missing)
+
+branches: id, name (unique within company), address, phone, is_active, created_at
+
+suppliers (already present)
+
+products (already present; ensure fields: id, name, sku(unique), category, sale_price, cost_price, supplier_id, tax_rate, reorder_level, is_active)
+
+stocks (per-branch inventory) — unique composite key (branch_id, product_id):
+
+id, branch_id(FK), product_id(FK), quantity_on_hand INT DEFAULT 0, quantity_reserved INT DEFAULT 0, created_at, updated_at
+
+API
+
+POST /api/branches create branch
+
+GET /api/branches list
+
+PATCH /api/branches/:id update
+
+POST /api/branches/:id/assign-product → body: { productId, openingQty }
+
+Creates or upserts into stocks with opening quantity.
+
+GET /api/branches/:id/stocks → list products + qty for that branch
+
+UI
+
+Branches page:
+
+Create/Edit branch
+
+Tab “Products” with: Assign Product, Opening Qty, Current Qty
+
+Low-stock chip if quantity_on_hand < reorder_level
+
+Acceptance:
+
+Assigning a product to a branch creates/updates a stocks row.
+
+Dashboard counts reflect distinct branches and total products per branch.
+
+B) POS → Complete Sale (Auto Invoice, Customer Save, Payments)
+Data Model (add if missing)
+
+customers: id, name, phone(unique?), address, created_at
+
+sales: id, invoice_no(unique per branch), branch_id, customer_id?, status(enum: DRAFT|COMPLETED|CANCELLED), payment_status(enum: UNPAID|PARTIALLY_PAID|PAID), subtotal, discount, tax, total, amount_paid, balance_due, created_by, created_at
+
+sale_items: id, sale_id, product_id, quantity, unit_price, line_discount, line_tax, line_total, unit_cost_snapshot
+
+payments: id, sale_id, method(enum: CASH|CARD|BKASH|NAGAD|BANK), amount, received_at
+
+notifications: id, type(UNPAID_INVOICE|LOW_STOCK), sale_id?, message, is_sticky, is_read, created_at
+
+Transactional Behavior
+
+On Complete Sale:
+
+Upsert customer from POS form.
+
+Create sale + sale_items snapshotting unit_price and unit_cost_snapshot.
+
+Decrement stocks.quantity_on_hand for each (branch_id, product_id).
+
+Create payment row if an initial amount was paid.
+
+Recalculate: amount_paid, balance_due, payment_status.
+
+If balance_due > 0, create sticky notification UNPAID_INVOICE.
+
+Return { saleId, invoiceNo }.
+
+All of the above must run in a single DB transaction and fail atomically if stock is insufficient.
+
+API
+
+POST /api/pos/complete-sale
+
+Body: { branchId, customer:{name,phone,address}?, items:[{productId, qty, unitPrice, lineDiscount?, tax?}], invoiceDiscount?, invoiceTax?, payment:{method, amount}? }
+
+GET /api/sales/:id → sale with items, payments, customer
+
+POST /api/sales/:id/payments → add partial/full payment; recompute status
+
+GET /api/notifications?type=UNPAID_INVOICE → for banner
+
+UI
+
+After sale → redirect to /invoices/:id.
+
+On invoice page: sticky top banner if balance_due > 0 with “Take Payment” modal.
+
+Acceptance:
+
+Completing a sale reduces stock.
+
+Partial payment leaves banner visible; paying full hides it instantly.
+
+Customer page shows the sale in history with due.
