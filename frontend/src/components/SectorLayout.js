@@ -25,6 +25,7 @@ import {
   Truck
 } from 'lucide-react';
 import { getSectorModules, MODULE_ROUTES } from '../config/sectorModules';
+import NotificationBell from './NotificationBell';
 
 const ICON_MAP = {
   dashboard: LayoutDashboard,
@@ -190,12 +191,24 @@ const SectorLayout = ({ children, user, onLogout }) => {
         {/* Mobile Header with Menu Toggle */}
         {isMobile && !sidebarOpen && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 p-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <Menu className="w-6 h-6 text-white" />
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <Menu className="w-6 h-6 text-white" />
+              </button>
+              <NotificationBell user={user} />
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Header with Notification Bell */}
+        {!isMobile && (
+          <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 px-6 py-3">
+            <div className="flex items-center justify-end">
+              <NotificationBell user={user} />
+            </div>
           </div>
         )}
 
