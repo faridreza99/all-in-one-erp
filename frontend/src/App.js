@@ -13,6 +13,7 @@ import AppointmentsPage from './pages/AppointmentsPage';
 import RepairsPage from './pages/RepairsPage';
 import TablesPage from './pages/TablesPage';
 import SalesPage from './pages/SalesPage';
+import InvoicePage from './pages/InvoicePage';
 import CustomersPage from './pages/CustomersPage';
 import CustomerDuesPage from './pages/CustomerDuesPage';
 import ExpensesPage from './pages/ExpensesPage';
@@ -271,6 +272,10 @@ const App = () => {
                   <Route 
                     path={`/${user.business_type}/sales`} 
                     element={<SectorRoute user={user} module="sales" element={<SalesPage user={user} onLogout={handleLogout} />} />}
+                  />
+                  <Route 
+                    path={`/${user.business_type}/invoice/:saleId`} 
+                    element={<SectorRoute user={user} module="sales" element={<InvoicePage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/reports`} 

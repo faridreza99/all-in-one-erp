@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Minus, Trash2, ShoppingCart, X } from 'lucide-react';
 import SectorLayout from '../components/SectorLayout';
@@ -11,6 +12,7 @@ import { formatCurrency } from '../utils/formatters';
 import Footer from '../components/Footer';
 
 const POSPage = ({ user, onLogout }) => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
@@ -111,20 +113,12 @@ const POSPage = ({ user, onLogout }) => {
 
       const response = await axios.post(`${API}/sales`, saleData);
       
-      const dueAmount = totalAmount - paidAmountValue;
-      if (dueAmount > 0) {
-        toast.success(`Sale completed! Invoice: ${response.data.sale_number}\nDue Amount: ${formatCurrency(dueAmount)}`);
-      } else {
-        toast.success(`Sale completed! Invoice: ${response.data.sale_number}`);
-      }
+      toast.success('Sale completed! Redirecting to invoice...');
       
-      // Reset
-      setCart([]);
-      setCustomerName('');
-      setDiscount(0);
-      setTax(0);
-      setPaidAmount('');
-      fetchProducts();
+      // Redirect to invoice page
+      setTimeout(() => {
+        navigate(`/${user.business_type}/invoice/${response.data.id}`);
+      }, 1000);
     } catch (error) {
       toast.error(formatErrorMessage(error, 'Checkout failed'));
     }
