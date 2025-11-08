@@ -2198,6 +2198,52 @@ async def get_sales_chart(
     
     return chart_data
 
+@api_router.get("/dashboard/alerts")
+async def get_dashboard_alerts(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    # Get all notifications
+    all_notifications = await db.notifications.find(
+        {"tenant_id": tenant_id},
+        {"_id": 0}
+    ).to_list(10000)
+    
+    # Count unread notifications
+    unread_count = len([n for n in all_notifications if not n.get('is_read', False)])
+    
+    # Count by type
+    unpaid_invoices = len([n for n in all_notifications if n.get('type') == NotificationType.UNPAID_INVOICE.value and not n.get('is_read', False)])
+    low_stock_alerts = len([n for n in all_notifications if n.get('type') == NotificationType.LOW_STOCK.value and not n.get('is_read', False)])
+    payment_received = len([n for n in all_notifications if n.get('type') == NotificationType.PAYMENT_RECEIVED.value and not n.get('is_read', False)])
+    sale_cancelled = len([n for n in all_notifications if n.get('type') == NotificationType.SALE_CANCELLED.value and not n.get('is_read', False)])
+    
+    # Count sticky notifications (critical alerts)
+    sticky_count = len([n for n in all_notifications if n.get('is_sticky', False) and not n.get('is_read', False)])
+    
+    # Get recent notifications (last 5)
+    recent_notifications = sorted(
+        all_notifications,
+        key=lambda x: x.get('created_at', ''),
+        reverse=True
+    )[:5]
+    
+    return {
+        "total_unread": unread_count,
+        "sticky_alerts": sticky_count,
+        "by_type": {
+            "unpaid_invoices": unpaid_invoices,
+            "low_stock": low_stock_alerts,
+            "payment_received": payment_received,
+            "sale_cancelled": sale_cancelled
+        },
+        "recent": recent_notifications
+    }
+
 # ========== PDF INVOICE ==========
 @api_router.get("/sales/{sale_id}/invoice")
 async def download_invoice(
