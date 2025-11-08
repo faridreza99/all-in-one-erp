@@ -30,7 +30,7 @@ if not mongo_url:
 
 # MongoDB Atlas connection with proper TLS
 client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=10000)
-db = client[os.environ.get('DB_NAME', 'erp_db')]
+db = client[os.environ.get('DB_NAME', 'erp_database')]
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -58,7 +58,7 @@ async def test_database_connection():
     try:
         print("=" * 60)
         print("🔍 Testing MongoDB Atlas connection...")
-        print(f"   Database: {os.environ.get('DB_NAME', 'erp_db')}")
+        print(f"   Database: {os.environ.get('DB_NAME', 'erp_database')}")
         
         await client.admin.command('ping')
         

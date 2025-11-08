@@ -1,18 +1,32 @@
 # Smart Business ERP - Multi-Tenant SaaS System
 
-## ⚠️ IMPORTANT: Authentication Data Persists to MongoDB Atlas
+## ✅ AUTHENTICATION PERSISTENCE - FIXED (Nov 8, 2025)
 
-**If you're experiencing "Authentication failed" errors or data loss after restart:**
+**Issue Resolved:** Database name mismatch was causing authentication failures after restarts. System now uses consistent `erp_database` configuration.
 
-Your MongoDB Atlas connection is likely being blocked due to IP whitelisting. **All user authentication data is stored in MongoDB Atlas (cloud database)**, not locally. If the connection fails, no data will be saved.
+**Current Status:**
+- ✅ All user credentials persist permanently in MongoDB Atlas
+- ✅ Database name standardized to `erp_database`
+- ✅ No automatic seeding on startup (users never deleted)
+- ✅ JWT secrets stable and secure
 
-**📋 QUICK FIX:**
-1. Go to [MongoDB Atlas](https://cloud.mongodb.com) → Security → Network Access
-2. Add IP address: `0.0.0.0/0` (Allow access from anywhere)
-3. Wait 60 seconds, then restart the Backend workflow
-4. Look for "✅ MongoDB Atlas connection successful!" in the logs
+**See [DATABASE_FIX_SUMMARY.md](./DATABASE_FIX_SUMMARY.md) for full technical details.**
 
-**📖 Detailed Instructions:** See [MONGODB_SETUP.md](./MONGODB_SETUP.md) for complete step-by-step guide.
+## ⚠️ IMPORTANT: MongoDB Atlas Connection
+
+**If you're experiencing "Authentication failed" errors:**
+
+1. **Check MongoDB Atlas IP Whitelist:**
+   - Go to [MongoDB Atlas](https://cloud.mongodb.com) → Security → Network Access
+   - Add IP address: `0.0.0.0/0` (Allow access from anywhere)
+   - Wait 60 seconds, then restart the Backend workflow
+   - Look for "✅ MongoDB Atlas connection successful!" in logs
+
+2. **Verify Database Configuration:**
+   - Backend uses database: `erp_database` (not `erp_db`)
+   - Check `backend/.env` has `DB_NAME=erp_database`
+
+**📖 Detailed Instructions:** See [MONGODB_SETUP.md](./MONGODB_SETUP.md) for setup guide.
 
 ---
 
@@ -24,13 +38,21 @@ _This section can be used to track user-specific preferences and coding styles a
 
 ## System Architecture
 The ERP system is built as a full-stack application.
-- **Backend**: Developed with FastAPI (Python) and utilizes MongoDB Atlas for data persistence. It implements JWT-based authentication with role-based access control to ensure secure, multi-tenant data isolation. Key features include a Point of Sale (POS) system, inventory management, sales and purchase management, customer/supplier management, expense tracking, and comprehensive reports/analytics. Sector-specific modules are integrated for all 15 supported business types.
-- **Frontend**: Built using React, styled with TailwindCSS, and leverages Shadcn UI for componentry. It provides an intuitive user interface with sector-specific pages and a consistent design. UI/UX decisions emphasize a modern dark theme with gradients, glass-morphism effects, professional iconography, and responsive layouts across various modules (e.g., Branch Management, Product Assignment, Stock Transfer, Mobile Shop enhancements). Navigation includes a reusable `BackButton` component for improved user experience.
+- **Backend**: Developed with FastAPI (Python) and utilizes MongoDB Atlas for data persistence. Database name: `erp_database` (configured in `backend/.env`). It implements JWT-based authentication with role-based access control to ensure secure, multi-tenant data isolation. Key features include a Point of Sale (POS) system, inventory management, sales and purchase management, customer/supplier management, expense tracking, and comprehensive reports/analytics. Sector-specific modules are integrated for all 16 supported business types.
+- **Frontend**: Built using React (using yarn package manager), styled with TailwindCSS, and leverages Shadcn UI for componentry. It provides an intuitive user interface with sector-specific pages and a consistent design. UI/UX decisions emphasize a modern dark theme with gradients, glass-morphism effects, professional iconography, and responsive layouts across various modules (e.g., Branch Management, Product Assignment, Stock Transfer, Mobile Shop enhancements). Navigation includes a reusable `BackButton` component for improved user experience.
 - **System Design**: Features a multi-tenant architecture with logical data isolation. The application is configured to run in Replit's environment, with the frontend accessible via webview on port 5000 and the backend on localhost:8000. Backend validation ensures data integrity, and front-end forms include features like auto-generated unique IDs, animated toggles, and real-time stock availability checks.
+- **Deployment**: Build script (`build.sh`) uses yarn for frontend builds. Deployment configuration executes `sh build.sh` for production builds.
 
 ## External Dependencies
-- **Database**: MongoDB Atlas (cloud-hosted NoSQL database)
-- **Authentication**: JWT (JSON Web Tokens)
+- **Database**: MongoDB Atlas (cloud-hosted NoSQL database) - Database name: `erp_database`
+- **Authentication**: JWT (JSON Web Tokens) with bcrypt password hashing
 - **Frontend Libraries**: React, TailwindCSS, Shadcn UI
+- **Frontend Package Manager**: Yarn (yarn.lock file)
 - **Backend Framework**: FastAPI (Python)
-- **Python Libraries**: `certifi` (for SSL/TLS connections to MongoDB Atlas)
+- **Python Libraries**: `certifi` (for SSL/TLS connections to MongoDB Atlas), `passlib[bcrypt]` (password hashing)
+
+## Critical Configuration Notes
+- **Database Name:** Always use `erp_database` (set in `backend/.env` as `DB_NAME=erp_database`)
+- **Seed Scripts Warning:** ⚠️ Never manually run seed scripts (`seed_data.py`, `seed_all_sectors.py`) - they contain `delete_many({})` which deletes all users!
+- **User Persistence:** User accounts are permanently stored in MongoDB Atlas and survive restarts
+- **Active Accounts:** Multiple verified working accounts in `erp_database` (CNF, Mobile Shop, Infini, etc.)
