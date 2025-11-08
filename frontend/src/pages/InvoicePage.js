@@ -337,14 +337,23 @@ const InvoicePage = ({ user, onLogout }) => {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Amount <span className="text-red-400">*</span>
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder={`Max: ${formatCurrency(sale.balance_due)}`}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      placeholder={`Max: ${formatCurrency(sale.balance_due)}`}
+                      className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(sale.balance_due.toString())}
+                      className="w-full px-4 py-2 bg-green-600/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-600/30 transition-all text-sm font-medium"
+                    >
+                      Mark Full Paid ({formatCurrency(sale.balance_due)})
+                    </button>
+                  </div>
                 </div>
 
                 <div>
