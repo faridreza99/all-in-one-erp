@@ -27,10 +27,9 @@ import {
 import { getSectorModules, MODULE_ROUTES } from "../config/sectorModules";
 import NotificationBell from "./NotificationBell";
 
-/*
-  Optional global CSS (e.g., in index.css):
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* Optional CSS to hide scrollbars:
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 */
 
 const ICON_MAP = {
@@ -64,7 +63,6 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Guard for SSR / safer window usage
   const initialIsMobile =
     typeof window !== "undefined" ? window.innerWidth < 1024 : false;
   const initialSidebarOpen =
@@ -78,12 +76,10 @@ const SectorLayout = ({ children, user, onLogout }) => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       if (mobile && sidebarOpen) setSidebarOpen(false);
-      if (!mobile && !sidebarOpen) setSidebarOpen(true);
+      if (!mobile && !sidebarOpen) setSidebarOpen(false); // desktop can start mini
     };
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sidebarOpen]);
 
   const businessType = user?.business_type || "pharmacy";
@@ -96,13 +92,24 @@ const SectorLayout = ({ children, user, onLogout }) => {
       path: `/${businessType}${route.path}`,
       label: route.label,
       icon: Icon,
-      module: module,
+      module,
     };
   });
 
+  // Mini-rail on desktop; fully hidden on mobile
+  const sidebarWidth = isMobile
+    ? sidebarOpen
+      ? 256
+      : 0
+    : sidebarOpen
+      ? 256
+      : 80;
+  const sidebarX = isMobile && !sidebarOpen ? -256 : 0;
+  const contentMarginLeft = isMobile ? 0 : sidebarOpen ? 256 : 80;
+
   return (
     <div className="min-h-screen gradient-bg">
-      {/* Mobile Overlay */}
+      {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40"
@@ -113,10 +120,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
       {/* Sidebar */}
       <motion.div
         initial={false}
-        animate={{
-          x: isMobile && !sidebarOpen ? -256 : 0,
-          width: isMobile ? 256 : sidebarOpen ? 256 : 80,
-        }}
+        animate={{ x: sidebarX, width: sidebarWidth }}
         className={`fixed left-0 top-0 h-full sidebar z-50
           ${
             sidebarOpen
@@ -126,8 +130,16 @@ const SectorLayout = ({ children, user, onLogout }) => {
         `}
         style={{ scrollBehavior: "smooth" }}
       >
-        <div className="p-4 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-6 flex-shrink-0">
+        {/* Remove horizontal padding in mini mode to avoid the gutter */}
+        <div
+          className={`h-full flex flex-col ${sidebarOpen ? "px-4 py-4" : "px-0 py-3"}`}
+        >
+          {/* Header / toggle row */}
+          <div
+            className={`mb-6 flex-shrink-0
+              ${sidebarOpen ? "flex items-center justify-between" : "flex items-center justify-center"}
+            `}
+          >
             {sidebarOpen && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -147,19 +159,24 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 </div>
               </motion.div>
             )}
+
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+              className={`rounded-lg transition-colors text-white
+                ${sidebarOpen ? "p-2 hover:bg-white/10" : "w-10 h-10 flex items-center justify-center hover:bg-white/10"}
+              `}
               data-testid="sidebar-toggle"
+              title={sidebarOpen ? "Collapse" : "Expand"}
             >
               {sidebarOpen ? (
-                <X className="w-5 h-5 text-white" />
+                <X className="w-5 h-5" />
               ) : (
-                <Menu className="w-5 h-5 text-white" />
+                <Menu className="w-5 h-5" />
               )}
             </button>
           </div>
 
+          {/* Nav */}
           <nav
             className={`space-y-2 flex-1 ${sidebarOpen ? "overflow-y-auto" : "overflow-y-hidden no-scrollbar"}`}
           >
@@ -169,6 +186,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 location.pathname === item.path ||
                 (item.module === "dashboard" &&
                   location.pathname === `/${businessType}`);
+
               return (
                 <Link
                   key={item.path}
@@ -176,10 +194,19 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   onClick={() => isMobile && setSidebarOpen(false)}
                 >
                   <div
-                    className={`sidebar-item ${isActive ? "active" : ""}`}
+                    className={`
+                      sidebar-item ${isActive ? "active" : ""}
+                      ${
+                        sidebarOpen
+                          ? "px-3 py-2 gap-3 justify-start"
+                          : "px-0 py-2 gap-0 justify-center"
+                      }
+                      flex items-center w-full
+                    `}
                     data-testid={`menu-${item.label.toLowerCase()}`}
+                    title={!sidebarOpen ? item.label : undefined}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <Icon className="w-5 h-5" />
                     {sidebarOpen && (
                       <motion.span
                         initial={{ opacity: 0 }}
@@ -194,13 +221,20 @@ const SectorLayout = ({ children, user, onLogout }) => {
             })}
           </nav>
 
-          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0">
+          {/* Footer */}
+          <div
+            className={`mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0 ${sidebarOpen ? "px-0" : "px-0"}`}
+          >
             <button
               onClick={onLogout}
-              className="sidebar-item w-full text-left"
+              className={`
+                sidebar-item w-full text-left flex items-center
+                ${sidebarOpen ? "px-3 py-2 gap-3 justify-start" : "px-0 py-2 gap-0 justify-center"}
+              `}
               data-testid="logout-button"
+              title={!sidebarOpen ? "Logout" : undefined}
             >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <LogOut className="w-5 h-5" />
               {sidebarOpen && (
                 <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   Logout
@@ -211,13 +245,13 @@ const SectorLayout = ({ children, user, onLogout }) => {
         </div>
       </motion.div>
 
-      {/* Main Content */}
+      {/* Main content */}
       <motion.div
         initial={false}
-        animate={{ marginLeft: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
+        animate={{ marginLeft: contentMarginLeft }}
         className="min-h-screen transition-all duration-300"
       >
-        {/* Mobile Header with Menu Toggle */}
+        {/* Mobile header */}
         {isMobile && !sidebarOpen && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 p-4">
             <div className="flex items-center justify-between">
@@ -232,7 +266,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
           </div>
         )}
 
-        {/* Desktop Header with Notification Bell */}
+        {/* Desktop header */}
         {!isMobile && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 px-6 py-3">
             <div className="flex items-center justify-end">
