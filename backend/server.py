@@ -349,7 +349,7 @@ class SaleCreate(BaseModel):
 class Sale(BaseDBModel):
     tenant_id: str
     sale_number: str
-    invoice_no: str
+    invoice_no: Optional[str] = None
     branch_id: Optional[str] = None
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
