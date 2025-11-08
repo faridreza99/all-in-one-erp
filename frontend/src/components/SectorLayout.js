@@ -76,32 +76,6 @@ const SectorLayout = ({ children, user, onLogout }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [sidebarOpen]);
 
-  useEffect(() => {
-    const runScheduledCheck = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const API_URL = process.env.REACT_APP_BACKEND_URL || '';
-        await fetch(`${API_URL}/api/notifications/scheduled-check`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-      } catch (error) {
-        console.error('Scheduled check failed:', error);
-      }
-    };
-
-    runScheduledCheck();
-    
-    const interval = setInterval(() => {
-      runScheduledCheck();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const businessType = user?.business_type || "pharmacy";
   const sectorConfig = getSectorModules(businessType);
 
