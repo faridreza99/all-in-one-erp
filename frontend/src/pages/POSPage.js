@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, Minus, Trash2, ShoppingCart, X } from "lucide-react";
+import { Plus, Minus, X, ShoppingCart } from "lucide-react";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import { API } from "../App";
@@ -104,12 +104,10 @@ const POSPage = ({ user, onLogout }) => {
     const totalAmount = calculateTotal();
     const paidAmountValue = paidAmount ? parseFloat(paidAmount) : totalAmount;
 
-    // Validation for partial payment
     if (paidAmountValue > totalAmount) {
       toast.error("Paid amount cannot exceed total amount");
       return;
     }
-
     if (paidAmountValue < totalAmount && !customerName) {
       toast.error("Customer name is required for partial payments");
       return;
@@ -128,10 +126,8 @@ const POSPage = ({ user, onLogout }) => {
       };
 
       const response = await axios.post(`${API}/sales`, saleData);
-
       toast.success("Sale completed! Redirecting to invoice...");
 
-      // Clear form
       setCart([]);
       setCustomerName("");
       setCustomerPhone("");
@@ -140,7 +136,6 @@ const POSPage = ({ user, onLogout }) => {
       setDiscount(0);
       setTax(0);
 
-      // Redirect to invoice page
       setTimeout(() => {
         navigate(`/${user.business_type}/invoice/${response.data.id}`);
       }, 1000);
@@ -168,36 +163,76 @@ const POSPage = ({ user, onLogout }) => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Products Grid */}
+          {/* Products Table */}
           <div className="lg:col-span-2">
             <div className="glass-card p-6">
               <h2 className="text-xl font-bold text-white mb-4">Products</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-                {products.map((product) => (
-                  <motion.div
-                    key={product.id}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => addToCart(product)}
-                    className="glass-card p-4 cursor-pointer hover:border-blue-400"
-                    data-testid={`pos-product-${product.id}`}
-                  >
-                    <h3 className="font-semibold text-white mb-1">
-                      {product.name}
-                    </h3>
-                    <p className="text-slate-400 text-sm mb-2">
-                      {product.category}
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-green-400 font-bold">
-                        {formatCurrency(product.price)}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Stock: {product.stock}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+
+              <div className="max-h-[600px] overflow-y-auto scrollbar-hide rounded-xl border border-slate-700/40">
+                <table className="w-full text-left">
+                  <thead className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur border-b border-slate-700/60">
+                    <tr className="text-slate-300 text-sm">
+                      <th className="px-4 py-3 font-semibold">Name</th>
+                      <th className="px-4 py-3 font-semibold hidden md:table-cell">
+                        Category
+                      </th>
+                      <th className="px-4 py-3 font-semibold">Price</th>
+                      <th className="px-4 py-3 font-semibold">Stock</th>
+                      <th className="px-4 py-3 font-semibold text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {products.map((product) => (
+                      <tr
+                        key={product.id}
+                        className="hover:bg-white/5 cursor-pointer"
+                        onClick={() => addToCart(product)}
+                        data-testid={`pos-product-${product.id}`}
+                      >
+                        <td className="px-4 py-3 text-white">{product.name}</td>
+                        <td className="px-4 py-3 text-slate-400 hidden md:table-cell">
+                          {product.category}
+                        </td>
+                        <td className="px-4 py-3 text-green-400 font-semibold">
+                          {formatCurrency(product.price)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center rounded-md bg-slate-700/40 px-2 py-0.5 text-xs text-slate-300">
+                            {product.stock}
+                          </span>
+                        </td>
+                        <td
+                          className="px-4 py-3"
+                          onClick={(e) => {
+                            e.stopPropagation(); // keep row click from firing twice
+                            addToCart(product);
+                          }}
+                        >
+                          <button
+                            className="ml-auto flex items-center gap-2 rounded-lg bg-blue-600/90 hover:bg-blue-600 px-3 py-1.5 text-white text-sm transition"
+                            aria-label={`Add ${product.name}`}
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {products.length === 0 && (
+                      <tr>
+                        <td
+                          className="px-4 py-8 text-center text-slate-400"
+                          colSpan={5}
+                        >
+                          No products available.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -212,7 +247,7 @@ const POSPage = ({ user, onLogout }) => {
                 </h2>
               </div>
 
-              <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
+              <div className="space-y-3 mb-6 max-h-60 overflow-y-auto scrollbar-hide">
                 {cart.map((item) => (
                   <div
                     key={item.product_id}
@@ -255,6 +290,12 @@ const POSPage = ({ user, onLogout }) => {
                     </div>
                   </div>
                 ))}
+
+                {cart.length === 0 && (
+                  <div className="text-slate-400 text-sm text-center py-6">
+                    Your cart is empty.
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3 mb-6">
@@ -313,7 +354,7 @@ const POSPage = ({ user, onLogout }) => {
                     type="number"
                     value={discount}
                     onChange={(e) => setDiscount(Number(e.target.value))}
-                    className="w-20 text-right"
+                    className="w-20 text-right bg-transparent border-b border-slate-600 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
                 <div className="flex justify-between text-slate-300">
@@ -323,7 +364,7 @@ const POSPage = ({ user, onLogout }) => {
                     type="number"
                     value={tax}
                     onChange={(e) => setTax(Number(e.target.value))}
-                    className="w-20 text-right"
+                    className="w-20 text-right bg-transparent border-b border-slate-600 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -339,7 +380,7 @@ const POSPage = ({ user, onLogout }) => {
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
                   placeholder={`Enter amount (Max: ${formatCurrency(total)})`}
-                  className="w-full text-lg"
+                  className="w-full text-lg bg-transparent border-b border-slate-600 focus:border-blue-500 focus:outline-none"
                   min="0"
                   max={total}
                 />
