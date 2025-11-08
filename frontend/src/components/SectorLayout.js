@@ -241,7 +241,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
               </motion.div>
             </Link>
             
-            {user?.role === "super_admin" && (
+            {(businessType === "mobile-shop" || user?.role === "super_admin") && (
               <Link
                 to={`/${businessType}/user-management`}
                 onClick={() => isMobile && setSidebarOpen(false)}

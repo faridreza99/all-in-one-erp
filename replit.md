@@ -43,7 +43,7 @@ _This section can be used to track user-specific preferences and coding styles a
 - **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment
 - **Route Permissions**: Assign page access via checkboxes (Dashboard, POS, Products, Sales, etc.) stored in `allowed_routes` array
 - **Security Features**: Email/username uniqueness validation, super_admin-only access, self-update/deletion protection, tenant isolation
-- **Navigation**: User Management link in sidebar (visible only to super_admin users)
+- **Navigation**: User Management link in sidebar (visible to all Mobile Shop users and super_admin users)
 
 **API Endpoints:**
 - `GET /api/users` - List all users (excludes passwords, super_admin only)
