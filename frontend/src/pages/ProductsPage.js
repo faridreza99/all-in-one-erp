@@ -188,7 +188,21 @@ const ProductsPage = ({ user, onLogout }) => {
   const handleEdit = (product) => {
     setEditingProduct(product);
     setFormData({
-      ...product,
+      name: product.name || "",
+      sku: product.sku || "",
+      category: product.category || "",
+      category_id: product.category_id || "",
+      price: product.price !== null && product.price !== undefined ? product.price : "",
+      stock: product.stock !== null && product.stock !== undefined ? product.stock : "",
+      description: product.description || "",
+      supplier_name: product.supplier_name || "",
+      generic_name: product.generic_name || "",
+      brand: product.brand || "",
+      brand_id: product.brand_id || "",
+      batch_number: product.batch_number || "",
+      expiry_date: product.expiry_date || "",
+      imei: product.imei || "",
+      warranty_months: product.warranty_months !== null && product.warranty_months !== undefined ? product.warranty_months : "",
       branch_id: product.branch_id || "",
     });
     setShowModal(true);

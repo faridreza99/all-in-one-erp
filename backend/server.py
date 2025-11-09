@@ -1714,20 +1714,34 @@ async def upload_logo(
             detail="File size must be less than 5MB"
         )
     
-    # Upload to Cloudinary
-    try:
-        upload_result = cloudinary.uploader.upload(
-            file_content,
-            folder=f"erp/{current_user['tenant_id']}/logos",
-            public_id=f"logo_{secrets.token_hex(8)}",
-            resource_type="image"
-        )
-        file_url = upload_result["secure_url"]
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to upload to Cloudinary: {str(e)}"
-        )
+    # Upload to Cloudinary if configured, otherwise use local storage
+    if cloudinary_url:
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                folder=f"erp/{current_user['tenant_id']}/logos",
+                public_id=f"logo_{secrets.token_hex(8)}",
+                resource_type="image"
+            )
+            file_url = upload_result["secure_url"]
+            filename = upload_result.get("public_id", "logo")
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to Cloudinary: {str(e)}"
+            )
+    else:
+        # Fallback to local storage
+        secure_filename = f"logo_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
+        upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / secure_filename
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        file_url = f"/uploads/settings/{secure_filename}"
+        filename = secure_filename
     
     # Update settings with new logo URL
     await db.settings.update_one(
@@ -1736,7 +1750,7 @@ async def upload_logo(
         upsert=True
     )
     
-    return {"url": file_url, "filename": upload_result.get("public_id", "logo")}
+    return {"url": file_url, "filename": filename}
 
 @api_router.post("/upload/background")
 async def upload_background(
@@ -1764,20 +1778,34 @@ async def upload_background(
             detail="File size must be less than 5MB"
         )
     
-    # Upload to Cloudinary
-    try:
-        upload_result = cloudinary.uploader.upload(
-            file_content,
-            folder=f"erp/{current_user['tenant_id']}/backgrounds",
-            public_id=f"background_{secrets.token_hex(8)}",
-            resource_type="image"
-        )
-        file_url = upload_result["secure_url"]
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to upload to Cloudinary: {str(e)}"
-        )
+    # Upload to Cloudinary if configured, otherwise use local storage
+    if cloudinary_url:
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                folder=f"erp/{current_user['tenant_id']}/backgrounds",
+                public_id=f"background_{secrets.token_hex(8)}",
+                resource_type="image"
+            )
+            file_url = upload_result["secure_url"]
+            filename = upload_result.get("public_id", "background")
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to Cloudinary: {str(e)}"
+            )
+    else:
+        # Fallback to local storage
+        secure_filename = f"background_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
+        upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / secure_filename
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        file_url = f"/uploads/settings/{secure_filename}"
+        filename = secure_filename
     
     # Update settings with new background URL
     await db.settings.update_one(
@@ -1786,7 +1814,7 @@ async def upload_background(
         upsert=True
     )
     
-    return {"url": file_url, "filename": upload_result.get("public_id", "background")}
+    return {"url": file_url, "filename": filename}
 
 # ========== CATEGORY ROUTES ==========
 @api_router.post("/categories", response_model=Category)
@@ -2673,18 +2701,25 @@ async def add_payment_to_sale(
         }
     )
     
-    # Update customer due if exists
+    # Update or delete customer due if exists
     if sale.get('customer_name'):
-        await db.customer_dues.update_one(
-            {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
-            {
-                "$set": {
-                    "paid_amount": new_amount_paid,
-                    "due_amount": new_balance_due,
-                    "updated_at": datetime.now(timezone.utc).isoformat()
+        if new_balance_due == 0:
+            # Delete customer due record when fully paid
+            await db.customer_dues.delete_one(
+                {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]}
+            )
+        else:
+            # Update customer due with new amounts
+            await db.customer_dues.update_one(
+                {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
+                {
+                    "$set": {
+                        "paid_amount": new_amount_paid,
+                        "due_amount": new_balance_due,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
                 }
-            }
-        )
+            )
     
     # Remove sticky notification only when balance is exactly zero (fully paid)
     if new_balance_due == 0:
@@ -2839,7 +2874,10 @@ async def get_customer_dues(
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
     dues = await db.customer_dues.find(
-        {"tenant_id": current_user["tenant_id"]},
+        {
+            "tenant_id": current_user["tenant_id"],
+            "due_amount": {"$gt": 0}
+        },
         {"_id": 0}
     ).to_list(1000)
     
@@ -3866,19 +3904,26 @@ async def approve_return(
                 }
             )
             
-            # Update customer due if exists
+            # Update or delete customer due if exists
             if sale.get('customer_name'):
-                await db.customer_dues.update_one(
-                    {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
-                    {
-                        "$set": {
-                            "total_amount": new_total,
-                            "paid_amount": new_amount_paid,
-                            "due_amount": new_balance_due,
-                            "updated_at": datetime.now(timezone.utc).isoformat()
+                if new_balance_due == 0:
+                    # Delete customer due record when fully paid after refund
+                    await db.customer_dues.delete_one(
+                        {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]}
+                    )
+                else:
+                    # Update customer due with new amounts
+                    await db.customer_dues.update_one(
+                        {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
+                        {
+                            "$set": {
+                                "total_amount": new_total,
+                                "paid_amount": new_amount_paid,
+                                "due_amount": new_balance_due,
+                                "updated_at": datetime.now(timezone.utc).isoformat()
+                            }
                         }
-                    }
-                )
+                    )
     
     # Update return request status
     await db.returns.update_one(

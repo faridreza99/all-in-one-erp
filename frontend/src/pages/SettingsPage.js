@@ -1,31 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Settings, Lock, Image, Type, Save, Eye, EyeOff, Upload } from 'lucide-react';
-import SectorLayout from '../components/SectorLayout';
-import BackButton from '../components/BackButton';
-import { API } from '../App';
-import { toast } from 'sonner';
-import { formatErrorMessage } from '../utils/errorHandler';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+import {
+  Settings,
+  Lock,
+  Image as ImageIcon,
+  Type,
+  Save,
+  Eye,
+  EyeOff,
+  Upload,
+} from "lucide-react";
+import SectorLayout from "../components/SectorLayout";
+import BackButton from "../components/BackButton";
+import { API } from "../App";
+import { toast } from "sonner";
+import { formatErrorMessage } from "../utils/errorHandler";
+
+const CLOUD_NAME =
+  process.env.REACT_APP_CLOUDINARY_CLOUD_NAME ||
+  // optional fallback: try to parse cloud name from CLOUDINARY_URL if present
+  (
+    process.env.REACT_APP_CLOUDINARY_URL ||
+    process.env.CLOUDINARY_URL ||
+    ""
+  ).split("@")[1]; // cloudinary://key:secret@cloud_name
+
+const UNSIGNED_PRESET = process.env.REACT_APP_CLOUDINARY_UNSIGNED_PRESET;
+
+async function uploadToCloudinary(file, { folder = "erp/branding" } = {}) {
+  if (!CLOUD_NAME || !UNSIGNED_PRESET) {
+    throw new Error(
+      "Cloudinary is not configured. Set REACT_APP_CLOUDINARY_CLOUD_NAME and REACT_APP_CLOUDINARY_UNSIGNED_PRESET in .env",
+    );
+  }
+
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", UNSIGNED_PRESET);
+  if (folder) fd.append("folder", folder);
+
+  const res = await fetch(endpoint, { method: "POST", body: fd });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || "Cloudinary upload failed");
+  }
+  return res.json(); // contains secure_url, public_id, etc.
+}
 
 const SettingsPage = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
-    website_name: '',
-    logo_url: '',
-    background_image_url: ''
+    website_name: "",
+    logo_url: "",
+    background_image_url: "",
   });
-  
+
   const [passwordData, setPasswordData] = useState({
-    current_password: '',
-    new_password: '',
-    confirm_password: ''
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
   });
 
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
-    confirm: false
+    confirm: false,
   });
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -41,12 +82,12 @@ const SettingsPage = ({ user, onLogout }) => {
     try {
       const response = await axios.get(`${API}/settings`);
       setFormData({
-        website_name: response.data.website_name || '',
-        logo_url: response.data.logo_url || '',
-        background_image_url: response.data.background_image_url || ''
+        website_name: response.data.website_name || "",
+        logo_url: response.data.logo_url || "",
+        background_image_url: response.data.background_image_url || "",
       });
     } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to fetch settings'));
+      toast.error(formatErrorMessage(error, "Failed to fetch settings"));
     } finally {
       setLoading(false);
     }
@@ -54,36 +95,26 @@ const SettingsPage = ({ user, onLogout }) => {
 
   const handleSettingsChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const togglePasswordVisibility = (field) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
+    setShowPasswords((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSavingSettings(true);
-    
     try {
       await axios.put(`${API}/settings`, formData);
-      toast.success('Settings updated successfully');
+      toast.success("Settings updated successfully");
     } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to update settings'));
+      toast.error(formatErrorMessage(error, "Failed to update settings"));
     } finally {
       setSavingSettings(false);
     }
@@ -91,136 +122,98 @@ const SettingsPage = ({ user, onLogout }) => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    
-    // Client-side validation
-    if (!passwordData.current_password) {
-      toast.error('Please enter your current password');
-      return;
-    }
-    
-    if (!passwordData.new_password) {
-      toast.error('Please enter a new password');
-      return;
-    }
-    
-    if (passwordData.new_password.length < 6) {
-      toast.error('New password must be at least 6 characters long');
-      return;
-    }
-    
-    if (passwordData.new_password !== passwordData.confirm_password) {
-      toast.error('New passwords do not match');
-      return;
-    }
+    if (!passwordData.current_password)
+      return toast.error("Please enter your current password");
+    if (!passwordData.new_password)
+      return toast.error("Please enter a new password");
+    if (passwordData.new_password.length < 6)
+      return toast.error("New password must be at least 6 characters long");
+    if (passwordData.new_password !== passwordData.confirm_password)
+      return toast.error("New passwords do not match");
 
     setChangingPassword(true);
-    
     try {
       await axios.post(`${API}/auth/change-password`, {
         old_password: passwordData.current_password,
-        new_password: passwordData.new_password
+        new_password: passwordData.new_password,
       });
-      
-      toast.success('Password changed successfully');
-      
-      // Clear form
+      toast.success("Password changed successfully");
       setPasswordData({
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
       });
     } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to change password'));
+      toast.error(formatErrorMessage(error, "Failed to change password"));
     } finally {
       setChangingPassword(false);
     }
   };
 
+  const validateImage = (file) => {
+    if (!file) return "No file selected";
+    const allowed = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (!allowed.includes(file.type))
+      return "Invalid file type. Upload JPG, PNG, GIF, or WebP.";
+    // Keep a sane client cap (Cloudinary free plan is generous; adjust if you like)
+    if (file.size > 5 * 1024 * 1024) return "File size must be less than 5MB";
+    return null;
+  };
+
   const handleLogoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
+    const file = e.target.files?.[0];
+    e.target.value = null; // allow same-file reselect later
+    const errMsg = validateImage(file);
+    if (errMsg) return toast.error(errMsg);
 
     setUploadingLogo(true);
-
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await axios.post(`${API}/upload/logo`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const result = await uploadToCloudinary(file, { folder: "erp/branding" });
+      setFormData((prev) => ({ ...prev, logo_url: result.secure_url }));
+      toast.success("Logo uploaded to Cloudinary");
+      // persist new URL to backend
+      await axios.put(`${API}/settings`, {
+        ...formData,
+        logo_url: result.secure_url,
       });
-
-      setFormData(prev => ({
-        ...prev,
-        logo_url: response.data.url
-      }));
-
-      toast.success('Logo uploaded successfully');
       fetchSettings();
-    } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to upload logo'));
+    } catch (err) {
+      toast.error(err.message || "Failed to upload logo");
     } finally {
       setUploadingLogo(false);
-      e.target.value = null;
     }
   };
 
   const handleBackgroundUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
+    const file = e.target.files?.[0];
+    e.target.value = null;
+    const errMsg = validateImage(file);
+    if (errMsg) return toast.error(errMsg);
 
     setUploadingBackground(true);
-
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await axios.post(`${API}/upload/background`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      setFormData(prev => ({
+      const result = await uploadToCloudinary(file, { folder: "erp/branding" });
+      setFormData((prev) => ({
         ...prev,
-        background_image_url: response.data.url
+        background_image_url: result.secure_url,
       }));
-
-      toast.success('Background image uploaded successfully');
+      toast.success("Background image uploaded to Cloudinary");
+      // persist new URL to backend
+      await axios.put(`${API}/settings`, {
+        ...formData,
+        background_image_url: result.secure_url,
+      });
       fetchSettings();
-    } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to upload background image'));
+    } catch (err) {
+      toast.error(err.message || "Failed to upload background image");
     } finally {
       setUploadingBackground(false);
-      e.target.value = null;
     }
   };
 
@@ -241,23 +234,25 @@ const SettingsPage = ({ user, onLogout }) => {
         animate={{ opacity: 1, y: 0 }}
       >
         <BackButton className="mb-4" />
-        
+
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
             <Settings className="w-10 h-10" />
             Settings
           </h1>
-          <p className="text-slate-400">Manage your application settings and security</p>
+          <p className="text-slate-400">
+            Manage your application settings and security
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Branding Settings Section */}
+          {/* Branding Settings */}
           <div className="glass-card p-6">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
               <Type className="w-6 h-6 text-blue-400" />
               Branding Settings
             </h2>
-            
+
             <form onSubmit={handleSaveSettings} className="space-y-5">
               {/* Website Name */}
               <div>
@@ -277,7 +272,7 @@ const SettingsPage = ({ user, onLogout }) => {
               {/* Logo Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   Logo Image
                 </label>
                 <div className="space-y-3">
@@ -305,13 +300,15 @@ const SettingsPage = ({ user, onLogout }) => {
                   </label>
                   {formData.logo_url && (
                     <div className="p-3 bg-slate-800/50 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-2">Current Logo:</p>
+                      <p className="text-xs text-slate-400 mb-2">
+                        Current Logo:
+                      </p>
                       <img
                         src={formData.logo_url}
                         alt="Logo preview"
                         className="h-16 object-contain rounded"
                         onError={(e) => {
-                          e.target.style.display = 'none';
+                          e.currentTarget.style.display = "none";
                         }}
                       />
                     </div>
@@ -322,7 +319,7 @@ const SettingsPage = ({ user, onLogout }) => {
               {/* Background Image Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   Background Image
                 </label>
                 <div className="space-y-3">
@@ -350,13 +347,15 @@ const SettingsPage = ({ user, onLogout }) => {
                   </label>
                   {formData.background_image_url && (
                     <div className="p-3 bg-slate-800/50 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-2">Current Background:</p>
+                      <p className="text-xs text-slate-400 mb-2">
+                        Current Background:
+                      </p>
                       <img
                         src={formData.background_image_url}
                         alt="Background preview"
                         className="w-full h-24 object-cover rounded"
                         onError={(e) => {
-                          e.target.style.display = 'none';
+                          e.currentTarget.style.display = "none";
                         }}
                       />
                     </div>
@@ -385,13 +384,13 @@ const SettingsPage = ({ user, onLogout }) => {
             </form>
           </div>
 
-          {/* Security Settings Section */}
+          {/* Security Settings */}
           <div className="glass-card p-6">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
               <Lock className="w-6 h-6 text-red-400" />
               Security Settings
             </h2>
-            
+
             <form onSubmit={handleChangePassword} className="space-y-5">
               {/* Current Password */}
               <div>
@@ -409,10 +408,14 @@ const SettingsPage = ({ user, onLogout }) => {
                   />
                   <button
                     type="button"
-                    onClick={() => togglePasswordVisibility('current')}
+                    onClick={() => togglePasswordVisibility("current")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
-                    {showPasswords.current ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPasswords.current ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -433,10 +436,14 @@ const SettingsPage = ({ user, onLogout }) => {
                   />
                   <button
                     type="button"
-                    onClick={() => togglePasswordVisibility('new')}
+                    onClick={() => togglePasswordVisibility("new")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
-                    {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPasswords.new ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -457,10 +464,14 @@ const SettingsPage = ({ user, onLogout }) => {
                   />
                   <button
                     type="button"
-                    onClick={() => togglePasswordVisibility('confirm')}
+                    onClick={() => togglePasswordVisibility("confirm")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                   >
-                    {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    {showPasswords.confirm ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -469,10 +480,17 @@ const SettingsPage = ({ user, onLogout }) => {
               {passwordData.new_password && (
                 <div className="text-xs text-slate-400">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className={`h-1 flex-1 rounded ${passwordData.new_password.length >= 6 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <div
+                      className={`h-1 flex-1 rounded ${passwordData.new_password.length >= 6 ? "bg-green-500" : "bg-red-500"}`}
+                    ></div>
                   </div>
                   <p>
-                    Password strength: {passwordData.new_password.length < 6 ? 'Too short' : passwordData.new_password.length < 10 ? 'Medium' : 'Strong'}
+                    Password strength:{" "}
+                    {passwordData.new_password.length < 6
+                      ? "Too short"
+                      : passwordData.new_password.length < 10
+                        ? "Medium"
+                        : "Strong"}
                   </p>
                 </div>
               )}
