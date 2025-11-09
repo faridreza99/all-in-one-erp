@@ -1,0 +1,90 @@
+I need to implement multi-branch + role-based access permission in my ERP (FastAPI + React + PostgreSQL project).
+
+Current problem:
+- Tenant Admin can create staff accounts (Branch Manager or Staff)
+- Staff account can still see all tenant admin data and all branches
+- Data is not isolated by branch_id
+
+Goal:
+1. Update backend (FastAPI) so every API response filters data by:
+   - tenant_id (always required)
+   - branch_id (required for Branch Manager / Staff)
+   - user role permissions
+
+2. Create role structure:
+   - TENANT_ADMIN → Can see all data across all branches
+   - BRANCH_MANAGER → Can only see his assigned branch data
+   - STAFF → Can only see allowed modules for his branch
+
+3. When generating JWT token, include:
+   - user_id
+   - tenant_id
+   - role
+   - branch_id (if staff/branch manager)
+
+Example JWT payload:
+{
+  "user_id": "uuid",
+  "tenant_id": "tenant-001",
+  "role": "BRANCH_MANAGER",
+  "branch_id": "branch-003"
+}
+
+4. Modify all backend queries, example:
+✅ Before:
+products = db.query(Product).all()
+
+✅ After:
+products = db.query(Product).filter(
+    Product.tenant_id == current_user.tenant_id,
+    Product.branch_id == current_user.branch_id  # Only if not admin
+).all()
+
+5. Create a backend dependency middleware:
+- validate_role(required_role)
+- validate_branch_access
+
+Example:
+@router.get("/products")
+def get_products(current_user = Depends(auth.verify_user)):
+    return product_service.get_products(
+        tenant_id=current_user.tenant_id,
+        branch_id=current_user.branch_id if current_user.role != "TENANT_ADMIN" else None
+    )
+
+6. In frontend:
+- Save role + branch_id in localStorage after login
+- Hide sidebar routes based on role
+- Pass branch_id in axios requests via header "X-Branch-ID"
+
+7. Notification Feature:
+- When Staff or Branch Manager performs sale / due payment / report export
+- Insert notification into tenant admin notification table
+
+Table structure:
+notifications:
+    id
+    tenant_id
+    branch_id
+    message
+    type (sale | payment | report)
+    created_at
+
+8. Create React UI:
+- Tenant Admin → user management page: create user, assign role & branch
+- Staff → limited modules, no access to tenant-level routes
+
+Deliverables to generate:
+✅ Backend updates (FastAPI middleware + dependencies)
+✅ Modified endpoints (product, sales, due payment)
+✅ React logic to hide routes & filter based on role
+✅ Database migration script for role + branch relations
+✅ Notification insertion code
+✅ Notification fetch endpoint
+
+IMPORTANT:
+Make sure Branch Manager or Staff only sees data for their branch,
+but tenant admin sees everything for all branches.
+
+Do not just hide UI elements.
+You must enforce security at backend API level.
