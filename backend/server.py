@@ -2098,7 +2098,7 @@ async def get_products(
             )
         
         # Get product IDs assigned to this branch
-        branch_assignments = await db.product_assignments.find(
+        branch_assignments = await db.product_branches.find(
             {
                 "tenant_id": current_user["tenant_id"],
                 "branch_id": user_branch_id
@@ -2130,17 +2130,17 @@ async def get_products(
             product['updated_at'] = datetime.fromisoformat(product['updated_at'])
         
         # Add branch stock mapping
-        product_assignments = await db.product_assignments.find(
+        product_assignments = await db.product_branches.find(
             {
                 "tenant_id": current_user["tenant_id"],
                 "product_id": product["id"]
             },
-            {"_id": 0, "branch_id": 1, "stock": 1}
+            {"_id": 0, "branch_id": 1, "stock_quantity": 1}
         ).to_list(100)
         
         # Create branch_stock mapping
         product["branch_stock"] = {
-            assignment["branch_id"]: assignment.get("stock", 0)
+            assignment["branch_id"]: assignment.get("stock_quantity", 0)
             for assignment in product_assignments
         }
     
