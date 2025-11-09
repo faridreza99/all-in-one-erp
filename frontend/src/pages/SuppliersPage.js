@@ -9,37 +9,33 @@ import {
   Search,
   Edit2,
   Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import BackButton from "../components/BackButton";
 import SectorLayout from "../components/SectorLayout";
 
-// --- BD phone helpers ---
+/* ---------------------- BD phone helpers ---------------------- */
 const onlyDigits = (s = "") => (s || "").replace(/\D/g, "");
 
 const toLocalFromAny = (phone = "") => {
-  // return local significant number WITHOUT 0/country code, e.g., "17XXXXXXXX"
+  // return local significant number WITHOUT 0/country code, e.g., "17XXXXXXXXX"
   let d = onlyDigits(phone);
   if (d.startsWith("880")) d = d.slice(3); // strip country code
   if (d.startsWith("0")) d = d.slice(1); // strip trunk 0
   return d;
 };
 
-// Acceptable BD mobile ranges: 013–019 (1[3-9]) and 10 digits incl leading 0 -> 11 with 0
-const isValidBDLocal = (local) => /^1[3-9]\d{8}$/.test(local); // "1XXXXXXXXX"
-const isValidBDAny = (input) => {
-  const d = onlyDigits(input);
-  if (d.startsWith("880")) return /^8801[3-9]\d{8}$/.test(d);
-  if (d.startsWith("01")) return /^01[3-9]\d{8}$/.test(d);
-  return /^1[3-9]\d{8}$/.test(d);
-};
-
-// Build E.164 +8801XXXXXXXXX from local "1XXXXXXXXX" or any form
+const isValidBDLocal = (local) => /^1[3-9]\d{8}$/.test(local); // 013–019 ranges
 const toE164BD = (input) => {
-  let local = toLocalFromAny(input);
+  const local = isValidBDLocal(onlyDigits(input))
+    ? onlyDigits(input)
+    : toLocalFromAny(input);
   if (!isValidBDLocal(local)) return null;
   return `+880${local}`;
 };
+/* -------------------------------------------------------------- */
 
 const SuppliersPage = ({ user, onLogout }) => {
   const [suppliers, setSuppliers] = useState([]);
@@ -47,7 +43,11 @@ const SuppliersPage = ({ user, onLogout }) => {
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // keep formData for other fields, but handle phone with its own local/validation states
+  // pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // form state
   const [formData, setFormData] = useState({
     name: "",
     contact_person: "",
@@ -55,9 +55,14 @@ const SuppliersPage = ({ user, onLogout }) => {
     email: "",
     address: "",
   });
-
   const [bdPhoneLocal, setBdPhoneLocal] = useState(""); // "1XXXXXXXXX"
   const [phoneError, setPhoneError] = useState("");
+
+  // bulk modal state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkResults, setBulkResults] = useState([]); // [{row, status, message}]
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -103,16 +108,15 @@ const SuppliersPage = ({ user, onLogout }) => {
       return;
     }
 
-    // Validate & normalize phone
-    const localDigits = onlyDigits(bdPhoneLocal);
-    if (!isValidBDLocal(localDigits)) {
-      setPhoneError("Enter a valid Bangladeshi mobile (e.g., 17XXXXXXXXX)");
+    // Validate & normalize phone to +8801XXXXXXXXX
+    if (!isValidBDLocal(onlyDigits(bdPhoneLocal))) {
+      setPhoneError("Enter a valid Bangladeshi mobile (e.g., 1700000000)");
       toast.error("Invalid Bangladeshi phone number");
       return;
     }
-    const e164 = toE164BD(localDigits); // -> +8801XXXXXXXXX
+    const e164 = toE164BD(bdPhoneLocal);
     if (!e164) {
-      setPhoneError("Enter a valid Bangladeshi mobile (e.g., 17XXXXXXXXX)");
+      setPhoneError("Enter a valid Bangladeshi mobile (e.g., 1700000000)");
       toast.error("Invalid Bangladeshi phone number");
       return;
     }
@@ -124,11 +128,7 @@ const SuppliersPage = ({ user, onLogout }) => {
         : `${process.env.REACT_APP_BACKEND_URL}/api/suppliers`;
 
       const method = editingSupplier ? "PUT" : "POST";
-
-      const payload = {
-        ...formData,
-        phone: e164, // always send normalized E.164
-      };
+      const payload = { ...formData, phone: e164 };
 
       const response = await fetch(url, {
         method,
@@ -167,10 +167,11 @@ const SuppliersPage = ({ user, onLogout }) => {
       email: supplier.email || "",
       address: supplier.address || "",
     });
-    // derive local from existing stored value
     setBdPhoneLocal(toLocalFromAny(supplier.phone || ""));
     setPhoneError("");
     setShowForm(true);
+    // Scroll to form for convenience
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
   };
 
   const handleDelete = async (supplierId) => {
@@ -200,29 +201,176 @@ const SuppliersPage = ({ user, onLogout }) => {
   };
 
   const onPhoneLocalChange = (v) => {
-    // keep only digits; user types e.g., 17XXXXXXXXX or 1XXXXXXXXX
-    const digits = onlyDigits(v);
-    // cap at 10 (1 + 9) to prevent overflow typing
-    const trimmed = digits.slice(0, 10);
-    setBdPhoneLocal(trimmed);
-    // live-validate
-    if (trimmed === "") {
-      setPhoneError("");
-    } else if (!isValidBDLocal(trimmed)) {
-      setPhoneError("Format: 1XXXXXXXXX (e.g., 1700000000)");
+    const digits = onlyDigits(v).slice(0, 10); // 10 digits after +880
+    setBdPhoneLocal(digits);
+    if (digits && !isValidBDLocal(digits)) {
+      setPhoneError("Format: 1XXXXXXXXX (accepted prefixes 13–19)");
     } else {
       setPhoneError("");
     }
   };
 
+  /* ---------------------- Filtering + Pagination ---------------------- */
   const filteredSuppliers = suppliers.filter((supplier) => {
     const q = searchTerm.toLowerCase();
     return (
       supplier.name?.toLowerCase().includes(q) ||
       supplier.contact_person?.toLowerCase().includes(q) ||
-      supplier.phone?.includes(searchTerm)
+      supplier.phone?.includes(searchTerm) ||
+      supplier.email?.toLowerCase().includes(q)
     );
   });
+
+  const total = filteredSuppliers.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pageItems = filteredSuppliers.slice(startIndex, endIndex);
+
+  const gotoPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+
+  /* ---------------------- Bulk Import ---------------------- */
+  const parseCSV = (text) => {
+    // Simple CSV parser (handles commas inside quotes)
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) return { headers: [], rows: [] };
+
+    const splitSmart = (line) => {
+      const out = [];
+      let cur = "";
+      let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          // toggle quotes (handle double escapes "")
+          if (inQ && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQ = !inQ;
+          }
+        } else if (ch === "," && !inQ) {
+          out.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      out.push(cur);
+      return out.map((s) => s.trim());
+    };
+
+    const headers = splitSmart(lines[0]).map((h) => h.toLowerCase());
+    const rows = lines.slice(1).map((line) => {
+      const cols = splitSmart(line);
+      const row = {};
+      headers.forEach((h, i) => (row[h] = cols[i] ?? ""));
+      return row;
+    });
+    return { headers, rows };
+  };
+
+  const handleBulkFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = null;
+    if (!file) return;
+    if (!/\.csv$/i.test(file.name)) {
+      toast.error("Please upload a .csv file");
+      return;
+    }
+    const text = await file.text();
+    setBulkText(text);
+  };
+
+  const runBulkImport = async () => {
+    const { headers, rows } = parseCSV(bulkText);
+    const needed = ["name", "contact_person", "phone", "email", "address"];
+    const hasAll = needed.every((h) => headers.includes(h));
+    if (!hasAll) {
+      toast.error(
+        "CSV must include headers: name, contact_person, phone, email, address",
+      );
+      return;
+    }
+    if (rows.length === 0) {
+      toast.error("No data rows found");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    setBulkLoading(true);
+    setBulkResults([]);
+
+    const tasks = rows.map((r, idx) => {
+      const e164 = toE164BD(r.phone);
+      if (!e164) {
+        return Promise.resolve({
+          index: idx,
+          status: "rejected",
+          message: `Invalid BD phone: ${r.phone}`,
+        });
+      }
+
+      const payload = {
+        name: r.name?.trim(),
+        contact_person: r.contact_person?.trim(),
+        phone: e164,
+        email: r.email?.trim() || "",
+        address: r.address?.trim() || "",
+      };
+
+      if (!payload.name || !payload.contact_person) {
+        return Promise.resolve({
+          index: idx,
+          status: "rejected",
+          message: "Missing required fields (name/contact_person)",
+        });
+      }
+
+      return fetch(`${process.env.REACT_APP_BACKEND_URL}/api/suppliers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            return {
+              index: idx,
+              status: "rejected",
+              message: err.detail || `HTTP ${res.status}`,
+            };
+          }
+          return { index: idx, status: "fulfilled", message: "Created" };
+        })
+        .catch((e) => ({
+          index: idx,
+          status: "rejected",
+          message: e.message || "Network error",
+        }));
+    });
+
+    const results = await Promise.all(tasks);
+    setBulkResults(results);
+    setBulkLoading(false);
+
+    const ok = results.filter((r) => r.status === "fulfilled").length;
+    const bad = results.length - ok;
+    if (ok) toast.success(`Imported ${ok} supplier(s)`);
+    if (bad) toast.error(`Failed ${bad} row(s)`);
+
+    if (ok) {
+      fetchSuppliers();
+    }
+  };
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
@@ -242,10 +390,14 @@ const SuppliersPage = ({ user, onLogout }) => {
               const next = !showForm;
               setShowForm(next);
               if (!next) {
-                resetForm();
+                // closing
               } else {
-                // opening a blank form
+                // opening a clean form
                 resetForm();
+                setTimeout(
+                  () => window.scrollTo({ top: 0, behavior: "smooth" }),
+                  0,
+                );
               }
             }}
             className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
@@ -257,10 +409,24 @@ const SuppliersPage = ({ user, onLogout }) => {
 
         {showForm && (
           <div className="bg-gradient-to-br from-gray-800/50 to-purple-900/30 backdrop-blur-lg border border-gray-700/50 rounded-xl p-8 mb-8 shadow-2xl">
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-              <Building2 className="w-6 h-6 text-purple-400" />
-              {editingSupplier ? "Edit Supplier" : "New Supplier"}
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Building2 className="w-6 h-6 text-purple-400" />
+                {editingSupplier ? "Edit Supplier" : "New Supplier"}
+              </h2>
+
+              {/* Bulk add button */}
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(true)}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2"
+                title="Bulk Add Suppliers"
+              >
+                <Upload className="w-4 h-4" />
+                Bulk Add Suppliers
+              </button>
+            </div>
+
             <form
               onSubmit={handleSubmit}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -299,24 +465,21 @@ const SuppliersPage = ({ user, onLogout }) => {
                 />
               </div>
 
-              {/* --- Bangladeshi Phone Input with Flag and +880 prefix --- */}
+              {/* BD Phone Input with Flag and +880 prefix */}
               <div className="md:col-span-1">
                 <label className="block text-gray-300 mb-2 flex items-center gap-2">
                   <Phone className="w-4 h-4 text-purple-400" />
                   Phone (Bangladesh) <span className="text-red-400">*</span>
                 </label>
                 <div className="flex items-stretch gap-0 rounded-lg overflow-hidden border border-gray-600 bg-gray-700/50 focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-transparent transition-all">
-                  {/* Flag */}
                   <span className="px-3 py-3 bg-gray-700/60 flex items-center justify-center select-none">
                     <span role="img" aria-label="Bangladesh">
                       🇧🇩
                     </span>
                   </span>
-                  {/* +880 prefix */}
                   <span className="px-3 py-3 bg-gray-700/60 text-gray-300 select-none">
                     +880
                   </span>
-                  {/* Local part input */}
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -388,90 +551,285 @@ const SuppliersPage = ({ user, onLogout }) => {
           </div>
         )}
 
+        {/* ---------- TABLE LIST with Pagination ---------- */}
         <div className="bg-gradient-to-br from-gray-800/50 to-purple-900/30 backdrop-blur-lg border border-gray-700/50 rounded-xl p-6 shadow-2xl">
-          <div className="mb-6">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div className="relative md:w-1/2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search suppliers by name, contact, or phone..."
+                placeholder="Search suppliers by name, contact, phone, or email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
                 className="w-full bg-gray-700/50 border border-gray-600 rounded-lg pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               />
             </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-gray-400 text-sm">Rows per page</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-gray-700/50 border border-gray-600 text-white rounded-lg px-3 py-2"
+              >
+                {[5, 10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {filteredSuppliers.length === 0 ? (
-            <div className="text-center py-16">
-              <Building2 className="w-20 h-20 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg mb-2">No suppliers found</p>
-              <p className="text-gray-500">
-                Add your first supplier to get started!
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSuppliers.map((supplier) => (
-                <div
-                  key={supplier.supplier_id}
-                  className="bg-gradient-to-br from-gray-700/50 to-purple-800/30 border border-gray-600/50 rounded-lg p-6 hover:shadow-xl transition-all duration-200 hover:scale-105"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-purple-400" />
-                        {supplier.name}
-                      </h3>
-                      <div className="space-y-2 mt-3">
-                        <p className="text-gray-300 flex items-center gap-2">
-                          <User className="w-4 h-4 text-purple-400" />
-                          <span className="text-sm">
-                            {supplier.contact_person}
-                          </span>
-                        </p>
-                        <p className="text-gray-300 flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-purple-400" />
-                          <span className="text-sm">{supplier.phone}</span>
-                        </p>
-                        {supplier.email && (
-                          <p className="text-gray-300 flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-purple-400" />
-                            <span className="text-sm">{supplier.email}</span>
-                          </p>
-                        )}
-                        {supplier.address && (
-                          <p className="text-gray-300 flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-purple-400" />
-                            <span className="text-sm">{supplier.address}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  <th className="text-left">Supplier</th>
+                  <th className="text-left">Contact Person</th>
+                  <th className="text-left">Phone</th>
+                  <th className="text-left">Email</th>
+                  <th className="text-left">Address</th>
+                  <th className="text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 py-10">
+                      No suppliers found.
+                    </td>
+                  </tr>
+                ) : (
+                  pageItems.map((s) => (
+                    <tr key={s.supplier_id}>
+                      <td className="font-semibold text-white">{s.name}</td>
+                      <td className="text-gray-300">{s.contact_person}</td>
+                      <td className="text-gray-300">{s.phone}</td>
+                      <td className="text-gray-300">{s.email || "-"}</td>
+                      <td className="text-gray-300">{s.address || "-"}</td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(s)}
+                            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.supplier_id)}
+                            className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-gray-600/50">
-                    <button
-                      onClick={() => handleEdit(supplier)}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+          {/* Pagination controls */}
+          <div className="mt-4 flex flex-col md:flex-row items-center justify-between gap-3">
+            <p className="text-gray-400 text-sm">
+              Showing{" "}
+              <span className="text-white">
+                {total === 0 ? 0 : startIndex + 1}
+              </span>
+              –<span className="text-white">{Math.min(endIndex, total)}</span>{" "}
+              of <span className="text-white">{total}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => gotoPage(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="px-3 py-2 rounded-lg bg-gray-700/50 border border-gray-600 text-white disabled:opacity-50"
+              >
+                Prev
+              </button>
+              {/* Simple page numbers (show up to 7 around current) */}
+              {Array.from({ length: totalPages })
+                .map((_, i) => i + 1)
+                .filter(
+                  (p) =>
+                    Math.abs(p - currentPage) <= 3 ||
+                    p === 1 ||
+                    p === totalPages,
+                )
+                .reduce((acc, p, idx, arr) => {
+                  if (idx === 0) return [p];
+                  const prev = arr[idx - 1];
+                  if (p - prev > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === "string" ? (
+                    <span
+                      key={`ellipsis-${idx}`}
+                      className="px-2 text-gray-400"
                     >
-                      <Edit2 className="w-4 h-4" />
-                      Edit
-                    </button>
+                      …
+                    </span>
+                  ) : (
                     <button
-                      onClick={() => handleDelete(supplier.supplier_id)}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                      key={p}
+                      onClick={() => gotoPage(p)}
+                      className={`px-3 py-2 rounded-lg border ${
+                        p === currentPage
+                          ? "bg-purple-600 border-purple-600 text-white"
+                          : "bg-gray-700/50 border-gray-600 text-white hover:bg-gray-700"
+                      }`}
                     >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
+                      {p}
                     </button>
-                  </div>
-                </div>
-              ))}
+                  ),
+                )}
+              <button
+                onClick={() => gotoPage(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-2 rounded-lg bg-gray-700/50 border border-gray-600 text-white disabled:opacity-50"
+              >
+                Next
+              </button>
             </div>
-          )}
+          </div>
         </div>
+        {/* -------------------------------------------------- */}
       </div>
+
+      {/* ------------------------ Bulk Modal ------------------------ */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">
+                Bulk Add Suppliers (CSV)
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBulkModal(false);
+                  setBulkText("");
+                  setBulkResults([]);
+                }}
+                className="w-9 h-9 rounded-lg bg-red-500/20 hover:bg-red-500/30 flex items-center justify-center"
+              >
+                <X className="w-5 h-5 text-red-400" />
+              </button>
+            </div>
+
+            <p className="text-slate-400 text-sm mb-3">
+              Required headers:{" "}
+              <code className="text-slate-300">
+                name, contact_person, phone, email, address
+              </code>
+            </p>
+
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="text-slate-300 text-sm mb-2 block">
+                  Paste CSV here
+                </label>
+                <textarea
+                  rows={10}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={`name,contact_person,phone,email,address
+Acme Ltd,Rahim Uddin,01700000000,sales@acme.com,Dhaka
+Tech BD,Mina Akter,+8801812345678,,Chattogram`}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white"
+                />
+              </div>
+              <div className="w-full md:w-56">
+                <label className="text-slate-300 text-sm mb-2 block">
+                  Or upload .csv
+                </label>
+                <label className="cursor-pointer block">
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleBulkFile}
+                  />
+                  <div className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white hover:bg-slate-700 transition flex items-center justify-center gap-2">
+                    <Upload className="w-5 h-5" />
+                    Choose CSV
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={runBulkImport}
+                disabled={bulkLoading || !bulkText.trim()}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                {bulkLoading ? "Importing…" : "Start Import"}
+              </button>
+              <button
+                onClick={() => {
+                  setBulkText("");
+                  setBulkResults([]);
+                }}
+                className="px-4 py-2 rounded-lg bg-slate-800 border border-slate-700 text-white"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Results */}
+            {bulkResults.length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-white font-semibold mb-2">Results</h4>
+                <div className="max-h-64 overflow-auto border border-slate-700 rounded-lg">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="text-left">Row</th>
+                        <th className="text-left">Status</th>
+                        <th className="text-left">Message</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkResults.map((r, i) => (
+                        <tr key={i}>
+                          <td className="text-slate-300">
+                            {r.index + 2 /* + header row */}
+                          </td>
+                          <td
+                            className={
+                              r.status === "fulfilled"
+                                ? "text-green-400"
+                                : "text-red-400"
+                            }
+                          >
+                            {r.status}
+                          </td>
+                          <td className="text-slate-300">{r.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ------------------------------------------------------------ */}
     </SectorLayout>
   );
 };

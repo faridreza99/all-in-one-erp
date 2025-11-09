@@ -17,37 +17,7 @@ import { API } from "../App";
 import { toast } from "sonner";
 import { formatErrorMessage } from "../utils/errorHandler";
 
-const CLOUD_NAME =
-  process.env.REACT_APP_CLOUDINARY_CLOUD_NAME ||
-  // optional fallback: try to parse cloud name from CLOUDINARY_URL if present
-  (
-    process.env.REACT_APP_CLOUDINARY_URL ||
-    process.env.CLOUDINARY_URL ||
-    ""
-  ).split("@")[1]; // cloudinary://key:secret@cloud_name
-
-const UNSIGNED_PRESET = process.env.REACT_APP_CLOUDINARY_UNSIGNED_PRESET;
-
-async function uploadToCloudinary(file, { folder = "erp/branding" } = {}) {
-  if (!CLOUD_NAME || !UNSIGNED_PRESET) {
-    throw new Error(
-      "Cloudinary is not configured. Set REACT_APP_CLOUDINARY_CLOUD_NAME and REACT_APP_CLOUDINARY_UNSIGNED_PRESET in .env",
-    );
-  }
-
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("upload_preset", UNSIGNED_PRESET);
-  if (folder) fd.append("folder", folder);
-
-  const res = await fetch(endpoint, { method: "POST", body: fd });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || "Cloudinary upload failed");
-  }
-  return res.json(); // contains secure_url, public_id, etc.
-}
+// Removed direct Cloudinary upload - now handled by backend
 
 const SettingsPage = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
@@ -174,17 +144,20 @@ const SettingsPage = ({ user, onLogout }) => {
 
     setUploadingLogo(true);
     try {
-      const result = await uploadToCloudinary(file, { folder: "erp/branding" });
-      setFormData((prev) => ({ ...prev, logo_url: result.secure_url }));
-      toast.success("Logo uploaded to Cloudinary");
-      // persist new URL to backend
-      await axios.put(`${API}/settings`, {
-        ...formData,
-        logo_url: result.secure_url,
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      
+      const response = await axios.post(`${API}/upload/logo`, formDataUpload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
+      
+      setFormData((prev) => ({ ...prev, logo_url: response.data.url }));
+      toast.success("Logo uploaded successfully");
       fetchSettings();
     } catch (err) {
-      toast.error(err.message || "Failed to upload logo");
+      toast.error(formatErrorMessage(err, "Failed to upload logo"));
     } finally {
       setUploadingLogo(false);
     }
@@ -198,20 +171,23 @@ const SettingsPage = ({ user, onLogout }) => {
 
     setUploadingBackground(true);
     try {
-      const result = await uploadToCloudinary(file, { folder: "erp/branding" });
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      
+      const response = await axios.post(`${API}/upload/background`, formDataUpload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
       setFormData((prev) => ({
         ...prev,
-        background_image_url: result.secure_url,
+        background_image_url: response.data.url,
       }));
-      toast.success("Background image uploaded to Cloudinary");
-      // persist new URL to backend
-      await axios.put(`${API}/settings`, {
-        ...formData,
-        background_image_url: result.secure_url,
-      });
+      toast.success("Background image uploaded successfully");
       fetchSettings();
     } catch (err) {
-      toast.error(err.message || "Failed to upload background image");
+      toast.error(formatErrorMessage(err, "Failed to upload background image"));
     } finally {
       setUploadingBackground(false);
     }
