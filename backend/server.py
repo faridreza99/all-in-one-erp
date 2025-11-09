@@ -2086,10 +2086,42 @@ async def get_products(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    products = await db.products.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    user_role = current_user.get("role")
+    user_branch_id = current_user.get("branch_id")
+    
+    # For non-admin users, only show products assigned to their branch
+    if user_role not in [UserRole.SUPER_ADMIN.value, UserRole.TENANT_ADMIN.value, UserRole.HEAD_OFFICE.value]:
+        if not user_branch_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied. Your account must be assigned to a branch."
+            )
+        
+        # Get product IDs assigned to this branch
+        branch_assignments = await db.product_assignments.find(
+            {
+                "tenant_id": current_user["tenant_id"],
+                "branch_id": user_branch_id
+            },
+            {"_id": 0, "product_id": 1}
+        ).to_list(1000)
+        
+        assigned_product_ids = [assignment["product_id"] for assignment in branch_assignments]
+        
+        # Only fetch products that are assigned to this branch
+        products = await db.products.find(
+            {
+                "tenant_id": current_user["tenant_id"],
+                "id": {"$in": assigned_product_ids}
+            },
+            {"_id": 0}
+        ).to_list(1000)
+    else:
+        # Admins see all products
+        products = await db.products.find(
+            {"tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        ).to_list(1000)
     
     for product in products:
         if isinstance(product.get('created_at'), str):

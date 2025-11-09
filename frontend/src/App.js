@@ -333,15 +333,15 @@ const App = () => {
                   />
                   <Route 
                     path={`/${user.business_type}/notifications`} 
-                    element={<NotificationsPage user={user} onLogout={handleLogout} />}
+                    element={<SectorRoute user={user} module="notifications" element={<NotificationsPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/settings`} 
-                    element={<SettingsPage user={user} onLogout={handleLogout} />}
+                    element={<SectorRoute user={user} module="settings" element={<SettingsPage user={user} onLogout={handleLogout} />} />}
                   />
                   <Route 
                     path={`/${user.business_type}/user-management`} 
-                    element={<UserManagementPage user={user} onLogout={handleLogout} />}
+                    element={<SectorRoute user={user} module="user-management" element={<UserManagementPage user={user} onLogout={handleLogout} />} />}
                   />
                   
                   {/* CNF Routes */}

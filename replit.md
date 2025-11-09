@@ -38,6 +38,30 @@ _This section can be used to track user-specific preferences and coding styles a
 
 ## Recent Changes
 
+### Multi-Branch RBAC & Security Enhancements (November 9, 2025)
+**Complete branch-based access control with security hardening:**
+
+**Security Fixes:**
+- ✅ **Frontend Route Guards**: All routes (notifications, settings, user-management) now enforce `allowed_routes` permissions
+- ✅ **Branch Assignment Enforcement**: Non-admin users without branch_id receive 403 errors (prevents data leakage)
+- ✅ **apply_branch_filter Hardening**: Rejects branch-less non-admin users instead of allowing unfiltered queries
+
+**Branch-Based Product Access:**
+- ✅ **Products API Filtering**: Branch users (branch_manager, staff) only see products assigned to their branch via `product_assignments`
+- ✅ **Admin Access**: tenant_admin, super_admin, head_office see all products across all branches
+- ✅ **Security**: Prevents branch users from viewing/managing products outside their assignment
+
+**POS Page UX Enhancements:**
+- ✅ **Auto-Branch Selection**: Non-admin users automatically have their assigned branch selected on page load
+- ✅ **Conditional Rendering**: Branch users see their branch name as read-only text (no dropdown)
+- ✅ **Admin Flexibility**: Admins retain branch selection dropdown for multi-branch operations
+
+**Technical Implementation:**
+- Backend: Enhanced `GET /api/products` with role-based filtering logic
+- Backend: `apply_branch_filter` validates branch_id presence for non-admins
+- Frontend: `SectorRoute` component enforces both business_type and allowed_routes
+- Frontend: POS page detects user role and renders appropriate branch UI
+
 ### User Management System (November 8, 2025)
 **Complete CRUD system for managing users with role-based permissions:**
 - **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment

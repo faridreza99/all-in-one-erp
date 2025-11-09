@@ -36,6 +36,18 @@ const POSPage = ({ user, onLogout }) => {
     fetchBranches();
   }, []);
 
+  // Auto-set branch for non-admin users
+  useEffect(() => {
+    const userRole = user?.role;
+    const userBranchId = user?.branch_id;
+    
+    // For branch users (non-admins), auto-set their branch
+    if (userBranchId && userRole && 
+        !['super_admin', 'tenant_admin', 'head_office'].includes(userRole)) {
+      setBranchId(userBranchId);
+    }
+  }, [user, branches]);
+
   const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API}/products`);
@@ -405,18 +417,30 @@ const POSPage = ({ user, onLogout }) => {
                 <option value="mobile">Mobile Payment</option>
               </select>
 
-              <select
-                value={branchId}
-                onChange={(e) => setBranchId(e.target.value)}
-                className="w-full mt-2 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-              >
-                <option value="">Select Branch (Optional)</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name} — {branch.branch_code}
-                  </option>
-                ))}
-              </select>
+              {/* Branch Selection - Conditional rendering based on user role */}
+              {user?.role && ['super_admin', 'tenant_admin', 'head_office'].includes(user.role) ? (
+                <select
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="w-full mt-2 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                >
+                  <option value="">Select Branch (Optional)</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} — {branch.branch_code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="w-full mt-2 px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white">
+                  <span className="text-slate-400 text-sm">Branch:</span>
+                  <div className="font-medium mt-1">
+                    {branchId 
+                      ? branches.find(b => b.id === branchId)?.name || 'Loading...'
+                      : 'No branch assigned'}
+                  </div>
+                </div>
+              )}
 
               {/* BILLING */}
               <div className="space-y-2 mb-6 mt-6 pb-6 border-b border-slate-700">

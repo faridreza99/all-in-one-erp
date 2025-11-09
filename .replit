@@ -57,6 +57,10 @@ externalPort = 8000
 localPort = 43065
 externalPort = 3000
 
+[[ports]]
+localPort = 44579
+externalPort = 3001
+
 [deployment]
 deploymentTarget = "autoscale"
 run = ["sh", "-c", "cd backend && uvicorn server:app --host 0.0.0.0 --port 5000"]
