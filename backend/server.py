@@ -1799,14 +1799,23 @@ async def upload_logo(
     # Upload to Cloudinary if configured, otherwise use local storage
     if cloudinary_url:
         try:
+            # Upload as authenticated to prevent untrusted customer errors
             upload_result = cloudinary.uploader.upload(
                 file_content,
                 folder=f"erp/{current_user['tenant_id']}/logos",
                 public_id=f"logo_{secrets.token_hex(8)}",
-                resource_type="image"
+                resource_type="image",
+                type="authenticated"
             )
-            file_url = upload_result["secure_url"]
-            filename = upload_result.get("public_id", "logo")
+            
+            # Generate authenticated signed URL
+            public_id = upload_result.get("public_id")
+            file_url = cloudinary.CloudinaryImage(public_id).build_url(
+                secure=True,
+                type="authenticated",
+                sign_url=True
+            )
+            filename = public_id
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -1863,14 +1872,23 @@ async def upload_background(
     # Upload to Cloudinary if configured, otherwise use local storage
     if cloudinary_url:
         try:
+            # Upload as authenticated to prevent untrusted customer errors
             upload_result = cloudinary.uploader.upload(
                 file_content,
                 folder=f"erp/{current_user['tenant_id']}/backgrounds",
                 public_id=f"background_{secrets.token_hex(8)}",
-                resource_type="image"
+                resource_type="image",
+                type="authenticated"
             )
-            file_url = upload_result["secure_url"]
-            filename = upload_result.get("public_id", "background")
+            
+            # Generate authenticated signed URL
+            public_id = upload_result.get("public_id")
+            file_url = cloudinary.CloudinaryImage(public_id).build_url(
+                secure=True,
+                type="authenticated",
+                sign_url=True
+            )
+            filename = public_id
         except Exception as e:
             raise HTTPException(
                 status_code=500,

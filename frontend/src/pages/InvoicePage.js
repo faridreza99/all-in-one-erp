@@ -40,11 +40,6 @@ const InvoicePage = ({ user, onLogout }) => {
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [reference, setReference] = useState("");
-
   useEffect(() => {
     (async () => {
       try {
@@ -55,7 +50,9 @@ const InvoicePage = ({ user, onLogout }) => {
           logo_url: d.logo_url ?? null,
           background_image_url: d.background_image_url ?? null,
         });
-      } catch {}
+      } catch {
+        /* keep defaults */
+      }
     })();
     fetchInvoice();
   }, [saleId]);
@@ -136,7 +133,7 @@ const InvoicePage = ({ user, onLogout }) => {
         heightLeft -= pageHeight - margin * 2;
       }
       pdf.save(`Invoice-${invoice?.sale?.invoice_no || saleId}.pdf`);
-    } catch (e) {
+    } catch {
       toast.error("Failed to generate PDF");
     } finally {
       setIsExportingPDF(false);
@@ -168,22 +165,26 @@ const InvoicePage = ({ user, onLogout }) => {
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
-      {/* PRINT-ONLY REGION: hide everything except #print-root */}
+      {/* PRINT-ONLY overrides to remove blank band and watermark */}
       <style>{`
         @page { size: A4; margin: 8mm; }
         @media print {
-          body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          /* Hide ALL by default */
+          body { background:#fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* Hide the entire app chrome */
           body * { visibility: hidden !important; }
-          /* Only show invoice area */
           #print-root, #print-root * { visibility: visible !important; }
           #print-root { position: absolute !important; inset: 0 !important; width: auto !important; margin: 0 !important; }
-          /* Prevent page breaks inside main card */
+
+          /* Tighten layout */
+          .invoice-sheet { padding: 12mm 10mm !important; box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+          .invoice-accent { margin-bottom: 8px !important; height: 3px !important; }
+          .invoice-header  { margin-bottom: 8px !important; }
+          .invoice-watermark { display: none !important; } /* remove background image on paper */
           .avoid-break, .avoid-break * { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
       `}</style>
 
-      {/* actions */}
+      {/* actions (screen only) */}
       <div className="no-print flex items-center justify-between mt-4 mb-6">
         <BackButton />
         <div className="flex gap-3">
@@ -213,7 +214,7 @@ const InvoicePage = ({ user, onLogout }) => {
         >
           {branding.background_image_url && (
             <div
-              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              className="invoice-watermark pointer-events-none absolute inset-0 opacity-[0.06]"
               style={{
                 backgroundImage: `url(${branding.background_image_url})`,
                 backgroundSize: "cover",
@@ -222,10 +223,10 @@ const InvoicePage = ({ user, onLogout }) => {
             />
           )}
 
-          <div className="relative h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 mb-6" />
+          <div className="invoice-accent relative h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 mb-6" />
 
           {/* header */}
-          <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+          <div className="invoice-header relative flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="flex items-center gap-4">
               {branding.logo_url ? (
                 <img
@@ -277,7 +278,7 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
 
           {/* bill to / payment */}
-          <div className="relative mt-6 grid sm:grid-cols-2 gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
+          <div className="relative mt-4 grid sm:grid-cols-2 gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-slate-500">BILL TO</p>
               <p className="text-base font-semibold">
@@ -309,7 +310,9 @@ const InvoicePage = ({ user, onLogout }) => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-100 text-slate-600">
-                  <th className="px-4 py-2 text-left font-semibold">Product</th>
+                  <th className="px-4 py-2 text-left  font-semibold">
+                    Product
+                  </th>
                   <th className="px-4 py-2 text-right font-semibold">Price</th>
                   <th className="px-4 py-2 text-right font-semibold">Qty</th>
                   <th className="px-4 py-2 text-right font-semibold">Total</th>
@@ -401,13 +404,13 @@ const InvoicePage = ({ user, onLogout }) => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-100 text-slate-600">
-                      <th className="px-4 py-2 text-left font-semibold">
+                      <th className="px-4 py-2 text-left  font-semibold">
                         Date
                       </th>
-                      <th className="px-4 py-2 text-left font-semibold">
+                      <th className="px-4 py-2 text-left  font-semibold">
                         Method
                       </th>
-                      <th className="px-4 py-2 text-left font-semibold">
+                      <th className="px-4 py-2 text-left  font-semibold">
                         Reference
                       </th>
                       <th className="px-4 py-2 text-right font-semibold">
@@ -450,36 +453,6 @@ const InvoicePage = ({ user, onLogout }) => {
         </div>
       </div>
       {/* === PRINT ROOT END === */}
-
-      {/* optional unpaid banner (screen only) */}
-      {!isExportingPDF && sale?.payment_status !== "paid" && balance > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="sticky bottom-6 no-print z-20 bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm shadow-lg mt-6"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="text-red-500" size={24} />
-              <div>
-                <h3 className="font-semibold text-red-600">
-                  Outstanding Balance
-                </h3>
-                <p className="text-sm text-slate-700">
-                  {formatCurrency(balance)} remaining of {formatCurrency(total)}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
-            >
-              <Plus size={18} />
-              <span>Add Payment</span>
-            </button>
-          </div>
-        </motion.div>
-      )}
 
       <Footer />
     </SectorLayout>

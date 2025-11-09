@@ -38,6 +38,21 @@ _This section can be used to track user-specific preferences and coding styles a
 
 ## Recent Changes
 
+### Critical Bug Fixes & Cloudinary Enhancement (November 9, 2025)
+**Fixed product filtering and Cloudinary authentication:**
+
+**Product Collection Bug Fix:**
+- ✅ **Collection Name Fix**: Changed `product_assignments` → `product_branches` (correct collection name)
+- ✅ **Stock Field Fix**: Changed `stock` → `stock_quantity` (correct field name)
+- ✅ **Impact**: Branch users can now see products assigned to their branch in Products page and POS
+- ✅ **Root Cause**: API was querying non-existent collection causing zero products to be returned
+
+**Cloudinary Authenticated URLs:**
+- ✅ **Upload Type**: Images now uploaded with `type="authenticated"` to prevent "untrusted customer" errors
+- ✅ **Signed URLs**: All Cloudinary URLs now generated with `sign_url=True` for secure authenticated access
+- ✅ **Affected Endpoints**: `POST /api/upload/logo` and `POST /api/upload/background`
+- ✅ **Security**: Prevents unauthorized access to uploaded images via CloudinaryImage.build_url() method
+
 ### Multi-Branch RBAC & Security Enhancements (November 9, 2025)
 **Complete branch-based access control with security hardening:**
 
@@ -47,7 +62,7 @@ _This section can be used to track user-specific preferences and coding styles a
 - ✅ **apply_branch_filter Hardening**: Rejects branch-less non-admin users instead of allowing unfiltered queries
 
 **Branch-Based Product Access:**
-- ✅ **Products API Filtering**: Branch users (branch_manager, staff) only see products assigned to their branch via `product_assignments`
+- ✅ **Products API Filtering**: Branch users (branch_manager, staff) only see products assigned to their branch via `product_branches`
 - ✅ **Admin Access**: tenant_admin, super_admin, head_office see all products across all branches
 - ✅ **Security**: Prevents branch users from viewing/managing products outside their assignment
 
