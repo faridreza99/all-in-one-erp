@@ -1,81 +1,81 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Plus, Edit2, Trash2, Search } from 'lucide-react';
-import SectorLayout from '../components/SectorLayout';
-import BackButton from '../components/BackButton';
-import { API } from '../App';
-import { toast } from 'sonner';
-import { formatErrorMessage } from '../utils/errorHandler';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+import { Plus, Edit2, Trash2, Search } from "lucide-react";
+import SectorLayout from "../components/SectorLayout";
+import BackButton from "../components/BackButton";
+import { API } from "../App";
+import { toast } from "sonner";
+import { formatErrorMessage } from "../utils/errorHandler";
 
 // Helper function to format API error messages
 const formatErrorMessageLocal = (error) => {
-  if (!error.response?.data) return 'Operation failed';
-  
+  if (!error.response?.data) return "Operation failed";
+
   const data = error.response.data;
-  
+
   // Handle FastAPI validation errors (array of objects)
   if (Array.isArray(data.detail)) {
-    return data.detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+    return data.detail.map((err) => err.msg || JSON.stringify(err)).join(", ");
   }
-  
+
   // Handle simple string detail
-  if (typeof data.detail === 'string') {
+  if (typeof data.detail === "string") {
     return data.detail;
   }
-  
+
   // Handle object detail
-  if (typeof data.detail === 'object' && data.detail.msg) {
+  if (typeof data.detail === "object" && data.detail.msg) {
     return data.detail.msg;
   }
-  
-  return 'Operation failed';
+
+  return "Operation failed";
 };
 
 const ProductsPage = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState('products');
-  
+  const [activeTab, setActiveTab] = useState("products");
+
   const [products, setProducts] = useState([]);
   const [branches, setBranches] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [branchFilter, setBranchFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
   const [formData, setFormData] = useState({
-    name: '',
-    sku: '',
-    category: '',
-    category_id: '',
-    price: '',
-    stock: '',
-    description: '',
-    supplier_name: '',
-    generic_name: '',
-    brand: '',
-    brand_id: '',
-    batch_number: '',
-    expiry_date: '',
-    imei: '',
-    warranty_months: '',
-    branch_id: ''
+    name: "",
+    sku: "",
+    category: "",
+    category_id: "",
+    price: "",
+    stock: "",
+    description: "",
+    supplier_name: "",
+    generic_name: "",
+    brand: "",
+    brand_id: "",
+    batch_number: "",
+    expiry_date: "",
+    imei: "",
+    warranty_months: "",
+    branch_id: "",
   });
 
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState("");
   const [categoryFormData, setCategoryFormData] = useState({
-    name: '',
-    description: ''
+    name: "",
+    description: "",
   });
 
   const [brands, setBrands] = useState([]);
   const [showBrandModal, setShowBrandModal] = useState(false);
   const [editingBrand, setEditingBrand] = useState(null);
-  const [brandSearchTerm, setBrandSearchTerm] = useState('');
+  const [brandSearchTerm, setBrandSearchTerm] = useState("");
   const [brandFormData, setBrandFormData] = useState({
-    name: '',
-    description: ''
+    name: "",
+    description: "",
   });
 
   const [suppliers, setSuppliers] = useState([]);
@@ -93,7 +93,7 @@ const ProductsPage = ({ user, onLogout }) => {
       const response = await axios.get(`${API}/products`);
       setProducts(response.data);
     } catch (error) {
-      toast.error('Failed to fetch products');
+      toast.error("Failed to fetch products");
     }
   };
 
@@ -101,10 +101,10 @@ const ProductsPage = ({ user, onLogout }) => {
     try {
       const response = await axios.get(`${API}/branches`);
       // Filter only active branches
-      const activeBranches = response.data.filter(branch => branch.is_active);
+      const activeBranches = response.data.filter((branch) => branch.is_active);
       setBranches(activeBranches);
     } catch (error) {
-      toast.error('Failed to fetch branches');
+      toast.error("Failed to fetch branches");
     }
   };
 
@@ -112,9 +112,11 @@ const ProductsPage = ({ user, onLogout }) => {
     e.preventDefault();
     try {
       // Find selected category and brand names for backwards compatibility
-      const selectedCategory = categories.find(c => c.id === formData.category_id);
-      const selectedBrand = brands.find(b => b.id === formData.brand_id);
-      
+      const selectedCategory = categories.find(
+        (c) => c.id === formData.category_id,
+      );
+      const selectedBrand = brands.find((b) => b.id === formData.brand_id);
+
       // Build submitData with properly converted numeric fields
       const submitData = {
         name: formData.name,
@@ -129,29 +131,39 @@ const ProductsPage = ({ user, onLogout }) => {
         imei: formData.imei,
         branch_id: formData.branch_id,
         // Convert numeric fields from strings to numbers
-        price: formData.price !== '' && formData.price !== null ? parseFloat(formData.price) : 0,
-        stock: formData.stock !== '' && formData.stock !== null ? parseInt(formData.stock, 10) : 0,
+        price:
+          formData.price !== "" && formData.price !== null
+            ? parseFloat(formData.price)
+            : 0,
+        stock:
+          formData.stock !== "" && formData.stock !== null
+            ? parseInt(formData.stock, 10)
+            : 0,
       };
-      
+
       // Add category_id and brand_id if they have values (keep as strings - they are UUIDs)
-      if (formData.category_id !== '' && formData.category_id !== null) {
+      if (formData.category_id !== "" && formData.category_id !== null) {
         submitData.category_id = formData.category_id;
       }
-      if (formData.brand_id !== '' && formData.brand_id !== null) {
+      if (formData.brand_id !== "" && formData.brand_id !== null) {
         submitData.brand_id = formData.brand_id;
       }
-      
+
       // Only add warranty_months if it has a value (including 0)
-      if (formData.warranty_months !== '' && formData.warranty_months !== null && formData.warranty_months !== undefined) {
+      if (
+        formData.warranty_months !== "" &&
+        formData.warranty_months !== null &&
+        formData.warranty_months !== undefined
+      ) {
         submitData.warranty_months = parseInt(formData.warranty_months, 10);
       }
-      
+
       if (editingProduct) {
         await axios.put(`${API}/products/${editingProduct.id}`, submitData);
-        toast.success('Product updated successfully');
+        toast.success("Product updated successfully");
       } else {
         await axios.post(`${API}/products`, submitData);
-        toast.success('Product created successfully');
+        toast.success("Product created successfully");
       }
       setShowModal(false);
       resetForm();
@@ -162,13 +174,13 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+    if (window.confirm("Are you sure you want to delete this product?")) {
       try {
         await axios.delete(`${API}/products/${id}`);
-        toast.success('Product deleted successfully');
+        toast.success("Product deleted successfully");
         fetchProducts();
       } catch (error) {
-        toast.error('Failed to delete product');
+        toast.error("Failed to delete product");
       }
     }
   };
@@ -181,16 +193,32 @@ const ProductsPage = ({ user, onLogout }) => {
 
   const resetForm = () => {
     setFormData({
-      name: '', sku: '', category: '', category_id: '', price: '', stock: '', description: '', supplier_name: '',
-      generic_name: '', brand: '', brand_id: '', batch_number: '', expiry_date: '', imei: '', warranty_months: '', branch_id: ''
+      name: "",
+      sku: "",
+      category: "",
+      category_id: "",
+      price: "",
+      stock: "",
+      description: "",
+      supplier_name: "",
+      generic_name: "",
+      brand: "",
+      brand_id: "",
+      batch_number: "",
+      expiry_date: "",
+      imei: "",
+      warranty_months: "",
+      branch_id: "",
     });
     setEditingProduct(null);
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBranch = !branchFilter || p.branch_id === parseInt(branchFilter, 10);
+    const matchesBranch =
+      !branchFilter || p.branch_id === parseInt(branchFilter, 10);
     return matchesSearch && matchesBranch;
   });
 
@@ -199,7 +227,7 @@ const ProductsPage = ({ user, onLogout }) => {
       const response = await axios.get(`${API}/categories`);
       setCategories(response.data);
     } catch (error) {
-      toast.error('Failed to fetch categories');
+      toast.error("Failed to fetch categories");
     }
   };
 
@@ -207,11 +235,14 @@ const ProductsPage = ({ user, onLogout }) => {
     e.preventDefault();
     try {
       if (editingCategory) {
-        await axios.patch(`${API}/categories/${editingCategory.id}`, categoryFormData);
-        toast.success('Category updated successfully');
+        await axios.patch(
+          `${API}/categories/${editingCategory.id}`,
+          categoryFormData,
+        );
+        toast.success("Category updated successfully");
       } else {
         await axios.post(`${API}/categories`, categoryFormData);
-        toast.success('Category created successfully');
+        toast.success("Category created successfully");
       }
       setShowCategoryModal(false);
       resetCategoryForm();
@@ -222,30 +253,33 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleCategoryDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+    if (window.confirm("Are you sure you want to delete this category?")) {
       try {
         await axios.delete(`${API}/categories/${id}`);
-        toast.success('Category deleted successfully');
+        toast.success("Category deleted successfully");
         fetchCategories();
       } catch (error) {
-        toast.error('Failed to delete category');
+        toast.error("Failed to delete category");
       }
     }
   };
 
   const handleCategoryEdit = (category) => {
     setEditingCategory(category);
-    setCategoryFormData({ name: category.name, description: category.description || '' });
+    setCategoryFormData({
+      name: category.name,
+      description: category.description || "",
+    });
     setShowCategoryModal(true);
   };
 
   const resetCategoryForm = () => {
-    setCategoryFormData({ name: '', description: '' });
+    setCategoryFormData({ name: "", description: "" });
     setEditingCategory(null);
   };
 
-  const filteredCategories = categories.filter(c =>
-    c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+  const filteredCategories = categories.filter((c) =>
+    c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()),
   );
 
   const fetchBrands = async () => {
@@ -253,7 +287,7 @@ const ProductsPage = ({ user, onLogout }) => {
       const response = await axios.get(`${API}/brands`);
       setBrands(response.data);
     } catch (error) {
-      toast.error('Failed to fetch brands');
+      toast.error("Failed to fetch brands");
     }
   };
 
@@ -262,7 +296,7 @@ const ProductsPage = ({ user, onLogout }) => {
       const response = await axios.get(`${API}/suppliers`);
       setSuppliers(response.data);
     } catch (error) {
-      toast.error('Failed to fetch suppliers');
+      toast.error("Failed to fetch suppliers");
     }
   };
 
@@ -271,10 +305,10 @@ const ProductsPage = ({ user, onLogout }) => {
     try {
       if (editingBrand) {
         await axios.patch(`${API}/brands/${editingBrand.id}`, brandFormData);
-        toast.success('Brand updated successfully');
+        toast.success("Brand updated successfully");
       } else {
         await axios.post(`${API}/brands`, brandFormData);
-        toast.success('Brand created successfully');
+        toast.success("Brand created successfully");
       }
       setShowBrandModal(false);
       resetBrandForm();
@@ -285,30 +319,33 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleBrandDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this brand?')) {
+    if (window.confirm("Are you sure you want to delete this brand?")) {
       try {
         await axios.delete(`${API}/brands/${id}`);
-        toast.success('Brand deleted successfully');
+        toast.success("Brand deleted successfully");
         fetchBrands();
       } catch (error) {
-        toast.error('Failed to delete brand');
+        toast.error("Failed to delete brand");
       }
     }
   };
 
   const handleBrandEdit = (brand) => {
     setEditingBrand(brand);
-    setBrandFormData({ name: brand.name, description: brand.description || '' });
+    setBrandFormData({
+      name: brand.name,
+      description: brand.description || "",
+    });
     setShowBrandModal(true);
   };
 
   const resetBrandForm = () => {
-    setBrandFormData({ name: '', description: '' });
+    setBrandFormData({ name: "", description: "" });
     setEditingBrand(null);
   };
 
-  const filteredBrands = brands.filter(b =>
-    b.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
+  const filteredBrands = brands.filter((b) =>
+    b.name.toLowerCase().includes(brandSearchTerm.toLowerCase()),
   );
 
   return (
@@ -320,22 +357,33 @@ const ProductsPage = ({ user, onLogout }) => {
         <BackButton className="mb-4" />
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Products Management</h1>
-            <p className="text-slate-400">Manage your inventory, categories, and brands</p>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Products Management
+            </h1>
+            <p className="text-slate-400">
+              Manage your inventory, categories, and brands
+            </p>
           </div>
           <button
             onClick={() => {
-              if (activeTab === 'products') { resetForm(); setShowModal(true); }
-              else if (activeTab === 'categories') { resetCategoryForm(); setShowCategoryModal(true); }
-              else if (activeTab === 'brands') { resetBrandForm(); setShowBrandModal(true); }
+              if (activeTab === "products") {
+                resetForm();
+                setShowModal(true);
+              } else if (activeTab === "categories") {
+                resetCategoryForm();
+                setShowCategoryModal(true);
+              } else if (activeTab === "brands") {
+                resetBrandForm();
+                setShowBrandModal(true);
+              }
             }}
             className="btn-primary flex items-center gap-2"
             data-testid="add-product-button"
           >
             <Plus className="w-5 h-5" />
-            {activeTab === 'products' && 'Add Product'}
-            {activeTab === 'categories' && 'Add Category'}
-            {activeTab === 'brands' && 'Add Brand'}
+            {activeTab === "products" && "Add Product"}
+            {activeTab === "categories" && "Add Category"}
+            {activeTab === "brands" && "Add Brand"}
           </button>
         </div>
 
@@ -343,31 +391,31 @@ const ProductsPage = ({ user, onLogout }) => {
         <div className="glass-card p-2 mb-6">
           <div className="flex gap-2">
             <button
-              onClick={() => setActiveTab('products')}
+              onClick={() => setActiveTab("products")}
               className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-                activeTab === 'products'
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                activeTab === "products"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
               Products
             </button>
             <button
-              onClick={() => setActiveTab('categories')}
+              onClick={() => setActiveTab("categories")}
               className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-                activeTab === 'categories'
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                activeTab === "categories"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
               Categories
             </button>
             <button
-              onClick={() => setActiveTab('brands')}
+              onClick={() => setActiveTab("brands")}
               className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
-                activeTab === 'brands'
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                activeTab === "brands"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
               Brands
@@ -376,7 +424,7 @@ const ProductsPage = ({ user, onLogout }) => {
         </div>
 
         {/* Products Tab */}
-        {activeTab === 'products' && (
+        {activeTab === "products" && (
           <>
             {/* Search and Filter */}
             <div className="glass-card p-4 mb-6">
@@ -425,15 +473,26 @@ const ProductsPage = ({ user, onLogout }) => {
                   </thead>
                   <tbody>
                     {filteredProducts.map((product) => (
-                      <tr key={product.id} data-testid={`product-row-${product.id}`}>
-                        <td className="font-semibold text-white">{product.name}</td>
-                        <td className="text-slate-300">{product.sku || '-'}</td>
-                        <td>
-                          <span className="badge badge-info">{product.category}</span>
+                      <tr
+                        key={product.id}
+                        data-testid={`product-row-${product.id}`}
+                      >
+                        <td className="font-semibold text-white">
+                          {product.name}
                         </td>
-                        <td className="text-green-400 font-semibold">${product.price}</td>
+                        <td className="text-slate-300">{product.sku || "-"}</td>
                         <td>
-                          <span className={`badge ${product.stock < 10 ? 'badge-warning' : 'badge-success'}`}>
+                          <span className="badge badge-info">
+                            {product.category}
+                          </span>
+                        </td>
+                        <td className="text-green-400 font-semibold">
+                          ${product.price}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${product.stock < 10 ? "badge-warning" : "badge-success"}`}
+                          >
                             {product.stock}
                           </span>
                         </td>
@@ -465,7 +524,7 @@ const ProductsPage = ({ user, onLogout }) => {
         )}
 
         {/* Categories Tab */}
-        {activeTab === 'categories' && (
+        {activeTab === "categories" && (
           <>
             {/* Search */}
             <div className="glass-card p-4 mb-6">
@@ -495,8 +554,12 @@ const ProductsPage = ({ user, onLogout }) => {
                   <tbody>
                     {filteredCategories.map((category) => (
                       <tr key={category.id}>
-                        <td className="font-semibold text-white">{category.name}</td>
-                        <td className="text-slate-300">{category.description || '-'}</td>
+                        <td className="font-semibold text-white">
+                          {category.name}
+                        </td>
+                        <td className="text-slate-300">
+                          {category.description || "-"}
+                        </td>
                         <td>
                           <div className="flex gap-2">
                             <button
@@ -523,7 +586,7 @@ const ProductsPage = ({ user, onLogout }) => {
         )}
 
         {/* Brands Tab */}
-        {activeTab === 'brands' && (
+        {activeTab === "brands" && (
           <>
             {/* Search */}
             <div className="glass-card p-4 mb-6">
@@ -553,8 +616,12 @@ const ProductsPage = ({ user, onLogout }) => {
                   <tbody>
                     {filteredBrands.map((brand) => (
                       <tr key={brand.id}>
-                        <td className="font-semibold text-white">{brand.name}</td>
-                        <td className="text-slate-300">{brand.description || '-'}</td>
+                        <td className="font-semibold text-white">
+                          {brand.name}
+                        </td>
+                        <td className="text-slate-300">
+                          {brand.description || "-"}
+                        </td>
                         <td>
                           <div className="flex gap-2">
                             <button
@@ -589,9 +656,9 @@ const ProductsPage = ({ user, onLogout }) => {
               className="glass-card p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             >
               <h2 className="text-2xl font-bold text-white mb-6">
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
+                {editingProduct ? "Edit Product" : "Add New Product"}
               </h2>
-              
+
               {/* Branch Selection - Below Title */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -599,48 +666,66 @@ const ProductsPage = ({ user, onLogout }) => {
                 </label>
                 <select
                   value={formData.branch_id}
-                  onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, branch_id: e.target.value })
+                  }
                   className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   required
                 >
                   <option value="">Select a branch...</option>
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
-                      {branch.name} {branch.branch_code ? `(${branch.branch_code})` : ''}
+                      {branch.name}{" "}
+                      {branch.branch_code ? `(${branch.branch_code})` : ""}
                     </option>
                   ))}
                 </select>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Product Name</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Product Name
+                    </label>
                     <input
                       data-testid="product-name-input"
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="w-full"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">SKU</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      SKU
+                    </label>
                     <input
                       data-testid="product-sku-input"
                       type="text"
                       value={formData.sku}
-                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sku: e.target.value })
+                      }
                       className="w-full"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Category
+                    </label>
                     <select
                       data-testid="product-category-input"
                       value={formData.category_id}
-                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          category_id: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                       required
                     >
@@ -653,33 +738,83 @@ const ProductsPage = ({ user, onLogout }) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Price</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Price
+                    </label>
                     <input
                       data-testid="product-price-input"
                       type="number"
+                      min={0}
                       step="0.01"
-                      value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      value={
+                        formData.price === "" || formData.price === null
+                          ? ""
+                          : formData.price
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "" || v === null) {
+                          setFormData({ ...formData, price: "" });
+                        } else {
+                          const n = Math.max(0, Number(v));
+                          setFormData({
+                            ...formData,
+                            price: Number.isNaN(n) ? "" : n,
+                          });
+                        }
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown")
+                          e.preventDefault();
+                      }}
                       className="w-full"
-                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Stock</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Stock
+                    </label>
                     <input
                       data-testid="product-stock-input"
                       type="number"
-                      value={formData.stock}
-                      onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                      min={0}
+                      step={1}
+                      value={
+                        formData.stock === "" || formData.stock === null
+                          ? ""
+                          : formData.stock
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        // allow empty during typing, otherwise keep integers >= 0
+                        if (v === "" || v === null) {
+                          setFormData({ ...formData, stock: "" });
+                        } else {
+                          const n = Math.max(0, Math.floor(Number(v)));
+                          setFormData({
+                            ...formData,
+                            stock: Number.isNaN(n) ? "" : n,
+                          });
+                        }
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()} // stop scroll wheel changing value
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown")
+                          e.preventDefault(); // stop arrow increments
+                      }}
                       className="w-full"
-                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Brand
+                    </label>
                     <select
                       value={formData.brand_id}
-                      onChange={(e) => setFormData({ ...formData, brand_id: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, brand_id: e.target.value })
+                      }
                       className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       <option value="">Select Brand</option>
@@ -691,10 +826,17 @@ const ProductsPage = ({ user, onLogout }) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Supplier Name</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Supplier Name
+                    </label>
                     <select
                       value={formData.supplier_name}
-                      onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          supplier_name: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       <option value="">Select Supplier</option>
@@ -708,22 +850,33 @@ const ProductsPage = ({ user, onLogout }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Description
+                  </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     className="w-full"
                     rows="3"
                   />
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="submit" className="btn-primary flex-1" data-testid="submit-product-button">
-                    {editingProduct ? 'Update' : 'Create'}
+                  <button
+                    type="submit"
+                    className="btn-primary flex-1"
+                    data-testid="submit-product-button"
+                  >
+                    {editingProduct ? "Update" : "Create"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowModal(false); resetForm(); }}
+                    onClick={() => {
+                      setShowModal(false);
+                      resetForm();
+                    }}
                     className="btn-secondary flex-1"
                     data-testid="cancel-product-button"
                   >
@@ -744,25 +897,39 @@ const ProductsPage = ({ user, onLogout }) => {
               className="glass-card p-8 w-full max-w-md"
             >
               <h2 className="text-2xl font-bold text-white mb-6">
-                {editingCategory ? 'Edit Category' : 'Add New Category'}
+                {editingCategory ? "Edit Category" : "Add New Category"}
               </h2>
-              
+
               <form onSubmit={handleCategorySubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Category Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Category Name
+                  </label>
                   <input
                     type="text"
                     value={categoryFormData.name}
-                    onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                    onChange={(e) =>
+                      setCategoryFormData({
+                        ...categoryFormData,
+                        name: e.target.value,
+                      })
+                    }
                     className="w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Description
+                  </label>
                   <textarea
                     value={categoryFormData.description}
-                    onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                    onChange={(e) =>
+                      setCategoryFormData({
+                        ...categoryFormData,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full"
                     rows="3"
                   />
@@ -770,11 +937,14 @@ const ProductsPage = ({ user, onLogout }) => {
 
                 <div className="flex gap-3 pt-4">
                   <button type="submit" className="btn-primary flex-1">
-                    {editingCategory ? 'Update' : 'Create'}
+                    {editingCategory ? "Update" : "Create"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowCategoryModal(false); resetCategoryForm(); }}
+                    onClick={() => {
+                      setShowCategoryModal(false);
+                      resetCategoryForm();
+                    }}
                     className="btn-secondary flex-1"
                   >
                     Cancel
@@ -794,25 +964,39 @@ const ProductsPage = ({ user, onLogout }) => {
               className="glass-card p-8 w-full max-w-md"
             >
               <h2 className="text-2xl font-bold text-white mb-6">
-                {editingBrand ? 'Edit Brand' : 'Add New Brand'}
+                {editingBrand ? "Edit Brand" : "Add New Brand"}
               </h2>
-              
+
               <form onSubmit={handleBrandSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Brand Name</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Brand Name
+                  </label>
                   <input
                     type="text"
                     value={brandFormData.name}
-                    onChange={(e) => setBrandFormData({ ...brandFormData, name: e.target.value })}
+                    onChange={(e) =>
+                      setBrandFormData({
+                        ...brandFormData,
+                        name: e.target.value,
+                      })
+                    }
                     className="w-full"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Description
+                  </label>
                   <textarea
                     value={brandFormData.description}
-                    onChange={(e) => setBrandFormData({ ...brandFormData, description: e.target.value })}
+                    onChange={(e) =>
+                      setBrandFormData({
+                        ...brandFormData,
+                        description: e.target.value,
+                      })
+                    }
                     className="w-full"
                     rows="3"
                   />
@@ -820,11 +1004,14 @@ const ProductsPage = ({ user, onLogout }) => {
 
                 <div className="flex gap-3 pt-4">
                   <button type="submit" className="btn-primary flex-1">
-                    {editingBrand ? 'Update' : 'Create'}
+                    {editingBrand ? "Update" : "Create"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowBrandModal(false); resetBrandForm(); }}
+                    onClick={() => {
+                      setShowBrandModal(false);
+                      resetBrandForm();
+                    }}
                     className="btn-secondary flex-1"
                   >
                     Cancel

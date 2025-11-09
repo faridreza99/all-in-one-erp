@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { getSectorModules, MODULE_ROUTES } from "../config/sectorModules";
 import NotificationBell from "./NotificationBell";
+import { API } from "../App"; // make sure this points to your API base
 
 const ICON_MAP = {
   dashboard: LayoutDashboard,
@@ -67,6 +69,12 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(initialSidebarOpen);
   const [isMobile, setIsMobile] = useState(initialIsMobile);
 
+  // Branding pulled from `${API}/settings`
+  const [branding, setBranding] = useState({
+    name: "Smart Business ERP",
+    logo: null,
+  });
+
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
@@ -76,6 +84,41 @@ const SectorLayout = ({ children, user, onLogout }) => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [sidebarOpen]);
+
+  // Fetch branding: expects fields like { website_name, logo_url } (sample you sent)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await axios.get(`${API}/settings`, {
+          withCredentials: true,
+        });
+        const raw = data?.data ?? data ?? {};
+        console.log("Branding data:", raw);
+        const name =
+          raw.website_name ||
+          raw.app_name ||
+          raw.site_name ||
+          "Smart Business ERP";
+
+        // handle relative logo path
+        const rawLogo = raw.logo_url || raw.app_logo || raw.logo || null;
+        const logo =
+          rawLogo && typeof rawLogo === "string"
+            ? /^https?:\/\//i.test(rawLogo)
+              ? rawLogo
+              : `${API}${rawLogo.startsWith("/") ? "" : "/"}${rawLogo}`
+            : null;
+
+        if (mounted) setBranding({ name, logo });
+      } catch {
+        // leave defaults
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const businessType = user?.business_type || "pharmacy";
   const sectorConfig = getSectorModules(businessType);
@@ -129,40 +172,85 @@ const SectorLayout = ({ children, user, onLogout }) => {
         >
           {/* Header / Toggle */}
           <div
-            className={`${sidebarOpen ? "flex items-center justify-between" : "flex items-center justify-center"} mb-6 flex-shrink-0`}
+            className={`${
+              sidebarOpen
+                ? "flex items-center justify-between"
+                : "flex items-center justify-center"
+            } mb-6 flex-shrink-0`}
           >
-            {sidebarOpen && (
+            {sidebarOpen ? (
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <Building2 className="w-7 h-7 text-white" />
-                </div>
+                {branding.logo ? (
+                  <img
+                    src={branding.logo}
+                    alt={branding.name}
+                    crossOrigin="anonymous"
+                    className="w-12 h-12 rounded-xl object-cover shadow-lg border border-white/10 bg-white"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Building2 className="w-7 h-7 text-white" />
+                  </div>
+                )}
                 <div>
                   <h2 className="font-bold text-white text-base leading-tight">
-                    Smart Business ERP
+                    {branding.name}
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Powered by MaxTech BD
-                  </p>
                 </div>
               </div>
+            ) : (
+              // Collapsed: also show compact logo so brand is always visible
+              <div className="flex items-center justify-between w-full px-2">
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-white/10">
+                  {branding.logo ? (
+                    <img
+                      src={branding.logo}
+                      alt="logo"
+                      crossOrigin="anonymous"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.replaceWith(
+                          document.createElement("div"),
+                        );
+                      }}
+                    />
+                  ) : (
+                    <Building2 className="w-5 h-5 text-white opacity-90" />
+                  )}
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors"
+                  data-testid="sidebar-toggle"
+                  title="Expand"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+              </div>
             )}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className={`${sidebarOpen ? "p-2" : "w-10 h-10 flex items-center justify-center"} rounded-lg hover:bg-white/10 text-white transition-colors`}
-              data-testid="sidebar-toggle"
-              title={sidebarOpen ? "Collapse" : "Expand"}
-            >
-              {sidebarOpen ? (
+
+            {sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
+                data-testid="sidebar-toggle"
+                title="Collapse"
+              >
                 <X className="w-5 h-5" />
-              ) : (
-                <Menu className="w-5 h-5" />
-              )}
-            </button>
+              </button>
+            )}
           </div>
 
           {/* Nav */}
           <nav
-            className={`${sidebarOpen || isDesktopMini ? "overflow-y-auto scrollbar-hide" : "overflow-hidden"} flex-1 space-y-2`}
+            className={`${
+              sidebarOpen || isDesktopMini
+                ? "overflow-y-auto scrollbar-hide"
+                : "overflow-hidden"
+            } flex-1 space-y-2`}
           >
             {menuItems.map((item) => {
               const Icon = item.icon;
