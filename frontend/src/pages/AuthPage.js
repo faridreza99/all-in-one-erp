@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { motion } from 'framer-motion';
-import { Lock, Mail, User, Building2 } from 'lucide-react';
-import { API } from '../App';
-import { toast } from 'sonner';
-import { formatErrorMessage } from '../utils/errorHandler';
-import { SECTOR_MODULES } from '../config/sectorModules';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { motion } from "framer-motion";
+import { Lock, Mail, User, Building2 } from "lucide-react";
+import { API } from "../App";
+import { toast } from "sonner";
+import { formatErrorMessage } from "../utils/errorHandler";
+import { SECTOR_MODULES } from "../config/sectorModules";
 
 const AuthPage = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    business_type: 'mobile_shop'
+    email: "",
+    password: "",
+    name: "",
+    business_type: "mobile_shop",
   });
   const [logoUrl, setLogoUrl] = useState(null);
   const [websiteName, setWebsiteName] = useState(null);
@@ -30,7 +30,7 @@ const AuthPage = ({ onLogin }) => {
           setBackgroundImageUrl(response.data.background_image_url || null);
         }
       } catch (error) {
-        console.log('Using default branding');
+        console.log("Using default branding");
       }
     };
 
@@ -42,21 +42,23 @@ const AuthPage = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/signup';
-      const payload = isLogin 
+      const endpoint = isLogin ? "/auth/login" : "/auth/signup";
+      const payload = isLogin
         ? { email: formData.email, password: formData.password }
-        : { 
-            email: formData.email, 
+        : {
+            email: formData.email,
             admin_password: formData.password,
             name: formData.name,
-            business_type: formData.business_type
+            business_type: formData.business_type,
           };
       const response = await axios.post(`${API}${endpoint}`, payload);
-      
+
       onLogin(response.data.user, response.data.access_token);
-      toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
+      toast.success(
+        isLogin ? "Welcome back!" : "Account created successfully!",
+      );
     } catch (error) {
-      toast.error(formatErrorMessage(error, 'Authentication failed'));
+      toast.error(formatErrorMessage(error, "Authentication failed"));
     } finally {
       setLoading(false);
     }
@@ -65,14 +67,14 @@ const AuthPage = ({ onLogin }) => {
   const containerStyle = backgroundImageUrl
     ? {
         backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), url(${backgroundImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }
     : {};
 
   return (
-    <div 
+    <div
       className="min-h-screen flex items-center justify-center p-4 gradient-bg relative"
       style={containerStyle}
     >
@@ -90,10 +92,10 @@ const AuthPage = ({ onLogin }) => {
               className="inline-flex items-center justify-center mb-4"
             >
               {logoUrl ? (
-                <img 
-                  src={logoUrl} 
-                  alt="Logo" 
-                  className="w-16 h-16 rounded-xl object-cover" 
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="w-16 h-16 rounded-xl object-cover"
                 />
               ) : (
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center">
@@ -105,7 +107,7 @@ const AuthPage = ({ onLogin }) => {
               {websiteName || "Smart Business ERP"}
             </h1>
             <p className="text-slate-400 mt-2">
-              {isLogin ? 'Welcome back' : 'Create your account'}
+              {isLogin ? "Welcome back" : "Create your account"}
             </p>
           </div>
 
@@ -122,7 +124,9 @@ const AuthPage = ({ onLogin }) => {
                       data-testid="auth-businessname-input"
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white placeholder-slate-500"
                       placeholder="Enter your business name"
                       required={!isLogin}
@@ -138,7 +142,12 @@ const AuthPage = ({ onLogin }) => {
                     <select
                       data-testid="auth-businesstype-select"
                       value={formData.business_type}
-                      onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          business_type: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-white"
                       required={!isLogin}
                     >
@@ -163,7 +172,9 @@ const AuthPage = ({ onLogin }) => {
                   data-testid="auth-email-input"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full pl-11 pr-4 py-3 rounded-xl"
                   placeholder="Enter your email"
                   required
@@ -181,7 +192,9 @@ const AuthPage = ({ onLogin }) => {
                   data-testid="auth-password-input"
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
                   className="w-full pl-11 pr-4 py-3 rounded-xl"
                   placeholder="Enter your password"
                   required
@@ -197,7 +210,11 @@ const AuthPage = ({ onLogin }) => {
               disabled={loading}
               className="w-full btn-primary py-3 text-lg font-semibold"
             >
-              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+              {loading
+                ? "Processing..."
+                : isLogin
+                  ? "Sign In"
+                  : "Create Account"}
             </motion.button>
           </form>
 
@@ -208,13 +225,16 @@ const AuthPage = ({ onLogin }) => {
               onClick={() => setIsLogin(!isLogin)}
               className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
             >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+              {isLogin
+                ? "Don't have an account? Sign up"
+                : "Already have an account? Sign in"}
             </button>
           </div>
 
           <div className="mt-6 pt-6 border-t border-slate-700">
             <p className="text-xs text-slate-500 text-center">
-              Demo: Use any email/password for super admin or create tenant account
+              Demo: Use any email/password for super admin or create tenant
+              account
             </p>
           </div>
         </div>

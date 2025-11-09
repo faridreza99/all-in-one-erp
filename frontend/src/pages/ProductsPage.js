@@ -192,8 +192,14 @@ const ProductsPage = ({ user, onLogout }) => {
       sku: product.sku || "",
       category: product.category || "",
       category_id: product.category_id || "",
-      price: product.price !== null && product.price !== undefined ? product.price : "",
-      stock: product.stock !== null && product.stock !== undefined ? product.stock : "",
+      price:
+        product.price !== null && product.price !== undefined
+          ? product.price
+          : "",
+      stock:
+        product.stock !== null && product.stock !== undefined
+          ? product.stock
+          : "",
       description: product.description || "",
       supplier_name: product.supplier_name || "",
       generic_name: product.generic_name || "",
@@ -202,7 +208,11 @@ const ProductsPage = ({ user, onLogout }) => {
       batch_number: product.batch_number || "",
       expiry_date: product.expiry_date || "",
       imei: product.imei || "",
-      warranty_months: product.warranty_months !== null && product.warranty_months !== undefined ? product.warranty_months : "",
+      warranty_months:
+        product.warranty_months !== null &&
+        product.warranty_months !== undefined
+          ? product.warranty_months
+          : "",
       branch_id: product.branch_id || "",
     });
     setShowModal(true);
@@ -234,8 +244,7 @@ const ProductsPage = ({ user, onLogout }) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBranch =
-      !branchFilter || p.branch_id === branchFilter;
+    const matchesBranch = !branchFilter || p.branch_id === branchFilter;
     return matchesSearch && matchesBranch;
   });
 
@@ -504,7 +513,7 @@ const ProductsPage = ({ user, onLogout }) => {
                           </span>
                         </td>
                         <td className="text-green-400 font-semibold">
-                          ${product.price}
+                          ৳{product.price}
                         </td>
                         <td>
                           <span
