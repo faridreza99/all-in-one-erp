@@ -53,18 +53,16 @@ const LowStockPage = () => {
 
   const getLowStockItems = () => {
     return productBranches.filter(pb => {
-      if (!pb.is_active) return false;
-
       const stock = pb.stock || 0;
       const reorderLevel = pb.reorder_level || 0;
 
       if (stock > reorderLevel) return false;
 
-      if (selectedBranch && pb.branch_id !== parseInt(selectedBranch)) {
+      if (selectedBranch && pb.branch_id !== selectedBranch) {
         return false;
       }
 
-      const product = products.find(p => p.product_id === pb.product_id);
+      const product = products.find(p => p.id === pb.product_id);
       if (product && searchTerm) {
         return (
           product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -77,11 +75,11 @@ const LowStockPage = () => {
   };
 
   const getProduct = (productId) => {
-    return products.find(p => p.product_id === productId);
+    return products.find(p => p.id === productId);
   };
 
   const getBranch = (branchId) => {
-    return branches.find(b => b.branch_id === branchId);
+    return branches.find(b => b.id === branchId);
   };
 
   const getStockLevel = (stock, reorderLevel) => {
@@ -168,9 +166,9 @@ const LowStockPage = () => {
                 className="w-full bg-gray-700/50 border border-gray-600 rounded-lg pl-10 pr-4 py-3 text-white focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all appearance-none"
               >
                 <option value="">All Branches</option>
-                {branches.filter(b => b.is_active).map(branch => (
-                  <option key={branch.branch_id} value={branch.branch_id}>
-                    {branch.name} ({branch.code})
+                {branches.filter(b => b.is_active !== false).map(branch => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
                   </option>
                 ))}
               </select>

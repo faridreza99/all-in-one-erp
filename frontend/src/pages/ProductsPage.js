@@ -187,7 +187,10 @@ const ProductsPage = ({ user, onLogout }) => {
 
   const handleEdit = (product) => {
     setEditingProduct(product);
-    setFormData(product);
+    setFormData({
+      ...product,
+      branch_id: product.branch_id || "",
+    });
     setShowModal(true);
   };
 
@@ -218,7 +221,7 @@ const ProductsPage = ({ user, onLogout }) => {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBranch =
-      !branchFilter || p.branch_id === parseInt(branchFilter, 10);
+      !branchFilter || p.branch_id === branchFilter;
     return matchesSearch && matchesBranch;
   });
 

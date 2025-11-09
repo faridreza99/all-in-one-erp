@@ -21,9 +21,16 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
 from fastapi.responses import StreamingResponse
+import cloudinary
+import cloudinary.uploader
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Cloudinary configuration
+cloudinary_url = os.environ.get('CLOUDINARY_URL')
+if cloudinary_url:
+    cloudinary.config(cloudinary_url=cloudinary_url)
 
 # MongoDB connection - handle both Mongo_URL and MONGO_URL
 mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
@@ -187,6 +194,14 @@ class NotificationType(str, Enum):
     LOW_STOCK = "low_stock"
     PAYMENT_RECEIVED = "payment_received"
     SALE_CANCELLED = "sale_cancelled"
+    ACTIVITY = "activity"
+
+class ActivitySubtype(str, Enum):
+    POS_SALE_CREATED = "pos_sale_created"
+    INVOICE_CREATED = "invoice_created"
+    PAYMENT_ADDED = "payment_added"
+    REFUND_PROCESSED = "refund_processed"
+    SALE_CANCELLED_BY_STAFF = "sale_cancelled_by_staff"
 
 # ========== MODELS ==========
 class BaseDBModel(BaseModel):
@@ -266,6 +281,7 @@ class ProductCreate(BaseModel):
     stock: int = 0
     description: Optional[str] = None
     supplier_name: Optional[str] = None
+    branch_id: Optional[str] = None
     # Pharmacy specific
     generic_name: Optional[str] = None
     brand: Optional[str] = None
@@ -286,6 +302,7 @@ class Product(BaseDBModel):
     stock: int
     description: Optional[str] = None
     supplier_name: Optional[str] = None
+    branch_id: Optional[str] = None
     generic_name: Optional[str] = None
     brand: Optional[str] = None
     brand_id: Optional[str] = None
@@ -1125,8 +1142,52 @@ def require_role(allowed_roles: List[UserRole]):
     return role_checker
 
 async def require_user_management_access(current_user: dict = Depends(get_current_user)):
-    """Allow all authenticated users to access user management"""
+    """Restrict user management to tenant_admin and super_admin only"""
+    allowed_roles = [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]
+    if current_user["role"] not in allowed_roles:
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied. Only Tenant Admins and Super Admins can manage users."
+        )
     return current_user
+
+async def create_activity_notification(
+    tenant_id: str,
+    actor_user: dict,
+    activity_subtype: ActivitySubtype,
+    title: str,
+    message: str
+):
+    """
+    Create activity notifications for all tenant_admins when non-admin users perform actions.
+    Only sends notifications if the actor is NOT a tenant_admin or super_admin.
+    """
+    # Don't notify if the actor is already an admin
+    if actor_user["role"] in [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]:
+        return
+    
+    # Find all tenant_admins for this tenant
+    tenant_admins = await db.users.find(
+        {"tenant_id": tenant_id, "role": UserRole.TENANT_ADMIN.value},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Create a notification for each tenant_admin
+    for admin in tenant_admins:
+        notification = Notification(
+            tenant_id=tenant_id,
+            user_id=admin["id"],
+            type=NotificationType.ACTIVITY,
+            title=title,
+            message=message,
+            is_read=False,
+            is_sticky=False,
+            metadata={"activity_subtype": activity_subtype, "actor_name": actor_user.get("full_name", "User")}
+        )
+        notif_doc = notification.model_dump()
+        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+        await db.notifications.insert_one(notif_doc)
 
 # ========== AUTH ROUTES ==========
 @api_router.post("/auth/register", response_model=TokenResponse)
@@ -1653,18 +1714,20 @@ async def upload_logo(
             detail="File size must be less than 5MB"
         )
     
-    # Create secure filename
-    secure_filename = f"logo_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
-    upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / secure_filename
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        buffer.write(file_content)
-    
-    # Generate URL
-    file_url = f"/uploads/settings/{secure_filename}"
+    # Upload to Cloudinary
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file_content,
+            folder=f"erp/{current_user['tenant_id']}/logos",
+            public_id=f"logo_{secrets.token_hex(8)}",
+            resource_type="image"
+        )
+        file_url = upload_result["secure_url"]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload to Cloudinary: {str(e)}"
+        )
     
     # Update settings with new logo URL
     await db.settings.update_one(
@@ -1673,7 +1736,7 @@ async def upload_logo(
         upsert=True
     )
     
-    return {"url": file_url, "filename": secure_filename}
+    return {"url": file_url, "filename": upload_result.get("public_id", "logo")}
 
 @api_router.post("/upload/background")
 async def upload_background(
@@ -1701,18 +1764,20 @@ async def upload_background(
             detail="File size must be less than 5MB"
         )
     
-    # Create secure filename
-    secure_filename = f"background_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
-    upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = upload_dir / secure_filename
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        buffer.write(file_content)
-    
-    # Generate URL
-    file_url = f"/uploads/settings/{secure_filename}"
+    # Upload to Cloudinary
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file_content,
+            folder=f"erp/{current_user['tenant_id']}/backgrounds",
+            public_id=f"background_{secrets.token_hex(8)}",
+            resource_type="image"
+        )
+        file_url = upload_result["secure_url"]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload to Cloudinary: {str(e)}"
+        )
     
     # Update settings with new background URL
     await db.settings.update_one(
@@ -1721,7 +1786,7 @@ async def upload_background(
         upsert=True
     )
     
-    return {"url": file_url, "filename": secure_filename}
+    return {"url": file_url, "filename": upload_result.get("public_id", "background")}
 
 # ========== CATEGORY ROUTES ==========
 @api_router.post("/categories", response_model=Category)
@@ -2434,6 +2499,15 @@ async def create_sale(
         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
         await db.notifications.insert_one(notif_doc)
     
+    # Create activity notification for tenant_admins (if user is not admin)
+    await create_activity_notification(
+        tenant_id=current_user["tenant_id"],
+        actor_user=current_user,
+        activity_subtype=ActivitySubtype.POS_SALE_CREATED,
+        title="New POS Sale Created",
+        message=f"{current_user.get('full_name', 'Staff')} created a sale {invoice_no} for ৳{total:.2f}"
+    )
+    
     return sale
 
 @api_router.get("/sales", response_model=List[Sale])
@@ -2637,6 +2711,15 @@ async def add_payment_to_sale(
         notif_doc['created_at'] = notif_doc['created_at'].isoformat()
         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
         await db.notifications.insert_one(notif_doc)
+    
+    # Create activity notification for tenant_admins (if user is not admin)
+    await create_activity_notification(
+        tenant_id=current_user["tenant_id"],
+        actor_user=current_user,
+        activity_subtype=ActivitySubtype.PAYMENT_ADDED,
+        title="Payment Added to Invoice",
+        message=f"{current_user.get('full_name', 'Staff')} added payment of ৳{payment_data.amount:.2f} to Invoice {sale['invoice_no']}"
+    )
     
     return {
         "message": "Payment added successfully",

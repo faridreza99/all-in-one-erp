@@ -329,30 +329,32 @@ const SectorLayout = ({ children, user, onLogout }) => {
               </motion.div>
             </Link>
 
-            <Link
-              to={`/${businessType}/user-management`}
-              onClick={() => isMobile && setSidebarOpen(false)}
-            >
-              <motion.div
-                whileHover={{ scale: 1.02, x: 2 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 20,
-                  mass: 0.3,
-                }}
-                className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
-                  sidebarOpen
-                    ? "px-3 py-2 gap-3 justify-start"
-                    : "justify-center h-12"
-                } ${location.pathname === `/${businessType}/user-management` ? "active" : ""}`}
-                data-testid="user-management-button"
-                title={!sidebarOpen ? "User Management" : undefined}
+            {(user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
+              <Link
+                to={`/${businessType}/user-management`}
+                onClick={() => isMobile && setSidebarOpen(false)}
               >
-                <Users className="w-5 h-5 mx-auto" />
-                {sidebarOpen && <span>User Management</span>}
-              </motion.div>
-            </Link>
+                <motion.div
+                  whileHover={{ scale: 1.02, x: 2 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20,
+                    mass: 0.3,
+                  }}
+                  className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
+                    sidebarOpen
+                      ? "px-3 py-2 gap-3 justify-start"
+                      : "justify-center h-12"
+                  } ${location.pathname === `/${businessType}/user-management` ? "active" : ""}`}
+                  data-testid="user-management-button"
+                  title={!sidebarOpen ? "User Management" : undefined}
+                >
+                  <Users className="w-5 h-5 mx-auto" />
+                  {sidebarOpen && <span>User Management</span>}
+                </motion.div>
+              </Link>
+            )}
 
             <motion.button
               whileHover={{ scale: 1.02, x: 2 }}
