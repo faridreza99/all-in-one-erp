@@ -51,7 +51,19 @@ const POSPage = ({ user, onLogout }) => {
   const fetchProducts = async () => {
     try {
       const response = await axios.get(`${API}/products`);
-      setProducts(response.data.filter((p) => p.stock > 0));
+      // For branch-based inventory, show all products returned by API
+      // (API already filters by branch assignment for branch users)
+      // Filter to only show products with stock in at least one branch
+      const productsWithStock = response.data.filter((p) => {
+        // Check if product has branch_stock data
+        if (p.branch_stock && Object.keys(p.branch_stock).length > 0) {
+          // Check if any branch has stock > 0
+          return Object.values(p.branch_stock).some(stock => stock > 0);
+        }
+        // Fallback to old stock field if branch_stock not available
+        return p.stock > 0;
+      });
+      setProducts(productsWithStock);
     } catch (error) {
       toast.error("Failed to fetch products");
     }
