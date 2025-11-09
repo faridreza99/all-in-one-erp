@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 import '@/App.css';
 
 import AuthPage from './pages/AuthPage';
@@ -57,15 +58,35 @@ import { isSectorAllowed } from './config/sectorModules';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-// Protected route wrapper
+// Protected route wrapper with route permission enforcement
 const SectorRoute = ({ user, element, module }) => {
   const businessType = user?.business_type;
   
   if (!businessType) return element;
   
-  const isAllowed = isSectorAllowed(businessType, module);
+  // Check if business type allows this module
+  const isBusinessTypeAllowed = isSectorAllowed(businessType, module);
   
-  if (!isAllowed) {
+  if (!isBusinessTypeAllowed) {
+    return <Navigate to={`/${businessType}`} replace />;
+  }
+  
+  // Check if user's role allows this route
+  const userRole = user?.role;
+  const allowedRoutes = user?.allowed_routes || [];
+  
+  // Super admin and tenant admin can access everything
+  if (userRole === 'super_admin' || userRole === 'tenant_admin') {
+    return element;
+  }
+  
+  // Dashboard is always allowed
+  if (module === 'dashboard') {
+    return element;
+  }
+  
+  // Check if module is in user's allowed_routes
+  if (!allowedRoutes.includes(module)) {
     return <Navigate to={`/${businessType}`} replace />;
   }
   
@@ -98,11 +119,37 @@ const App = () => {
   const handleLogin = (userData, token) => {
     localStorage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(userData);
+    
+    // Decode JWT to extract branch_id, role, tenant_id
+    try {
+      const decoded = jwtDecode(token);
+      
+      // Merge JWT data with user data to ensure branch context is available
+      const enrichedUser = {
+        ...userData,
+        tenant_id: decoded.tenant_id || userData.tenant_id,
+        branch_id: decoded.branch_id || userData.branch_id,
+        role: decoded.role || userData.role
+      };
+      
+      // Store branch context in localStorage for easy access
+      if (decoded.branch_id) {
+        localStorage.setItem('branch_id', decoded.branch_id);
+      }
+      localStorage.setItem('user_role', decoded.role);
+      
+      setUser(enrichedUser);
+    } catch (error) {
+      console.error('Failed to decode JWT:', error);
+      // Fallback to userData if decode fails
+      setUser(userData);
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('branch_id');
+    localStorage.removeItem('user_role');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };

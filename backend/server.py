@@ -1151,6 +1151,84 @@ async def require_user_management_access(current_user: dict = Depends(get_curren
         )
     return current_user
 
+def apply_branch_filter(current_user: dict, base_query: dict = None, explicit_branch_id: str = None) -> dict:
+    """
+    Apply branch filtering based on user role.
+    
+    Args:
+        current_user: Current authenticated user with role, tenant_id, branch_id
+        base_query: Existing query dict to extend (optional)
+        explicit_branch_id: Override branch_id for specific queries (optional)
+    
+    Returns:
+        Query dict with appropriate filters applied
+    
+    Raises:
+        HTTPException 403 if user tries to access data from a different branch or lacks branch assignment
+    """
+    query = base_query.copy() if base_query else {}
+    
+    # Always filter by tenant
+    if current_user.get("tenant_id"):
+        query["tenant_id"] = current_user["tenant_id"]
+    
+    # Branch filtering based on role
+    user_role = current_user.get("role")
+    
+    # Admins see all branches within their tenant
+    if user_role in [UserRole.SUPER_ADMIN.value, UserRole.TENANT_ADMIN.value, UserRole.HEAD_OFFICE.value]:
+        # If explicit branch specified, filter by it
+        if explicit_branch_id:
+            query["branch_id"] = explicit_branch_id
+        # Otherwise, show all branches (no branch filter)
+    else:
+        # Branch managers and staff MUST have a branch assignment
+        user_branch_id = current_user.get("branch_id")
+        
+        if not user_branch_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied. Your account must be assigned to a branch. Please contact your administrator."
+            )
+        
+        # If explicit branch requested, verify it matches user's branch
+        if explicit_branch_id:
+            if explicit_branch_id != user_branch_id:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Access denied. You can only access data from your assigned branch."
+                )
+            query["branch_id"] = explicit_branch_id
+        else:
+            # Apply user's branch filter
+            query["branch_id"] = user_branch_id
+    
+    return query
+
+def check_route_permission(current_user: dict, required_route: str):
+    """
+    Check if user has permission to access a specific route.
+    
+    Args:
+        current_user: Current authenticated user
+        required_route: Route name to check (e.g., 'products', 'sales', 'pos')
+    
+    Raises:
+        HTTPException 403 if user doesn't have permission
+    """
+    # Super admin and tenant admin have access to everything
+    user_role = current_user.get("role")
+    if user_role in [UserRole.SUPER_ADMIN.value, UserRole.TENANT_ADMIN.value]:
+        return
+    
+    # Check if route is in allowed_routes
+    allowed_routes = current_user.get("allowed_routes", [])
+    if required_route not in allowed_routes:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Access denied. You don't have permission to access {required_route}."
+        )
+
 async def create_activity_notification(
     tenant_id: str,
     actor_user: dict,
@@ -1217,8 +1295,10 @@ async def register(user_data: UserCreate):
     
     token = create_access_token({
         "sub": user.id, 
-        "email": user.email, 
+        "email": user.email,
+        "tenant_id": user.tenant_id,
         "role": user.role,
+        "branch_id": user.branch_id,
         "business_type": business_type
     })
     
@@ -1250,8 +1330,10 @@ async def login(credentials: LoginRequest):
         
         token = create_access_token({
             "sub": user["id"], 
-            "email": user["email"], 
+            "email": user["email"],
+            "tenant_id": user.get("tenant_id"),
             "role": user["role"],
+            "branch_id": user.get("branch_id"),
             "business_type": business_type
         })
         
@@ -2545,10 +2627,10 @@ async def get_sales(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    sales = await db.sales.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    sales = await db.sales.find(query, {"_id": 0}).to_list(1000)
     
     for sale in sales:
         if isinstance(sale.get('created_at'), str):
@@ -3075,10 +3157,11 @@ async def get_dashboard_stats(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    tenant_id = current_user["tenant_id"]
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
     
-    # Total sales
-    sales = await db.sales.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    # Total sales (branch-filtered)
+    sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
     total_sales = sum(sale.get("total", 0) for sale in sales)
     total_orders = len(sales)
     
@@ -3096,8 +3179,8 @@ async def get_dashboard_stats(
         if datetime.fromisoformat(sale.get("created_at", "")).month == current_month
     )
     
-    # Products stats
-    products = await db.products.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    # Products stats (tenant-wide, not branch-specific)
+    products = await db.products.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
     total_products = len(products)
     low_stock_items = len([p for p in products if p.get("stock", 0) < 5])
     
@@ -3117,8 +3200,11 @@ async def get_sales_chart(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    # Get last 7 days sales
-    sales = await db.sales.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    # Get last 7 days sales (branch-filtered)
+    sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
     
     daily_sales = {}
     for i in range(7):
@@ -3258,10 +3344,10 @@ async def get_suppliers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    suppliers = await db.suppliers.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    suppliers = await db.suppliers.find(query, {"_id": 0}).to_list(1000)
     
     for supplier in suppliers:
         if isinstance(supplier.get('created_at'), str):
@@ -3299,10 +3385,10 @@ async def get_customers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    customers = await db.customers.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
     
     for customer in customers:
         if isinstance(customer.get('created_at'), str):
@@ -3340,10 +3426,10 @@ async def get_expenses(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    expenses = await db.expenses.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    expenses = await db.expenses.find(query, {"_id": 0}).to_list(1000)
     
     for expense in expenses:
         if isinstance(expense.get('created_at'), str):
@@ -3386,10 +3472,10 @@ async def get_purchases(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    purchases = await db.purchases.find(
-        {"tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
+    # Apply branch filtering based on user role
+    query = apply_branch_filter(current_user)
+    
+    purchases = await db.purchases.find(query, {"_id": 0}).to_list(1000)
     
     for purchase in purchases:
         if isinstance(purchase.get('created_at'), str):

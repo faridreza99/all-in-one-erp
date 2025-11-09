@@ -123,7 +123,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const businessType = user?.business_type || "pharmacy";
   const sectorConfig = getSectorModules(businessType);
 
-  const menuItems = sectorConfig.modules.map((module) => {
+  // Create all menu items
+  const allMenuItems = sectorConfig.modules.map((module) => {
     const route = MODULE_ROUTES[module];
     const Icon = ICON_MAP[module] || Package;
     return {
@@ -133,6 +134,24 @@ const SectorLayout = ({ children, user, onLogout }) => {
       module,
     };
   });
+
+  // Filter menu items based on user's allowed_routes
+  const menuItems = (() => {
+    // Super admin and tenant admin see everything
+    if (user?.role === 'super_admin' || user?.role === 'tenant_admin') {
+      return allMenuItems;
+    }
+
+    // Other roles: filter by allowed_routes
+    const allowedRoutes = user?.allowed_routes || [];
+    return allMenuItems.filter((item) => {
+      // Always show dashboard
+      if (item.module === 'dashboard') return true;
+      
+      // Check if module is in allowed_routes
+      return allowedRoutes.includes(item.module);
+    });
+  })();
 
   // Layout/scroll behavior
   const isDesktopMini = !isMobile && !sidebarOpen;
