@@ -78,9 +78,18 @@ const POSPage = ({ user, onLogout }) => {
     }
   };
 
+  const getBranchStock = (product, effectiveBranchId = null) => {
+    const branchToUse = effectiveBranchId || branchId;
+    if (!branchToUse) return 0;
+    const branchStock = product.branch_stock?.[branchToUse];
+    return branchStock !== undefined && branchStock !== null ? branchStock : 0;
+  };
+
   const addToCart = (product) => {
+    let effectiveBranchId = branchId;
+    
     // Auto-detect branch based on product stock availability
-    if (!branchId && product.branch_stock) {
+    if (!effectiveBranchId && product.branch_stock) {
       const branchStockEntries = Object.entries(product.branch_stock);
       
       // Filter branches with available stock
@@ -105,14 +114,22 @@ const POSPage = ({ user, onLogout }) => {
         selectedBranch = availableBranches[0][0];
       }
       
+      effectiveBranchId = selectedBranch;
       setBranchId(selectedBranch);
       const branchName = branches.find(b => b.id === selectedBranch)?.name || 'selected branch';
       toast.success(`Auto-selected branch: ${branchName}`);
     }
     
+    const availableStock = getBranchStock(product, effectiveBranchId);
+    
+    if (availableStock <= 0) {
+      toast.error("Product not available in this branch");
+      return;
+    }
+    
     const existing = cart.find((item) => item.product_id === product.id);
     if (existing) {
-      if (existing.quantity < product.stock) {
+      if (existing.quantity < availableStock) {
         setCart(
           cart.map((item) =>
             item.product_id === product.id
@@ -132,6 +149,7 @@ const POSPage = ({ user, onLogout }) => {
         },
       ]);
     }
+  
   };
 
   const removeFromCart = (productId) => {
@@ -140,13 +158,14 @@ const POSPage = ({ user, onLogout }) => {
 
   const updateQuantity = (productId, change) => {
     const product = products.find((p) => p.id === productId);
+    const availableStock = getBranchStock(product);
     setCart(
       cart
         .map((item) => {
           if (item.product_id === productId) {
             const newQty = item.quantity + change;
             if (newQty <= 0) return null;
-            if (newQty > product.stock) {
+            if (newQty > availableStock) {
               toast.error("Not enough stock");
               return item;
             }
@@ -274,7 +293,7 @@ const POSPage = ({ user, onLogout }) => {
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center rounded-md bg-slate-700/40 px-2 py-0.5 text-xs text-slate-300">
-                            {product.stock}
+                            {getBranchStock(product)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
