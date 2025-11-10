@@ -38,6 +38,38 @@ _This section can be used to track user-specific preferences and coding styles a
 
 ## Recent Changes
 
+### Customer Due Payment & Daily Notifications (November 10, 2025)
+**Complete customer due tracking with automated daily reminders:**
+
+**POS Partial Payment UX:**
+- ✅ **Visual Payment Type Indicator**: Clear badges show "Full Payment" or "Partial Payment" during checkout
+- ✅ **Customer Name Enforcement**: Partial payments require customer name (validates before submission)
+- ✅ **Amount Validation**: Prevents overpayment and underpayment with real-time error messages
+- ✅ **Balance Display**: Shows remaining balance for partial payments with Bangladeshi Taka (৳) formatting
+
+**Customer Due Management:**
+- ✅ **Payment Modal**: Full/partial payment support with auto-calculated balance and amount clamping
+- ✅ **Auto-Clear on Full Payment**: Backend automatically deletes customer_due records when balance reaches zero
+- ✅ **Statistics Dashboard**: Total dues, number of customers, and average due per customer
+- ✅ **Search & Filter**: Real-time search by customer name, phone, or invoice number
+
+**Daily Notification System:**
+- ✅ **24-Hour Reminders**: Scheduled check creates daily notifications for ALL customer dues
+- ✅ **Duplicate Prevention**: Checks `created_at` timestamps to prevent multiple notifications within 24 hours
+- ✅ **Non-Sticky Alerts**: Daily reminders are non-sticky (dismissible), overdue invoices remain sticky
+- ✅ **Message Format**: "Daily Reminder: [Customer] has outstanding due of ৳[Amount] (Invoice: [Number])"
+- ✅ **Endpoint**: `POST /api/notifications/scheduled-check` returns counts for all notification types
+
+**Navigation:**
+- ✅ **Customer Due Icon**: Added DollarSign icon mapping in SectorLayout for customer-dues route
+- ✅ **Accessible from POS**: Users can navigate to Customer Dues page from main navigation
+
+**API Enhancements:**
+- Backend: Enhanced `scheduled_notification_check` to include daily customer due reminders
+- Backend: `POST /api/customer-dues/{due_id}/payment` auto-clears due when fully paid
+- Frontend: POSPage enforces customer name for partial payments with visual feedback
+- Frontend: CustomerDuesPage payment modal defaults to full payment, clamps amount ≤ due
+
 ### Critical Bug Fixes & Cloudinary Enhancement (November 9, 2025)
 **Fixed product filtering and Cloudinary authentication:**
 
