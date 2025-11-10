@@ -5,8 +5,7 @@ import { DollarSign, Users, AlertCircle, Calendar, Search, CreditCard, X } from 
 import axios from 'axios';
 import SectorLayout from '../components/SectorLayout';
 import { formatCurrency } from '../utils/formatters';
-
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+import { API } from '../App';
 
 const CustomerDuesPage = ({ user, onLogout }) => {
   const [dues, setDues] = useState([]);
