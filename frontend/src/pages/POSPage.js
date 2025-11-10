@@ -480,11 +480,48 @@ const POSPage = ({ user, onLogout }) => {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-4">
                 <span className="text-xl font-bold text-white">Total:</span>
                 <span className="text-3xl font-bold text-green-400">
                   {formatCurrency(total)}
                 </span>
+              </div>
+
+              {/* PARTIAL PAYMENT SECTION */}
+              <div className="mb-4 p-4 bg-slate-800/50 border border-slate-600 rounded-lg">
+                <label className="text-sm font-semibold text-slate-300 mb-2 block">
+                  Payment Amount (Leave empty for full payment)
+                </label>
+                <input
+                  type="number"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  placeholder={`Full Amount: ${formatCurrency(total)}`}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                  min="0"
+                  max={total}
+                  step="0.01"
+                />
+                {paidAmount && parseFloat(paidAmount) < total && (
+                  <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 text-sm">
+                    <div className="flex justify-between">
+                      <span>Paying:</span>
+                      <span className="font-semibold">{formatCurrency(parseFloat(paidAmount))}</span>
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span>Balance Due:</span>
+                      <span className="font-semibold">{formatCurrency(total - parseFloat(paidAmount))}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-yellow-300">
+                      ⚠️ Customer name required for partial payment
+                    </p>
+                  </div>
+                )}
+                {paidAmount && parseFloat(paidAmount) > total && (
+                  <p className="mt-2 text-red-400 text-sm">
+                    ⚠️ Payment amount cannot exceed total
+                  </p>
+                )}
               </div>
 
               <button
