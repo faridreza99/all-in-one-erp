@@ -3171,11 +3171,47 @@ async def scheduled_notification_check(
             await db.notifications.insert_one(notif_doc)
             created_count += 1
     
+    # 3. Daily notifications for all customer dues (check last notification was 24+ hours ago)
+    twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    
+    all_customer_dues = await db.customer_dues.find(
+        {"tenant_id": tenant_id},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    daily_due_notifications = 0
+    for due in all_customer_dues:
+        # Check if a notification was created in the last 24 hours for this due
+        recent_notif = await db.notifications.find_one({
+            "tenant_id": tenant_id,
+            "type": NotificationType.UNPAID_INVOICE.value,
+            "reference_id": due['id'],
+            "created_at": {"$gte": twenty_four_hours_ago.isoformat()}
+        })
+        
+        # Only create daily notification if no notification in last 24 hours
+        if not recent_notif:
+            notification = Notification(
+                tenant_id=tenant_id,
+                type=NotificationType.UNPAID_INVOICE,
+                reference_id=due['id'],
+                sale_id=due.get('sale_id'),
+                message=f"Daily Reminder: {due['customer_name']} has outstanding due of ৳{due['due_amount']:.2f} (Invoice: {due['sale_number']})",
+                is_sticky=False
+            )
+            notif_doc = notification.model_dump()
+            notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+            notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+            await db.notifications.insert_one(notif_doc)
+            created_count += 1
+            daily_due_notifications += 1
+    
     return {
         "message": "Scheduled check completed",
         "notifications_created": created_count,
         "low_stock_products": len(low_stock_products),
-        "overdue_invoices": len(overdue_sales)
+        "overdue_invoices": len(overdue_sales),
+        "daily_due_reminders": daily_due_notifications
     }
 
 # ========== LOW STOCK ROUTES ==========

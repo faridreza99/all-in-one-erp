@@ -40,6 +40,7 @@ const ICON_MAP = {
   pos: ShoppingCart,
   sales: DollarSign,
   customers: Users,
+  "customer-dues": DollarSign,
   suppliers: Building2,
   expenses: DollarSign,
   reports: LayoutDashboard,
