@@ -52,7 +52,6 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
     return () => {
       mountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const authHeader = () => {
@@ -102,7 +101,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
     const map = new Map();
     for (const a of assignments) {
       const key = a.product_id;
-      map.set(key, (map.get(key) || 0) + (Number(a?.stock) || 0));
+      map.set(key, (map.get(key) || 0) + (Number(a?.stock_quantity) || 0));
     }
     return (productId) => map.get(productId) || 0;
   }, [assignments]);
@@ -124,7 +123,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
         assigned: !!existing,
         assignment_id: existing?.id || null,
 
-        stock: existing?.stock ?? "",
+        stock_quantity: existing?.stock_quantity ?? "",
         purchase_price:
           existing?.purchase_price ?? product?.purchase_price ?? "",
         sale_price: existing?.sale_price ?? product?.price ?? "",
@@ -164,7 +163,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
         if (master) {
           return updated.map((ba) => ({
             ...ba,
-            stock: master.stock,
+            stock_quantity: master.stock_quantity,
             purchase_price: master.purchase_price,
             sale_price: master.sale_price,
             reorder_level: master.reorder_level,
@@ -198,7 +197,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
             {
               product_id: selectedProduct.id,
               branch_id: ba.branch_id,
-              stock: toNumberOrZero(ba.stock),
+              stock_quantity: toNumberOrZero(ba.stock_quantity),
               purchase_price: toNumberOrZero(ba.purchase_price),
               sale_price: toNumberOrZero(ba.sale_price),
               reorder_level: toNumberOrZero(ba.reorder_level),
@@ -209,7 +208,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
           await axios.put(
             `${API_URL}/api/product-branches/${ba.assignment_id}`,
             {
-              stock: toNumberOrZero(ba.stock),
+              stock_quantity: toNumberOrZero(ba.stock_quantity),
               purchase_price: toNumberOrZero(ba.purchase_price),
               sale_price: toNumberOrZero(ba.sale_price),
               reorder_level: toNumberOrZero(ba.reorder_level),
@@ -509,15 +508,16 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                             <Package className="w-4 h-4 text-green-400" />
                             <input
                               type="number"
-                              value={ba.stock === 0 ? 0 : (ba.stock ?? "")}
+                              value={ba.assignment_id ? (ba.stock_quantity ?? "") : (ba.stock_quantity || "")}
                               onChange={(e) =>
                                 handleBranchDataChange(
                                   ba.branch_id,
-                                  "stock",
+                                  "stock_quantity",
                                   e.target.value,
                                 )
                               }
                               disabled={disabled}
+                              placeholder={!ba.assignment_id ? "0" : ""}
                               className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                                 !disabled
                                   ? "border-slate-600 text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
@@ -534,11 +534,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                             <DollarSign className="w-4 h-4 text-yellow-400" />
                             <input
                               type="number"
-                              value={
-                                ba.purchase_price === 0
-                                  ? 0
-                                  : (ba.purchase_price ?? "")
-                              }
+                              value={ba.assignment_id ? (ba.purchase_price ?? "") : (ba.purchase_price || "")}
                               onChange={(e) =>
                                 handleBranchDataChange(
                                   ba.branch_id,
@@ -547,6 +543,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                                 )
                               }
                               disabled={disabled}
+                              placeholder={!ba.assignment_id ? "0" : ""}
                               className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                                 !disabled
                                   ? "border-slate-600 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
@@ -564,9 +561,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                             <DollarSign className="w-4 h-4 text-blue-400" />
                             <input
                               type="number"
-                              value={
-                                ba.sale_price === 0 ? 0 : (ba.sale_price ?? "")
-                              }
+                              value={ba.assignment_id ? (ba.sale_price ?? "") : (ba.sale_price || "")}
                               onChange={(e) =>
                                 handleBranchDataChange(
                                   ba.branch_id,
@@ -575,6 +570,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
                                 )
                               }
                               disabled={disabled}
+                              placeholder={!ba.assignment_id ? "0" : ""}
                               className={`w-32 px-3 py-2 rounded-lg bg-slate-700 border ${
                                 !disabled
                                   ? "border-slate-600 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"

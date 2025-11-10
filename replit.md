@@ -1,196 +1,36 @@
 # Smart Business ERP - Multi-Tenant SaaS System
 
-## ✅ AUTHENTICATION PERSISTENCE - FIXED (Nov 8, 2025)
-
-**Issue Resolved:** Database name mismatch was causing authentication failures after restarts. System now uses consistent `erp_database` configuration.
-
-**Current Status:**
-- ✅ All user credentials persist permanently in MongoDB Atlas
-- ✅ Database name standardized to `erp_database`
-- ✅ No automatic seeding on startup (users never deleted)
-- ✅ JWT secrets stable and secure
-
-**See [DATABASE_FIX_SUMMARY.md](./DATABASE_FIX_SUMMARY.md) for full technical details.**
-
-## ⚠️ IMPORTANT: MongoDB Atlas Connection
-
-**If you're experiencing "Authentication failed" errors:**
-
-1. **Check MongoDB Atlas IP Whitelist:**
-   - Go to [MongoDB Atlas](https://cloud.mongodb.com) → Security → Network Access
-   - Add IP address: `0.0.0.0/0` (Allow access from anywhere)
-   - Wait 60 seconds, then restart the Backend workflow
-   - Look for "✅ MongoDB Atlas connection successful!" in logs
-
-2. **Verify Database Configuration:**
-   - Backend uses database: `erp_database` (not `erp_db`)
-   - Check `backend/.env` has `DB_NAME=erp_database`
-
-**📖 Detailed Instructions:** See [MONGODB_SETUP.md](./MONGODB_SETUP.md) for setup guide.
-
----
-
 ## Overview
-This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors.
+This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors. The business vision is to provide a versatile ERP solution with market potential across numerous specialized industries.
 
 ## User Preferences
-_This section can be used to track user-specific preferences and coding styles as the project evolves._
-
-## Recent Changes
-
-### Customer Due Payment & Daily Notifications (November 10, 2025)
-**Complete customer due tracking with automated daily reminders:**
-
-**POS Partial Payment UX:**
-- ✅ **Visual Payment Type Indicator**: Clear badges show "Full Payment" or "Partial Payment" during checkout
-- ✅ **Customer Name Enforcement**: Partial payments require customer name (validates before submission)
-- ✅ **Amount Validation**: Prevents overpayment and underpayment with real-time error messages
-- ✅ **Balance Display**: Shows remaining balance for partial payments with Bangladeshi Taka (৳) formatting
-
-**Customer Due Management:**
-- ✅ **Payment Modal**: Full/partial payment support with auto-calculated balance and amount clamping
-- ✅ **Auto-Clear on Full Payment**: Backend automatically deletes customer_due records when balance reaches zero
-- ✅ **Statistics Dashboard**: Total dues, number of customers, and average due per customer
-- ✅ **Search & Filter**: Real-time search by customer name, phone, or invoice number
-
-**Daily Notification System:**
-- ✅ **24-Hour Reminders**: Scheduled check creates daily notifications for ALL customer dues
-- ✅ **Duplicate Prevention**: Checks `created_at` timestamps to prevent multiple notifications within 24 hours
-- ✅ **Non-Sticky Alerts**: Daily reminders are non-sticky (dismissible), overdue invoices remain sticky
-- ✅ **Message Format**: "Daily Reminder: [Customer] has outstanding due of ৳[Amount] (Invoice: [Number])"
-- ✅ **Endpoint**: `POST /api/notifications/scheduled-check` returns counts for all notification types
-
-**Navigation:**
-- ✅ **Customer Due Icon**: Added DollarSign icon mapping in SectorLayout for customer-dues route
-- ✅ **Accessible from POS**: Users can navigate to Customer Dues page from main navigation
-
-**API Enhancements:**
-- Backend: Enhanced `scheduled_notification_check` to include daily customer due reminders
-- Backend: `POST /api/customer-dues/{due_id}/payment` auto-clears due when fully paid
-- Frontend: POSPage enforces customer name for partial payments with visual feedback
-- Frontend: CustomerDuesPage payment modal defaults to full payment, clamps amount ≤ due
-
-### Critical Bug Fixes & Cloudinary Enhancement (November 9, 2025)
-**Fixed product filtering and Cloudinary authentication:**
-
-**Product Collection Bug Fix:**
-- ✅ **Collection Name Fix**: Changed `product_assignments` → `product_branches` (correct collection name)
-- ✅ **Stock Field Fix**: Changed `stock` → `stock_quantity` (correct field name)
-- ✅ **Impact**: Branch users can now see products assigned to their branch in Products page and POS
-- ✅ **Root Cause**: API was querying non-existent collection causing zero products to be returned
-
-**Cloudinary Authenticated URLs:**
-- ✅ **Upload Type**: Images now uploaded with `type="authenticated"` to prevent "untrusted customer" errors
-- ✅ **Signed URLs**: All Cloudinary URLs now generated with `sign_url=True` for secure authenticated access
-- ✅ **Affected Endpoints**: `POST /api/upload/logo` and `POST /api/upload/background`
-- ✅ **Security**: Prevents unauthorized access to uploaded images via CloudinaryImage.build_url() method
-
-### Multi-Branch RBAC & Security Enhancements (November 9, 2025)
-**Complete branch-based access control with security hardening:**
-
-**Security Fixes:**
-- ✅ **Frontend Route Guards**: All routes (notifications, settings, user-management) now enforce `allowed_routes` permissions
-- ✅ **Branch Assignment Enforcement**: Non-admin users without branch_id receive 403 errors (prevents data leakage)
-- ✅ **apply_branch_filter Hardening**: Rejects branch-less non-admin users instead of allowing unfiltered queries
-
-**Branch-Based Product Access:**
-- ✅ **Products API Filtering**: Branch users (branch_manager, staff) only see products assigned to their branch via `product_branches`
-- ✅ **Admin Access**: tenant_admin, super_admin, head_office see all products across all branches
-- ✅ **Security**: Prevents branch users from viewing/managing products outside their assignment
-
-**POS Page UX Enhancements:**
-- ✅ **Auto-Branch Selection**: Non-admin users automatically have their assigned branch selected on page load
-- ✅ **Conditional Rendering**: Branch users see their branch name as read-only text (no dropdown)
-- ✅ **Admin Flexibility**: Admins retain branch selection dropdown for multi-branch operations
-
-**Technical Implementation:**
-- Backend: Enhanced `GET /api/products` with role-based filtering logic
-- Backend: `apply_branch_filter` validates branch_id presence for non-admins
-- Frontend: `SectorRoute` component enforces both business_type and allowed_routes
-- Frontend: POS page detects user role and renders appropriate branch UI
-
-### User Management System (November 8, 2025)
-**Complete CRUD system for managing users with role-based permissions:**
-- **User Creation/Editing**: Create users with username, email, password, role (super_admin/admin/staff), and branch assignment
-- **Route Permissions**: Assign page access via checkboxes (Dashboard, POS, Products, Sales, etc.) stored in `allowed_routes` array
-- **Access Control**: ⚠️ **OPEN ACCESS** - Available to ALL users (all roles, all business types)
-- **Navigation**: User Management link visible in sidebar for all users
-
-**Security Safeguards (Minimal Protection):**
-- ✅ Email/username uniqueness validation
-- ✅ Users cannot edit/delete themselves
-- ✅ Only super_admin can manage other super_admin accounts
-- ✅ Tenant isolation (users only see their own business)
-- ⚠️ **WARNING**: Any admin/staff can create/edit/delete other admin/staff accounts
-
-**API Endpoints:**
-- `GET /api/users` - List all users (excludes passwords, all authenticated users)
-- `POST /api/users` - Create new user with validation (all authenticated users)
-- `PUT /api/users/{user_id}` - Update user with uniqueness checks (all authenticated users, cannot manage super_admins unless super_admin)
-- `DELETE /api/users/{user_id}` - Delete user (all authenticated users, prevents self-deletion, cannot delete super_admins unless super_admin)
-
-**⚠️ SECURITY CONSIDERATIONS:**
-- This configuration allows broad user management access
-- Recommended for development/testing environments only
-- For production, consider restricting to admin/super_admin roles only
-
-### Settings & File Upload System (November 8, 2025)
-- **File Upload Endpoints**: Upload logo/background images via `POST /api/upload/logo` and `POST /api/upload/background`
-- **Server-Side Validation**: 5MB max file size enforced, files stored in `/static/uploads/settings/`
-- **Settings Page**: Enhanced with file input controls and image preview functionality
-- **Navigation**: Settings link added to sidebar for easy access
-
-### POS Auto-Branch Selection (November 8, 2025)
-- **Smart Branch Detection**: Automatically selects branch with stock when adding products to cart
-- **Priority Logic**: Prioritizes user's default branch if product has stock there
-- **Products API Enhancement**: Added `branch_stock` mapping (branch_id: available_quantity) to products endpoint
-
-### Enhanced Sales & Payment System (November 8, 2025)
-**Backend Features Implemented:**
-- **Invoice Generation**: Auto-generated invoice numbers (INV-XXXXXX format)
-- **Payment Tracking**: Full support for partial/full payments with status tracking (UNPAID → PARTIALLY_PAID → PAID)
-- **Payment Validation**: Production-safe validation prevents negative amounts, overpayments, and ensures balance == 0 for PAID status
-- **Customer Due Tracking**: Automatic customer due records for unpaid/partially paid invoices
-- **Notifications System**: Four notification types (UNPAID_INVOICE, LOW_STOCK, PAYMENT_RECEIVED, SALE_CANCELLED) with sticky alerts for unpaid invoices
-- **Returns & Cancellations**: Sale cancellation with stock restoration (prevented if payments made), return approval with refund handling
-- **Stock Transfer**: Branch-to-branch transfers with atomic stock updates (already existed, verified functional)
-- **Dashboard Alerts**: Notification counts endpoint with breakdown by type and recent activity
-
-**New API Endpoints:**
-- `POST /api/sales` - Enhanced with partial payment support and invoice generation
-- `GET /api/sales/{id}/invoice` - Retrieve sale details with full payment history
-- `POST /api/sales/{id}/payments` - Add payments to existing sales with cumulative validation
-- `PATCH /api/sales/{id}/cancel` - Cancel sale with automatic stock restoration
-- `GET /api/notifications` - Fetch notifications (filter by type/unread)
-- `PATCH /api/notifications/{id}/read` - Mark notification as read
-- `PATCH /api/returns/{id}/approve` - Enhanced to restore stock and handle refunds
-- `GET /api/dashboard/alerts` - Notification counts and recent alerts
-- `GET /api/dashboard/sales-chart` - Last 7 days sales data (already existed)
-
-**Frontend Work Pending:**
-- Invoice page with payment modal
-- Notification bell component
-- Stock transfer UI (backend ready)
-- Returns UI with cancel buttons
-- POS flow redirect to invoice page
+I prefer to receive clear, concise explanations and updates. For coding, I appreciate adherence to established architectural patterns and maintainable code. I value iterative development and would like to be consulted before any major architectural changes or significant feature implementations. Please ensure that user and configuration data in the database is preserved across restarts and avoid making changes that would lead to data loss.
 
 ## System Architecture
-The ERP system is built as a full-stack application.
-- **Backend**: Developed with FastAPI (Python) and utilizes MongoDB Atlas for data persistence. Database name: `erp_database` (configured in `backend/.env`). It implements JWT-based authentication with role-based access control to ensure secure, multi-tenant data isolation. Key features include a Point of Sale (POS) system, inventory management, sales and purchase management, customer/supplier management, expense tracking, and comprehensive reports/analytics. Sector-specific modules are integrated for all 16 supported business types.
-- **Frontend**: Built using React (using yarn package manager), styled with TailwindCSS, and leverages Shadcn UI for componentry. It provides an intuitive user interface with sector-specific pages and a consistent design. UI/UX decisions emphasize a modern dark theme with gradients, glass-morphism effects, professional iconography, and responsive layouts across various modules (e.g., Branch Management, Product Assignment, Stock Transfer, Mobile Shop enhancements). Navigation includes a reusable `BackButton` component for improved user experience.
-- **System Design**: Features a multi-tenant architecture with logical data isolation. The application is configured to run in Replit's environment, with the frontend accessible via webview on port 5000 and the backend on localhost:8000. Backend validation ensures data integrity, and front-end forms include features like auto-generated unique IDs, animated toggles, and real-time stock availability checks.
-- **Deployment**: Build script (`build.sh`) uses yarn for frontend builds. Deployment configuration executes `sh build.sh` for production builds.
+The ERP system is a full-stack application.
+- **Backend**: Developed with FastAPI (Python) and utilizes MongoDB Atlas for data persistence. The database name is `erp_database`. It implements JWT-based authentication with role-based access control for secure, multi-tenant data isolation. Key features include Point of Sale (POS), inventory management, sales/purchase management, customer/supplier management, expense tracking, and reports. Sector-specific modules are integrated for all supported business types. Backend validation ensures data integrity.
+- **Frontend**: Built using React (with yarn), styled with TailwindCSS, and leverages Shadcn UI for componentry. The UI/UX emphasizes a modern dark theme with gradients, glass-morphism effects, professional iconography, and responsive layouts. Navigation includes a reusable `BackButton` component. Frontend forms incorporate features like auto-generated unique IDs, animated toggles, and real-time stock availability checks.
+- **System Design**: Features a multi-tenant architecture with logical data isolation. The application runs in Replit, with the frontend on port 5000 and the backend on localhost:8000.
+- **UI/UX Decisions**: A modern dark theme with gradients, glass-morphism effects, and professional iconography. Components from Shadcn UI are used for a consistent look and feel. Responsive layouts are prioritized across modules like Branch Management, Product Assignment, Stock Transfer, and Mobile Shop enhancements.
+- **Technical Implementations**: JWT-based authentication, role-based access control, and secure file uploads with Cloudinary signed URLs for images. A daily notification system for customer dues is implemented. A comprehensive user management system allows CRUD operations for users with role and route-based permissions, though with broad access in current development.
+- **Feature Specifications**:
+    - **Multi-tenancy**: Data isolation for distinct business types.
+    - **Authentication & Authorization**: JWT-based with RBAC, branch-based access control, and route guards.
+    - **Inventory Management**: Product assignment to branches, stock transfers, critical stock alerts, and stock quantity standardization (`stock_quantity` field).
+    - **Sales & Payments**: POS system with partial payments, invoice generation, customer due tracking, sales cancellations with stock restoration, and returns handling.
+    - **Customer Relationship Management**: Daily reminders for customer dues.
+    - **User Management**: CRUD operations for users with configurable roles and route permissions.
+    - **Settings**: File upload system for logos and background images with Cloudinary integration.
+    - **Deployment**: `build.sh` script handles frontend builds using yarn.
 
 ## External Dependencies
-- **Database**: MongoDB Atlas (cloud-hosted NoSQL database) - Database name: `erp_database`
-- **Authentication**: JWT (JSON Web Tokens) with bcrypt password hashing
-- **Frontend Libraries**: React, TailwindCSS, Shadcn UI
-- **Frontend Package Manager**: Yarn (yarn.lock file)
+- **Database**: MongoDB Atlas (cloud-hosted NoSQL database, `erp_database`)
+- **Authentication**: JWT (JSON Web Tokens)
+- **Password Hashing**: bcrypt (via `passlib[bcrypt]`)
+- **Frontend Framework**: React
+- **Styling**: TailwindCSS
+- **UI Components**: Shadcn UI
+- **Frontend Package Manager**: Yarn
 - **Backend Framework**: FastAPI (Python)
-- **Python Libraries**: `certifi` (for SSL/TLS connections to MongoDB Atlas), `passlib[bcrypt]` (password hashing)
-
-## Critical Configuration Notes
-- **Database Name:** Always use `erp_database` (set in `backend/.env` as `DB_NAME=erp_database`)
-- **Seed Scripts Warning:** ⚠️ Never manually run seed scripts (`seed_data.py`, `seed_all_sectors.py`) - they contain `delete_many({})` which deletes all users!
-- **User Persistence:** User accounts are permanently stored in MongoDB Atlas and survive restarts
-- **Active Accounts:** Multiple verified working accounts in `erp_database` (CNF, Mobile Shop, Infini, etc.)
+- **Cloud Storage**: Cloudinary (for image uploads, using authenticated and signed URLs)
+- **Python Libraries**: `certifi` (for SSL/TLS connections to MongoDB Atlas)

@@ -810,18 +810,18 @@ class Branch(BaseDBModel):
 class ProductBranchCreate(BaseModel):
     product_id: str
     branch_id: str
-    stock: int
-    purchase_price: float
-    sale_price: float
+    stock_quantity: int
+    purchase_price: float = 0.0
+    sale_price: float = 0.0
     reorder_level: int = 5
 
 class ProductBranch(BaseDBModel):
     tenant_id: str
     product_id: str
     branch_id: str
-    stock: int
-    purchase_price: float
-    sale_price: float
+    stock_quantity: int
+    purchase_price: float = 0.0
+    sale_price: float = 0.0
     reorder_level: int
 
 class StockTransferCreate(BaseModel):
@@ -2153,7 +2153,7 @@ async def get_products(
                 "tenant_id": current_user["tenant_id"],
                 "product_id": product["id"]
             },
-            {"_id": 0, "branch_id": 1, "stock_quantity": 1}
+            {"_id": 0, "branch_id": 1, "stock_quantity": 1, "sale_price": 1}
         ).to_list(100)
         
         # Create branch_stock mapping
@@ -2161,6 +2161,15 @@ async def get_products(
             assignment["branch_id"]: assignment.get("stock_quantity", 0)
             for assignment in product_assignments
         }
+        
+        # For branch users, override price with branch-specific sale_price
+        if user_branch_id and user_role not in [UserRole.SUPER_ADMIN.value, UserRole.TENANT_ADMIN.value, UserRole.HEAD_OFFICE.value]:
+            branch_assignment = next(
+                (a for a in product_assignments if a["branch_id"] == user_branch_id),
+                None
+            )
+            if branch_assignment and branch_assignment.get("sale_price"):
+                product["price"] = branch_assignment["sale_price"]
     
     return products
 
@@ -4681,7 +4690,7 @@ async def create_stock_transfer(
     if not source_assignment:
         raise HTTPException(status_code=404, detail="Product not found in source branch")
     
-    if source_assignment["stock"] < transfer_data.quantity:
+    if source_assignment.get("stock_quantity", 0) < transfer_data.quantity:
         raise HTTPException(status_code=400, detail="Insufficient stock in source branch")
     
     # Verify destination branch exists
@@ -4714,7 +4723,7 @@ async def create_stock_transfer(
     await db.product_branches.update_one(
         {"id": source_assignment["id"], "tenant_id": current_user["tenant_id"]},
         {
-            "$inc": {"stock": -transfer_data.quantity},
+            "$inc": {"stock_quantity": -transfer_data.quantity},
             "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
         }
     )
@@ -4723,7 +4732,7 @@ async def create_stock_transfer(
     await db.product_branches.update_one(
         {"id": dest_assignment["id"], "tenant_id": current_user["tenant_id"]},
         {
-            "$inc": {"stock": transfer_data.quantity},
+            "$inc": {"stock_quantity": transfer_data.quantity},
             "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
         }
     )
