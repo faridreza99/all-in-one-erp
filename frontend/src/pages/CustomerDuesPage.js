@@ -28,7 +28,9 @@ const CustomerDuesPage = ({ user, onLogout }) => {
   const fetchDues = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/customer-dues`);
+      const response = await axios.get(`${API}/customer-dues`, {
+        withCredentials: true
+      });
       setDues(response.data);
     } catch (error) {
       toast.error('Failed to fetch customer dues');
@@ -68,6 +70,8 @@ const CustomerDuesPage = ({ user, onLogout }) => {
         amount: parseFloat(paymentAmount),
         method: paymentMethod,
         reference: paymentReference || undefined
+      }, {
+        withCredentials: true
       });
 
       toast.success('Payment added successfully!');
