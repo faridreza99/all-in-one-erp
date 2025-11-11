@@ -85,10 +85,42 @@ const POSPage = ({ user, onLogout }) => {
   };
 
   const getBranchStock = (product, effectiveBranchId = null) => {
-    const branchToUse = effectiveBranchId || branchId;
-    if (!branchToUse) return 0;
+    const userRole = user?.role;
+    
+    // For tenant admins and head office, show total stock across all branches
+    if (userRole && ['super_admin', 'tenant_admin', 'head_office'].includes(userRole)) {
+      // Calculate total stock across all branches
+      if (product.branch_stock && Object.keys(product.branch_stock).length > 0) {
+        const totalBranchStock = Object.values(product.branch_stock).reduce((sum, stock) => sum + stock, 0);
+        // If branch stock exists and has value, use it; otherwise fall back to legacy stock
+        return totalBranchStock > 0 ? totalBranchStock : (product.stock || 0);
+      }
+      // No branch assignments, use legacy stock
+      return product.stock || 0;
+    }
+    
+    // For branch users, show stock for specific branch
+    const branchToUse = effectiveBranchId || branchId || user?.branch_id;
+    if (!branchToUse) {
+      // If no branch is set, fall back to legacy stock
+      return product.stock || 0;
+    }
+    
     const branchStock = product.branch_stock?.[branchToUse];
-    return branchStock !== undefined && branchStock !== null ? branchStock : 0;
+    // If no branch assignment exists, fall back to legacy stock
+    return branchStock !== undefined && branchStock !== null ? branchStock : (product.stock || 0);
+  };
+
+  const getProductPrice = (product, effectiveBranchId = null) => {
+    const branchToUse = effectiveBranchId || branchId || user?.branch_id;
+    
+    // Check if product has branch-specific sale price
+    if (branchToUse && product.branch_sale_prices && product.branch_sale_prices[branchToUse]) {
+      return product.branch_sale_prices[branchToUse];
+    }
+    
+    // Fall back to base price
+    return product.price || 0;
   };
 
   const addToCart = (product) => {
@@ -150,7 +182,7 @@ const POSPage = ({ user, onLogout }) => {
         {
           product_id: product.id,
           name: product.name,
-          price: product.price,
+          price: getProductPrice(product, effectiveBranchId),
           quantity: 1,
         },
       ]);
@@ -295,7 +327,7 @@ const POSPage = ({ user, onLogout }) => {
                           {product.category}
                         </td>
                         <td className="px-4 py-3 text-green-400 font-semibold">
-                          {formatCurrency(product.price)}
+                          {formatCurrency(getProductPrice(product))}
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center rounded-md bg-slate-700/40 px-2 py-0.5 text-xs text-slate-300">

@@ -2162,6 +2162,13 @@ async def get_products(
             for assignment in product_assignments
         }
         
+        # Create branch_sale_prices mapping for all users
+        product["branch_sale_prices"] = {
+            assignment["branch_id"]: assignment.get("sale_price")
+            for assignment in product_assignments
+            if assignment.get("sale_price") is not None
+        }
+        
         # For branch users, override price with branch-specific sale_price
         if user_branch_id and user_role not in [UserRole.SUPER_ADMIN.value, UserRole.TENANT_ADMIN.value, UserRole.HEAD_OFFICE.value]:
             branch_assignment = next(
