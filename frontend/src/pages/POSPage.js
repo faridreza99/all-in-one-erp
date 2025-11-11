@@ -57,10 +57,16 @@ const POSPage = ({ user, onLogout }) => {
       const productsWithStock = response.data.filter((p) => {
         // Check if product has branch_stock data
         if (p.branch_stock && Object.keys(p.branch_stock).length > 0) {
-          // Check if any branch has stock > 0
-          return Object.values(p.branch_stock).some(stock => stock > 0);
+          // Calculate total stock across all branches
+          const totalBranchStock = Object.values(p.branch_stock).reduce((sum, stock) => sum + stock, 0);
+          // If any branch has stock, include the product
+          if (totalBranchStock > 0) {
+            return true;
+          }
+          // If all branch stocks are 0, fall back to legacy stock field
+          return p.stock > 0;
         }
-        // Fallback to old stock field if branch_stock not available
+        // Fallback to old stock field if branch_stock not available or empty
         return p.stock > 0;
       });
       setProducts(productsWithStock);
