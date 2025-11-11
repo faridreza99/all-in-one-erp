@@ -3,6 +3,15 @@
 ## Overview
 This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors. The business vision is to provide a versatile ERP solution with market potential across numerous specialized industries.
 
+## Recent Changes (November 11, 2025)
+- **POS Stock Display Fix**: Fixed role-aware stock calculation to properly display inventory:
+  - Tenant admins now see aggregated stock across all branches
+  - Branch users see stock for their assigned branch only
+  - Added fallback to legacy stock when no branch assignments exist
+- **Branch-Specific Pricing**: Implemented branch-specific sale price display in POS with automatic fallback to base product price
+- **Backend Enhancement**: Added `branch_sale_prices` mapping to `/api/products` endpoint for better pricing transparency
+- **Project Cleanup**: Organized test files into `tests/` directory and removed unused placeholder files
+
 ## User Preferences
 I prefer to receive clear, concise explanations and updates. For coding, I appreciate adherence to established architectural patterns and maintainable code. I value iterative development and would like to be consulted before any major architectural changes or significant feature implementations. Please ensure that user and configuration data in the database is preserved across restarts and avoid making changes that would lead to data loss.
 
