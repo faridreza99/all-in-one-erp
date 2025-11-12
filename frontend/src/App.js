@@ -61,7 +61,19 @@ import UserManagementPage from "./pages/UserManagementPage";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Auto-detect backend URL based on environment
+const getBackendUrl = () => {
+  // If running in Replit webview (hostname contains replit.dev)
+  if (window.location.hostname.includes('replit.dev')) {
+    // Use the same protocol and hostname with port 8000 for backend
+    const hostname = window.location.hostname;
+    return `${window.location.protocol}//${hostname}:8000`;
+  }
+  // For local development
+  return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+};
+
+const BACKEND_URL = getBackendUrl();
 export const API = `${BACKEND_URL}/api`;
 
 // Protected route wrapper with route permission enforcement
