@@ -3,11 +3,20 @@
 ## Overview
 This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors. The business vision is to provide a versatile ERP solution with market potential across numerous specialized industries.
 
-## Recent Changes (November 11, 2025)
-- **POS Stock Display Fix**: Fixed role-aware stock calculation to properly display inventory:
-  - Tenant admins now see aggregated stock across all branches
-  - Branch users see stock for their assigned branch only
-  - Added fallback to legacy stock when no branch assignments exist
+## Recent Changes (November 12, 2025)
+- **Role-Based Notification System**: Implemented comprehensive notification filtering with proper data isolation:
+  - Tenant admins see all notifications across the system
+  - Branch users see only their own notifications, branch-wide announcements, and tenant-wide messages
+  - Enhanced Notification model with `branch_id`, `user_id`, `title`, and `metadata` fields
+  - Fixed security issue where branch users could see other users' notifications
+  - Automatic notification creation when products are assigned to branches
+- **Product Assignment Enhancement**: Updated ProductBranchAssignmentPage with role-based restrictions:
+  - Stock totals filtered by role: admins see all branches, branch users see only their assigned branch
+  - Branch selection restricted for branch users to prevent cross-branch assignments
+  - Improved user experience with role-aware UI elements
+
+## Previous Changes (November 11, 2025)
+- **POS Stock Display Fix**: Fixed role-aware stock calculation to properly display inventory
 - **Branch-Specific Pricing**: Implemented branch-specific sale price display in POS with automatic fallback to base product price
 - **Backend Enhancement**: Added `branch_sale_prices` mapping to `/api/products` endpoint for better pricing transparency
 - **Project Cleanup**: Organized test files into `tests/` directory and removed unused placeholder files
