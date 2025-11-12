@@ -64,13 +64,12 @@ import { isSectorAllowed } from "./config/sectorModules";
 // Auto-detect backend URL based on environment
 const getBackendUrl = () => {
   // If running in Replit webview (hostname contains replit.dev)
-  if (window.location.hostname.includes('replit.dev')) {
-    // Use the same protocol and hostname with port 8000 for backend
+  if (window.location.hostname.includes("replit.dev")) {
     const hostname = window.location.hostname;
-    return `${window.location.protocol}//${hostname}:8000`;
+    return `${window.location.protocol}//${hostname}`; // <- no :8000
   }
-  // For local development
-  return process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+  // For local developmentauth/login
+  return process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 };
 
 const BACKEND_URL = getBackendUrl();
