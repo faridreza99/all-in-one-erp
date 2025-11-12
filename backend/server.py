@@ -443,6 +443,10 @@ class Notification(BaseDBModel):
     message: str
     is_sticky: bool = False
     is_read: bool = False
+    branch_id: Optional[str] = None
+    user_id: Optional[str] = None
+    title: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class CustomerDueCreate(BaseModel):
     customer_name: str
@@ -3076,6 +3080,28 @@ async def get_notifications(
     
     query = {"tenant_id": current_user["tenant_id"]}
     
+    # Role-based filtering
+    user_role = current_user.get("role")
+    user_branch_id = current_user.get("branch_id")
+    user_id = current_user.get("id")
+    
+    # Tenant admins and super admins see all notifications
+    if user_role not in [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]:
+        # For other users, show notifications that match ANY of these criteria:
+        # 1. Notification is specifically for this user (user_id matches)
+        # 2. Notification is for their branch but not for a specific user (branch_id matches AND user_id is None)
+        # 3. Notification has no branch_id and no user_id (tenant-wide notification)
+        or_conditions = [
+            {"user_id": user_id},  # User-specific notification
+            {"branch_id": None, "user_id": None}  # Tenant-wide notification
+        ]
+        
+        # Add branch-wide notifications (branch_id matches but user_id is None)
+        if user_branch_id:
+            or_conditions.append({"branch_id": user_branch_id, "user_id": None})
+        
+        query["$or"] = or_conditions
+    
     if type:
         query["type"] = type.value
     
@@ -4602,6 +4628,43 @@ async def assign_product_to_branch(
     doc['updated_at'] = doc['updated_at'].isoformat()
     
     await db.product_branches.insert_one(doc)
+    
+    # Create notifications for users in this branch about new stock
+    product = await db.products.find_one(
+        {"id": assignment.product_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "name": 1}
+    )
+    
+    branch = await db.branches.find_one(
+        {"id": assignment.branch_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "name": 1}
+    )
+    
+    if product and branch:
+        # Get all users assigned to this branch
+        branch_users = await db.users.find(
+            {"branch_id": assignment.branch_id, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0, "id": 1}
+        ).to_list(1000)
+        
+        # Create notification for each branch user
+        for user in branch_users:
+            notification = Notification(
+                tenant_id=current_user["tenant_id"],
+                branch_id=assignment.branch_id,
+                user_id=user["id"],
+                type=NotificationType.ACTIVITY,
+                title="New Stock Available",
+                message=f"New product '{product['name']}' with {assignment.stock_quantity} units has been assigned to {branch['name']}",
+                is_sticky=False,
+                is_read=False,
+                metadata={"product_id": assignment.product_id, "stock_quantity": assignment.stock_quantity}
+            )
+            notif_doc = notification.model_dump()
+            notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+            notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+            await db.notifications.insert_one(notif_doc)
+    
     return product_branch
 
 @api_router.get("/product-branches", response_model=List[ProductBranch])

@@ -99,12 +99,20 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
 
   const totalStockForProduct = useMemo(() => {
     const map = new Map();
-    for (const a of assignments) {
+    const userRole = user?.role;
+    const userBranchId = user?.branch_id;
+    
+    // Filter assignments based on user role
+    const filteredAssignments = (userRole === 'tenant_admin' || userRole === 'super_admin' || userRole === 'head_office')
+      ? assignments // Admins see all
+      : assignments.filter(a => a.branch_id === userBranchId); // Branch users see only their branch
+    
+    for (const a of filteredAssignments) {
       const key = a.product_id;
       map.set(key, (map.get(key) || 0) + (Number(a?.stock_quantity) || 0));
     }
     return (productId) => map.get(productId) || 0;
-  }, [assignments]);
+  }, [assignments, user]);
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
@@ -113,7 +121,14 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
       (a) => a.product_id === product.id,
     );
 
-    const initialAssignments = branches.map((branch) => {
+    // Filter branches based on user role
+    const userRole = user?.role;
+    const userBranchId = user?.branch_id;
+    const filteredBranches = (userRole === 'tenant_admin' || userRole === 'super_admin' || userRole === 'head_office')
+      ? branches // Admins see all branches
+      : branches.filter(b => b.id === userBranchId); // Branch users see only their branch
+
+    const initialAssignments = filteredBranches.map((branch) => {
       const existing = productAssignments.find(
         (a) => a.branch_id === branch.id,
       );
