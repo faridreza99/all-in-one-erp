@@ -1,0 +1,240 @@
+Hi, please implement a full premium Warranty Management System into my ERP (Mobile Shop / Electronics / Computer Shop sectors).
+
+Here is the full requirement and behaviors:
+
+🛠️ SYSTEM TO BUILD: Advanced Warranty Management Module
+🔧 1. Warranty Record Creation (AUTO)
+
+Whenever a product is sold in POS:
+
+Auto-create warranty_record
+
+Fields:
+
+product_id
+
+serial_number
+
+customer_id
+
+purchase_date
+
+warranty_period_months
+
+warranty_expiry_date
+
+invoice_id
+
+status (active/claimed/inspection/refund/replaced/closed)
+
+🔗 2. QR Code Generation
+
+System must auto-generate a unique Warranty QR for each sold product
+
+QR → https://myerp.com/w/{token}
+
+Token must be secure (GUID + HMAC)
+
+📱 3. Customer QR Scan Flow
+
+When customer scans QR:
+
+Show product info
+
+Warranty validity
+
+Days remaining
+
+Claim button (if active)
+
+If expired → show “Apply for manual review”
+
+⚡ 4. Warranty Claim System
+
+Customer or staff can submit:
+
+Reported issue
+
+Upload images
+
+Contact details
+
+Preferred action (repair/replacement/refund)
+
+System must create:
+
+warranty_event (claim_registered)
+
+Status = claimed
+
+🔍 5. Inspection Workflow
+
+Staff can:
+
+Start inspection
+
+Upload images
+
+Add notes
+
+Mark Valid / Invalid
+
+Valid → move to under_inspection
+
+Invalid → declined
+
+🚚 6. Supplier Module
+
+Supplier actions:
+
+replacement_sent
+
+repair_completed
+
+cash_refund_offered
+
+declined
+
+Record fields:
+
+replacement serial
+
+supplier invoice
+
+tracking number
+
+action notes
+
+💰 7. Replacement / Refund Workflow
+
+If replacement:
+
+Create new warranty record
+
+Link to old record
+If refund:
+
+Log financial transaction → connect to accounting module
+
+📊 8. Warranty Dashboard (Staff)
+
+Show:
+
+New claims
+
+Under inspection
+
+Awaiting supplier
+
+SLA breached
+
+Replaced
+
+Refunded
+
+Closed
+
+📑 9. Full Warranty Timeline
+
+Every action becomes a warranty_event.
+
+🧾 10. Reporting
+
+KPIs:
+
+claims per product
+
+supplier performance
+
+average inspection time
+
+refund totals
+
+fraud alerts
+
+expired vs active warranty ratio
+
+🔐 11. Security
+
+Roles:
+
+Customer → only own warranty
+
+Staff → inspect, process
+
+Supplier → their assigned claims
+
+Finance → approve refunds
+
+Admin → full access
+
+⚠️ 12. Fraud Protection
+
+Serial mismatch detection
+
+Invoice mismatch detection
+
+Duplicate claim control
+
+Geo-location mismatch alerts
+
+ML-ready fraud_score field
+
+📦 13. Database Tables to Create
+
+warranty_records
+
+warranty_events
+
+supplier_actions
+
+financial_transactions (for refunds)
+
+💾 14. API Endpoints
+
+As described in the PDF (resolve → claim → inspect → supplier → close)
+
+🖥️ 15. UI Pages to Build
+
+Warranty List
+
+Warranty Claim Form
+
+Inspection Panel
+
+Supplier Action Panel
+
+Warranty Timeline Modal
+
+Public QR Resolve Page
+
+➡️ IMPORTANT
+
+This module should integrate with:
+
+POS
+
+Product module
+
+Customer module
+
+Supplier module
+
+Accounting module
+
+This must work for:
+
+Mobile Shop
+
+Computer Shop
+
+Electronics Shop
+
+❗ Final Request
+
+Please implement this entire Warranty System module end-to-end exactly according to the PDF logic, including backend, frontend, routes, database models, QR generation, timeline, and all workflows.
+Also integrate with existing multi-tenant architecture.
+
+If you need clarification, ask me before building.
+
+Thank you!

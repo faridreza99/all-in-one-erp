@@ -1130,6 +1130,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         
+        # Extract tenant info from JWT payload (for multi-tenant support)
+        user["tenant_slug"] = payload.get("tenant_slug")
+        user["business_name"] = payload.get("business_name")
+        
         # Add business_type from tenant if tenant_id exists
         if user.get("tenant_id"):
             tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
@@ -1294,20 +1298,41 @@ async def register(user_data: UserCreate):
     
     await db.users.insert_one(doc)
     
-    # Get business_type from tenant if available
+    # Get tenant information for JWT (including tenant_slug for multi-tenant support)
     business_type = None
+    tenant_slug = None
+    business_name = None
+    
     if user.tenant_id:
-        tenant = await db.tenants.find_one({"tenant_id": user.tenant_id}, {"_id": 0})
-        if tenant:
-            business_type = tenant.get("business_type")
+        from db_connection import get_admin_db
+        admin_db = get_admin_db()
+        
+        # Try to find tenant in registry first (multi-tenant mode)
+        tenant_registry = await admin_db.tenants_registry.find_one(
+            {"tenant_id": user.tenant_id, "status": "active"},
+            {"_id": 0}
+        )
+        
+        if tenant_registry:
+            tenant_slug = tenant_registry.get("slug")
+            business_name = tenant_registry.get("business_name")
+            business_type = tenant_registry.get("business_type")
+        else:
+            # Fallback to legacy tenants collection
+            tenant = await db.tenants.find_one({"tenant_id": user.tenant_id}, {"_id": 0})
+            if tenant:
+                business_type = tenant.get("business_type")
+                business_name = tenant.get("name")
     
     token = create_access_token({
         "sub": user.id, 
         "email": user.email,
         "tenant_id": user.tenant_id,
+        "tenant_slug": tenant_slug,
         "role": user.role,
         "branch_id": user.branch_id,
-        "business_type": business_type
+        "business_type": business_type,
+        "business_name": business_name
     })
     
     user_response = user.model_dump()
@@ -1461,11 +1486,16 @@ async def signup_tenant(tenant_data: TenantCreate):
         
         await db.users.insert_one(admin_doc)
         
+        # Note: This is legacy signup, not multi-tenant (no registry entry)
         token = create_access_token({
             "sub": admin_user.id, 
-            "email": admin_user.email, 
+            "email": admin_user.email,
+            "tenant_id": admin_user.tenant_id,
+            "tenant_slug": None,  # Legacy mode - no tenant_slug
             "role": admin_user.role.value,
-            "business_type": tenant.business_type.value
+            "branch_id": admin_user.branch_id,
+            "business_type": tenant.business_type.value,
+            "business_name": tenant.name
         })
         
         user_response = admin_user.model_dump()
@@ -2693,6 +2723,91 @@ async def create_sale(
     
     sale_id = doc['id']
     await db.sales.insert_one(doc)
+    
+    # Auto-create warranty records for products with warranty
+    try:
+        # Resolve tenant database for multi-tenant support
+        target_db = db
+        if current_user.get("tenant_slug"):
+            try:
+                from db_connection import resolve_tenant_db
+                target_db = await resolve_tenant_db(current_user["tenant_slug"])
+                logger.info(f"Using tenant-specific DB for warranty: {target_db.name}")
+            except Exception as resolve_error:
+                logger.warning(f"Failed to resolve tenant DB for warranties, using default: {resolve_error}")
+                target_db = db
+        
+        for item in sale_data.items:
+            product = await target_db.products.find_one(
+                {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
+                {"_id": 0}
+            )
+            
+            if product and product.get('warranty_months', 0) > 0:
+                from warranty_utils import generate_warranty_token
+                from datetime import timedelta
+                
+                warranty_count = await target_db.warranty_records.count_documents({"tenant_id": current_user["tenant_id"]})
+                warranty_code = f"W-{datetime.now().year}-{warranty_count + 1:07d}"
+                warranty_id = str(uuid4())
+                
+                purchase_date = datetime.now(timezone.utc)
+                warranty_expiry = purchase_date + timedelta(days=product['warranty_months'] * 30)
+                warranty_token = generate_warranty_token(warranty_id, current_user["tenant_id"])
+                
+                warranty_record = {
+                    "id": warranty_id,
+                    "tenant_id": current_user["tenant_id"],
+                    "warranty_code": warranty_code,
+                    "warranty_token": warranty_token,
+                    "invoice_id": sale_id,
+                    "invoice_no": invoice_no,
+                    "sale_id": sale_id,
+                    "product_id": product['id'],
+                    "product_name": product.get('name', ''),
+                    "serial_number": product.get('imei') or product.get('serial_number'),
+                    "customer_id": actual_customer_id,
+                    "customer_name": sale_data.customer_name,
+                    "customer_phone": sale_data.customer_phone,
+                    "customer_email": None,
+                    "supplier_id": product.get('supplier_id'),
+                    "supplier_name": product.get('supplier_name'),
+                    "purchase_date": purchase_date.isoformat(),
+                    "warranty_period_months": product['warranty_months'],
+                    "warranty_start_date": purchase_date.isoformat(),
+                    "warranty_expiry_date": warranty_expiry.isoformat(),
+                    "current_status": "active",
+                    "replaced_by_warranty_id": None,
+                    "transferable": False,
+                    "fraud_score": 0.0,
+                    "created_by": current_user.get('email'),
+                    "updated_by": None,
+                    "created_at": purchase_date.isoformat(),
+                    "updated_at": purchase_date.isoformat()
+                }
+                
+                await target_db.warranty_records.insert_one(warranty_record)
+                logger.info(f"Created warranty {warranty_code} in {target_db.name}")
+                
+                # Create initial warranty event
+                warranty_event = {
+                    "id": str(uuid4()),
+                    "tenant_id": current_user["tenant_id"],
+                    "warranty_id": warranty_id,
+                    "event_type": "status_changed",
+                    "actor_type": "system",
+                    "actor_id": None,
+                    "actor_name": "System",
+                    "note": "Warranty activated on purchase",
+                    "attachments": [],
+                    "meta": {"warranty_code": warranty_code, "qr_url": f"https://myerp.com/w/{warranty_token}"},
+                    "created_at": purchase_date.isoformat(),
+                    "updated_at": purchase_date.isoformat()
+                }
+                
+                await target_db.warranty_events.insert_one(warranty_event)
+    except Exception as e:
+        logger.warning(f"Warranty auto-creation failed for sale {sale_id}: {e}")
     
     # Create payment record if initial payment was made
     if paid_amount > 0:
@@ -5777,6 +5892,13 @@ try:
     app.include_router(example_router)
 except ImportError:
     logger.warning("Example router not available - multi-tenant demo endpoints disabled")
+
+# Include warranty management router
+try:
+    from warranty_routes import warranty_router
+    app.include_router(warranty_router, prefix="/api")
+except ImportError as e:
+    logger.warning(f"Warranty router not available - warranty management endpoints disabled: {e}")
 
 # Mount uploads directory for settings images
 uploads_path = Path(__file__).parent / "static" / "uploads"
