@@ -23,7 +23,7 @@ const AuthPage = ({ onLogin }) => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await axios.get(`${API}/api/settings`);
+        const response = await axios.get(`${API}/settings`);
         if (response.data) {
           setLogoUrl(response.data.logo_url || null);
           setWebsiteName(response.data.website_name || null);
