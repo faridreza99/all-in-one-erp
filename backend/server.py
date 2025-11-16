@@ -1324,25 +1324,84 @@ async def register(user_data: UserCreate):
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: LoginRequest):
     try:
+        from db_connection import get_admin_db
+        
+        # First, check admin_hub tenant registry for multi-tenant mode
+        admin_db = get_admin_db()
+        
+        # Look up user in default database (users are stored centrally for now)
         user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
         if not user or not verify_password(credentials.password, user["hashed_password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # Get business_type from tenant if available
+        # Get business_type, tenant_slug, and business_name from tenant
+        # Priority: admin_hub registry (source of truth) → legacy tenants collection
         business_type = None
-        if user.get("tenant_id"):
+        tenant_slug = None
+        business_name = None
+        
+        # 1. FIRST: Try admin_hub registry (multi-tenant mode - source of truth)
+        tenant_from_registry = await admin_db.tenants_registry.find_one(
+            {
+                "admin_email": user["email"], 
+                "status": "active"
+            },
+            {"_id": 0}
+        )
+        
+        # If found in registry, use it (multi-tenant mode)
+        if tenant_from_registry:
+            tenant_slug = tenant_from_registry.get("slug")
+            business_name = tenant_from_registry.get("business_name")
+            business_type = tenant_from_registry.get("business_type")
+            user["business_type"] = business_type
+            user["business_name"] = business_name
+            user["tenant_slug"] = tenant_slug
+            logger.info(f"✅ Multi-tenant login: {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}")
+        
+        # 2. FALLBACK: Try legacy tenants collection if registry not found
+        elif user.get("tenant_id"):
             tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
             if tenant:
                 business_type = tenant.get("business_type")
-                user["business_type"] = business_type
+                business_name = tenant.get("name")
+                
+                # Try to find by business_type in registry (for migrated demo accounts)
+                tenant_from_registry = await admin_db.tenants_registry.find_one(
+                    {
+                        "business_type": business_type,
+                        "status": "active"
+                    },
+                    {"_id": 0}
+                )
+                
+                if tenant_from_registry:
+                    # Found in registry by business_type
+                    tenant_slug = tenant_from_registry.get("slug")
+                    business_name = tenant_from_registry.get("business_name")
+                    user["business_type"] = business_type
+                    user["business_name"] = business_name
+                    user["tenant_slug"] = tenant_slug
+                    logger.info(f"✅ Multi-tenant login (via business_type): {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}")
+                else:
+                    # Legacy mode: tenant exists but not in registry
+                    user["business_type"] = business_type
+                    user["business_name"] = business_name
+                    logger.info(f"⚠️  Legacy login: {user['email']} → tenant_id: {user.get('tenant_id')}, no tenant_slug (using shared DB)")
+        else:
+            # No tenant_id and not in registry
+            logger.warning(f"⚠️  User {user['email']} has no tenant association")
         
+        # Create JWT with tenant information
         token = create_access_token({
             "sub": user["id"], 
             "email": user["email"],
             "tenant_id": user.get("tenant_id"),
+            "tenant_slug": tenant_slug,
             "role": user["role"],
             "branch_id": user.get("branch_id"),
-            "business_type": business_type
+            "business_type": business_type,
+            "business_name": business_name
         })
         
         user.pop("hashed_password")
@@ -5704,6 +5763,20 @@ async def get_cnf_reports_summary(current_user: dict = Depends(get_current_user)
     }
 
 app.include_router(api_router)
+
+# Include health check router for multi-tenant monitoring
+try:
+    from health_tenant import health_router
+    app.include_router(health_router)
+except ImportError:
+    logger.warning("Health check router not available - multi-tenant health endpoints disabled")
+
+# Include example router for multi-tenant demonstration
+try:
+    from example_tenant_route import example_router
+    app.include_router(example_router)
+except ImportError:
+    logger.warning("Example router not available - multi-tenant demo endpoints disabled")
 
 # Mount uploads directory for settings images
 uploads_path = Path(__file__).parent / "static" / "uploads"
