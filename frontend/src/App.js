@@ -65,10 +65,11 @@ import { isSectorAllowed } from "./config/sectorModules";
 const getBackendUrl = () => {
   // If running in Replit webview (hostname contains replit.dev)
   if (window.location.hostname.includes("replit.dev")) {
+    // Use the same protocol and hostname with port 8000 for backend
     const hostname = window.location.hostname;
-    return `${window.location.protocol}//${hostname}`; // <- no :8000
+    return `${window.location.protocol}//${hostname}`;
   }
-  // For local developmentauth/login
+  // For local development
   return process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 };
 
