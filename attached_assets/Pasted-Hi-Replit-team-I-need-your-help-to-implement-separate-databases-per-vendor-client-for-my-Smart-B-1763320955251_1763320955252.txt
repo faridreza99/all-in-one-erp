@@ -1,0 +1,198 @@
+Hi Replit team,
+
+I need your help to implement separate databases per vendor (client) for my Smart Business ERP (Computer Shop, CNF, Pharmacy, etc.). Right now all tenants share one DB; I want true isolation so each vendor uses its own MongoDB Atlas database/URI, while the codebase stays single.
+
+🎯 Goal
+
+Multi-tenant architecture where each vendor uses its own MongoDB URI.
+
+On login, backend picks the vendor’s DB dynamically and all CRUD happens in that DB.
+
+Keep one central admin DB to store the tenant list, license/billing, and DB URIs.
+
+
+
+---
+
+📦 Project context
+
+Stack: FastAPI (Python) backend + React frontend.
+
+Current envs used: MONGO_URL, DB_NAME, SECRET_KEY, JWT_SECRET_KEY.
+
+Hosting: Replit (frontend & backend), MongoDB Atlas.
+
+
+
+---
+
+✅ What to implement
+
+1. Tenant registry (central admin DB)
+
+
+
+Create a tenants collection in a central admin DB (e.g., admin_hub).
+
+Fields:
+
+{
+  "business_name": "TechLand Computers",
+  "slug": "techland",
+  "business_type": "computer_shop",
+  "db_uri": "mongodb+srv://.../computer_techland_db",
+  "status": "active"
+}
+
+
+Alternative for local testing: fallback to a file backend/config/tenant_config.json.
+
+
+2. Dynamic DB connection
+
+
+
+Add a helper in backend (e.g., db_connection.py) to:
+
+Read tenant by business_name or slug.
+
+Cache MongoClient per tenant for reuse (avoid new socket per request).
+
+Return the right Database object.
+
+Sample skeleton:
+
+from functools import lru_cache
+from pymongo import MongoClient
+
+@lru_cache(maxsize=256)
+def get_client(uri: str) -> MongoClient:
+    return MongoClient(uri)
+
+def get_db_for_tenant(db_uri: str, db_name: str | None = None):
+    client = get_client(db_uri)
+    # If db_name embedded in URI, just return client.get_database()
+    return client.get_database()
+
+
+
+3. Auth flow update
+
+
+
+On successful login, include tenant_slug and business_name in JWT payload.
+
+Every request (via dependency/middleware) resolves the tenant DB by:
+
+Reading JWT → tenant_slug → load db_uri from admin DB/registry → use that DB.
+
+
+
+4. Routing / context
+
+
+
+Ensure all service layers accept a db handle injected from the middleware (no global DB).
+
+Existing sector modules (computer_shop, cnf, pharmacy, etc.) must use the tenant-scoped db.
+
+
+5. Env & secrets
+
+
+
+Add secrets in Replit:
+
+ADMIN_MONGO_URL → admin_hub connection string (for tenants collection)
+
+(Optional) DEFAULT_MONGO_URL for legacy/demo single-db mode
+
+Existing: SECRET_KEY, JWT_SECRET_KEY
+
+
+Confirm Atlas Network Access allows Replit (prefer 0.0.0.0/0 for dev; we’ll lock down later).
+
+
+6. Seeding & migration
+
+
+
+Script backend/seed_tenants.py to insert a few demo tenants:
+
+TechLand Computers → computer_techland_db
+
+GlobalTrade CNF → cnf_globaltrade_db
+
+
+Optional: scripts to seed each tenant DB with minimal sample data.
+
+
+7. Health checks & logs
+
+
+
+Add /api/health/tenant that returns current tenant_slug and the DB name it is connected to.
+
+Log the resolved tenant and DB at INFO level for the first hit per process.
+
+
+8. Frontend
+
+
+
+No big UI change needed. Ensure after login you store tenant_slug in app state and send JWT with each request.
+
+
+
+---
+
+🔐 Acceptance criteria
+
+[ ] Login as TechLand user → requests read/write only in computer_techland_db.
+
+[ ] Login as GlobalTrade CNF user → requests read/write only in cnf_globaltrade_db.
+
+[ ] Cross-tenant data isolation verified (no leakage).
+
+[ ] Restarting Replit does not break connections (cached clients re-init).
+
+[ ] /api/health/tenant shows correct tenant & DB.
+
+[ ] Clear documentation in README_MULTIDB.md on:
+
+Adding a new tenant (insert into tenants)
+
+Required secrets
+
+Sample seed commands
+
+Common connection/whitelist pitfalls
+
+
+
+
+---
+
+🧪 Test accounts to create
+
+computershop@example.com / computershop123 → tenant: TechLand Computers
+
+cnf@maxtech.com / cnf123 → tenant: GlobalTrade CNF
+
+
+
+---
+
+🧰 Known pitfalls to avoid
+
+Replit IP change → MongoDB Atlas blocks. For dev, allow 0.0.0.0/0.
+
+Do not keep a global singleton DB tied to one URI—always resolve by tenant per request (with cached clients).
+
+
+
+---
+
+If you need anything (logs, current repo link, or our existing seed files), tell me and I’ll provide right away. Please proceed with the implementation and share the PR/commit details when done.
+
+Thanks!
