@@ -1,12 +1,14 @@
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from passlib.context import CryptContext
+import bcrypt
 import os
 from datetime import datetime, timezone
 import uuid
 import certifi
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 async def seed_all_sectors():
     # Connect to MongoDB - handle both Mongo_URL and MONGO_URL
@@ -202,7 +204,7 @@ async def seed_all_sectors():
             "full_name": f"{sector['name']} Admin",
             "role": "tenant_admin",
             "tenant_id": tenant_id,
-            "hashed_password": pwd_context.hash(sector["password"]),
+            "hashed_password": hash_password(sector["password"]),
             "is_active": True,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
