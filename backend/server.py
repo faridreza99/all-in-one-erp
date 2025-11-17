@@ -4737,6 +4737,22 @@ async def download_invoice(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
     
+    # Enrich sale items with product names
+    if "items" in sale and isinstance(sale["items"], list):
+        for item in sale["items"]:
+            if "product_id" in item and item["product_id"]:
+                # Fetch product details
+                product = await target_db.products.find_one(
+                    {"id": item["product_id"], "tenant_id": current_user["tenant_id"]},
+                    {"_id": 0, "name": 1, "sku": 1}
+                )
+                if product:
+                    item["product_name"] = product.get("name", "Unknown Product")
+                    item["product_sku"] = product.get("sku", "")
+                else:
+                    item["product_name"] = "Unknown Product"
+                    item["product_sku"] = ""
+    
     # Get payments for this sale if they exist
     payments = await target_db.payments.find(
         {"sale_id": sale_id},
