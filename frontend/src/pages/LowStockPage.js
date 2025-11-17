@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Package, Building2, TrendingDown, Search, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { API } from '../App';
 import BackButton from '../components/BackButton';
 
 const LowStockPage = () => {
@@ -18,31 +20,15 @@ const LowStockPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      
       const [productsRes, branchesRes, productBranchesRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/branches`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/product-branches`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+        axios.get(`${API}/products`, { withCredentials: true }),
+        axios.get(`${API}/branches`, { withCredentials: true }),
+        axios.get(`${API}/product-branches`, { withCredentials: true })
       ]);
 
-      if (productsRes.ok && branchesRes.ok && productBranchesRes.ok) {
-        const productsData = await productsRes.json();
-        const branchesData = await branchesRes.json();
-        const productBranchesData = await productBranchesRes.json();
-
-        setProducts(productsData);
-        setBranches(branchesData);
-        setProductBranches(productBranchesData);
-      } else {
-        toast.error('Failed to load data');
-      }
+      setProducts(productsRes.data || []);
+      setBranches(branchesRes.data || []);
+      setProductBranches(productBranchesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
