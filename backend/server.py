@@ -25,6 +25,8 @@ import cloudinary
 import cloudinary.uploader
 from tenant_dependency import TenantContext, get_tenant_context
 from db_connection import resolve_tenant_db
+from sales_models import Sale, SaleCreate
+from audit_logger import log_action
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1795,6 +1797,192 @@ async def toggle_tenant_module(
     )
     
     return {"message": "Module toggled", "modules_enabled": modules}
+
+# ========== SUPER ADMIN ANALYTICS & CONTROL ROUTES ==========
+@api_router.get("/super/tenants/{tenant_id}/stats")
+async def get_tenant_stats(
+    tenant_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get sales statistics for a specific tenant.
+    Returns: total_sales, today_sales, sales_count
+    """
+    # Get tenant info from registry
+    from tenant_models import TenantRegistry
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    tenant_registry = await admin_db.tenants.find_one({"slug": tenant_id})
+    if not tenant_registry:
+        raise HTTPException(status_code=404, detail="Tenant not found in registry")
+    
+    # Connect to tenant's database
+    tenant_db_name = tenant_registry.get("db_name")
+    tenant_db = admin_client[tenant_db_name]
+    
+    # Aggregate sales statistics
+    now = datetime.utcnow()
+    today_start = datetime(now.year, now.month, now.day)
+    
+    # Total sales amount
+    total_pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    total_result = await tenant_db.sales.aggregate(total_pipeline).to_list(1)
+    total_sales = total_result[0]["total"] if total_result else 0
+    
+    # Today's sales amount
+    today_pipeline = [
+        {"$match": {"created_at": {"$gte": today_start}}},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+    ]
+    today_result = await tenant_db.sales.aggregate(today_pipeline).to_list(1)
+    today_sales = today_result[0]["total"] if today_result else 0
+    
+    # Sales count
+    sales_count = await tenant_db.sales.count_documents({})
+    
+    # Recent sales (last 7 days)
+    week_ago = now - timedelta(days=7)
+    recent_sales = await tenant_db.sales.find(
+        {"created_at": {"$gte": week_ago}},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    admin_client.close()
+    
+    return {
+        "tenant_id": tenant_id,
+        "total_sales": round(total_sales, 2),
+        "today_sales": round(today_sales, 2),
+        "sales_count": sales_count,
+        "recent_sales": recent_sales
+    }
+
+@api_router.patch("/super/tenants/{tenant_id}/status")
+async def update_tenant_status(
+    tenant_id: str,
+    status_update: dict,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Update tenant status: active, suspended, or deleted.
+    Updates both registry status and tenant's is_active flag.
+    """
+    new_status = status_update.get("status")
+    if new_status not in ["active", "suspended", "deleted"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Must be: active, suspended, or deleted")
+    
+    # Get current tenant from main database
+    current_tenant = await db.tenants.find_one({"tenant_id": tenant_id}, {"_id": 0})
+    if not current_tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found in main database")
+    
+    old_status = "active" if current_tenant.get("is_active") else "suspended"
+    
+    # Map status to is_active flag
+    is_active = new_status == "active"
+    
+    # Update in main database (tenants collection)
+    await db.tenants.update_one(
+        {"tenant_id": tenant_id},
+        {"$set": {
+            "is_active": is_active,
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update in tenant registry (admin_hub)
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    await admin_db.tenants.update_one(
+        {"slug": tenant_id},
+        {"$set": {
+            "status": new_status,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    # Log the action with actual old status
+    await log_action(
+        user_id=current_user["id"],
+        action=f"UPDATE_TENANT_STATUS_{new_status.upper()}",
+        tenant_id=tenant_id,
+        resource_type="tenant",
+        resource_id=tenant_id,
+        metadata={"old_status": old_status, "new_status": new_status}
+    )
+    
+    admin_client.close()
+    
+    return {
+        "message": f"Tenant status updated to {new_status}", 
+        "status": new_status,
+        "is_active": is_active
+    }
+
+@api_router.post("/super/tenants/{tenant_id}/impersonate")
+async def impersonate_tenant_admin(
+    tenant_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Impersonate a tenant admin - Super Admin logs in as tenant admin.
+    Returns a new JWT token with tenant_admin role and tenant context.
+    """
+    # Find the tenant's admin user
+    admin_user = await db.users.find_one({
+        "tenant_id": tenant_id,
+        "role": UserRole.TENANT_ADMIN.value
+    }, {"_id": 0})
+    
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Tenant admin not found for this tenant")
+    
+    # Create impersonation token
+    token_payload = {
+        "sub": admin_user["id"],
+        "email": admin_user["email"],
+        "role": UserRole.TENANT_ADMIN.value,
+        "tenant_id": tenant_id,
+        "business_type": admin_user.get("business_type"),
+        "impersonated_by": current_user["id"],
+        "impersonation_started": datetime.utcnow().isoformat(),
+        "exp": datetime.utcnow() + timedelta(hours=8)
+    }
+    
+    access_token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+    
+    # Log the impersonation
+    await log_action(
+        user_id=current_user["id"],
+        action="IMPERSONATE_TENANT_ADMIN",
+        tenant_id=tenant_id,
+        resource_type="user",
+        resource_id=admin_user["id"],
+        metadata={
+            "super_admin_id": current_user["id"],
+            "tenant_admin_email": admin_user["email"]
+        }
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": admin_user["id"],
+            "email": admin_user["email"],
+            "name": admin_user.get("full_name"),
+            "role": UserRole.TENANT_ADMIN.value,
+            "tenant_id": tenant_id,
+            "business_type": admin_user.get("business_type"),
+            "impersonated": True,
+            "impersonated_by": current_user["id"]
+        }
+    }
 
 # ========== SETTINGS ROUTES ==========
 @api_router.get("/settings", response_model=Settings)
