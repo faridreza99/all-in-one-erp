@@ -125,7 +125,7 @@ const SuppliersPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       const url = editingSupplier
-        ? `${API}/suppliers/${editingSupplier.supplier_id}`
+        ? `${API}/suppliers/${editingSupplier.id}`
         : `${API}/suppliers`;
 
       const method = editingSupplier ? "PUT" : "POST";
@@ -609,7 +609,7 @@ const SuppliersPage = ({ user, onLogout }) => {
                   </tr>
                 ) : (
                   pageItems.map((s) => (
-                    <tr key={s.supplier_id}>
+                    <tr key={s.id}>
                       <td className="font-semibold text-white">{s.name}</td>
                       <td className="text-gray-300">{s.contact_person}</td>
                       <td className="text-gray-300">{s.phone}</td>
