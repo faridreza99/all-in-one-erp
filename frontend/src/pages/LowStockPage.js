@@ -3,9 +3,10 @@ import { AlertTriangle, Package, Building2, TrendingDown, Search, Filter } from 
 import { toast } from 'sonner';
 import axios from 'axios';
 import { API } from '../App';
+import SectorLayout from '../components/SectorLayout';
 import BackButton from '../components/BackButton';
 
-const LowStockPage = () => {
+const LowStockPage = ({ user, onLogout }) => {
   const [productBranches, setProductBranches] = useState([]);
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
@@ -84,7 +85,7 @@ const LowStockPage = () => {
   const warningCount = lowStockItems.length - criticalCount - dangerCount;
 
   return (
-    <div className="min-h-screen gradient-bg p-6">
+    <SectorLayout user={user} onLogout={onLogout}>
       <BackButton />
       
       <div className="max-w-7xl mx-auto">
@@ -277,7 +278,7 @@ const LowStockPage = () => {
           </div>
         )}
       </div>
-    </div>
+    </SectorLayout>
   );
 };
 
