@@ -1249,23 +1249,31 @@ async def create_activity_notification(
     actor_user: dict,
     activity_subtype: ActivitySubtype,
     title: str,
-    message: str
+    message: str,
+    target_db=None
 ):
     """
     Create activity notifications for all tenant_admins when non-admin users perform actions.
     Only sends notifications if the actor is NOT a tenant_admin or super_admin.
+    
+    Args:
+        target_db: Tenant-specific database connection for writing notifications (defaults to global db if not provided)
     """
+    # Use provided database for notifications, fall back to global
+    notification_db = target_db if target_db is not None else db
+    
     # Don't notify if the actor is already an admin
     if actor_user["role"] in [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]:
         return
     
-    # Find all tenant_admins for this tenant
+    # Find all tenant_admins for this tenant from global users collection
+    # Note: Users are stored in the global database, not tenant-specific databases
     tenant_admins = await db.users.find(
         {"tenant_id": tenant_id, "role": UserRole.TENANT_ADMIN.value},
         {"_id": 0}
     ).to_list(100)
     
-    # Create a notification for each tenant_admin
+    # Create a notification for each tenant_admin in the tenant-specific database
     for admin in tenant_admins:
         notification = Notification(
             tenant_id=tenant_id,
@@ -1280,7 +1288,7 @@ async def create_activity_notification(
         notif_doc = notification.model_dump()
         notif_doc['created_at'] = notif_doc['created_at'].isoformat()
         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-        await db.notifications.insert_one(notif_doc)
+        await notification_db.notifications.insert_one(notif_doc)
 
 # ========== AUTH ROUTES ==========
 @api_router.post("/auth/register", response_model=TokenResponse)
@@ -2025,6 +2033,15 @@ async def create_category(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for category creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     category = Category(
         tenant_id=current_user["tenant_id"],
         **category_data.model_dump()
@@ -2034,7 +2051,7 @@ async def create_category(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.categories.insert_one(doc)
+    await target_db.categories.insert_one(doc)
     return category
 
 @api_router.get("/categories", response_model=List[Category])
@@ -2044,7 +2061,16 @@ async def get_categories(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    categories = await db.categories.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for categories: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    categories = await target_db.categories.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2066,10 +2092,19 @@ async def update_category(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for category update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     update_data = category_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.categories.update_one(
+    result = await target_db.categories.update_one(
         {"id": category_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -2087,7 +2122,16 @@ async def delete_category(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    result = await db.categories.delete_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for category deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.categories.delete_one(
         {"id": category_id, "tenant_id": current_user["tenant_id"]}
     )
     
@@ -2105,6 +2149,15 @@ async def create_brand(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for brand creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     brand = Brand(
         tenant_id=current_user["tenant_id"],
         **brand_data.model_dump()
@@ -2114,7 +2167,7 @@ async def create_brand(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.brands.insert_one(doc)
+    await target_db.brands.insert_one(doc)
     return brand
 
 @api_router.get("/brands", response_model=List[Brand])
@@ -2124,7 +2177,16 @@ async def get_brands(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    brands = await db.brands.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for brands: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    brands = await target_db.brands.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2146,10 +2208,19 @@ async def update_brand(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for brand update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     update_data = brand_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.brands.update_one(
+    result = await target_db.brands.update_one(
         {"id": brand_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -2167,7 +2238,16 @@ async def delete_brand(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    result = await db.brands.delete_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for brand deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.brands.delete_one(
         {"id": brand_id, "tenant_id": current_user["tenant_id"]}
     )
     
@@ -2185,6 +2265,15 @@ async def create_product(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     product = Product(
         tenant_id=current_user["tenant_id"],
         **product_data.model_dump()
@@ -2194,7 +2283,7 @@ async def create_product(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.products.insert_one(doc)
+    await target_db.products.insert_one(doc)
     return product
 
 @api_router.get("/products", response_model=List[Product])
@@ -2203,6 +2292,15 @@ async def get_products(
 ):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for products: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
     
     user_role = current_user.get("role")
     user_branch_id = current_user.get("branch_id")
@@ -2216,7 +2314,7 @@ async def get_products(
             )
         
         # Get product IDs assigned to this branch
-        branch_assignments = await db.product_branches.find(
+        branch_assignments = await target_db.product_branches.find(
             {
                 "tenant_id": current_user["tenant_id"],
                 "branch_id": user_branch_id
@@ -2227,7 +2325,7 @@ async def get_products(
         assigned_product_ids = [assignment["product_id"] for assignment in branch_assignments]
         
         # Only fetch products that are assigned to this branch
-        products = await db.products.find(
+        products = await target_db.products.find(
             {
                 "tenant_id": current_user["tenant_id"],
                 "id": {"$in": assigned_product_ids}
@@ -2236,7 +2334,7 @@ async def get_products(
         ).to_list(1000)
     else:
         # Admins see all products
-        products = await db.products.find(
+        products = await target_db.products.find(
             {"tenant_id": current_user["tenant_id"]},
             {"_id": 0}
         ).to_list(1000)
@@ -2248,7 +2346,7 @@ async def get_products(
             product['updated_at'] = datetime.fromisoformat(product['updated_at'])
         
         # Add branch stock mapping
-        product_assignments = await db.product_branches.find(
+        product_assignments = await target_db.product_branches.find(
             {
                 "tenant_id": current_user["tenant_id"],
                 "product_id": product["id"]
@@ -2289,10 +2387,19 @@ async def update_product(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     update_data = product_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.products.update_one(
+    result = await target_db.products.update_one(
         {"id": product_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -2310,7 +2417,16 @@ async def delete_product(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    result = await db.products.delete_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.products.delete_one(
         {"id": product_id, "tenant_id": current_user["tenant_id"]}
     )
     
@@ -2328,6 +2444,15 @@ async def create_service(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for service creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     service = Service(
         tenant_id=current_user["tenant_id"],
         **service_data.model_dump()
@@ -2337,7 +2462,7 @@ async def create_service(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.services.insert_one(doc)
+    await target_db.services.insert_one(doc)
     return service
 
 @api_router.get("/services", response_model=List[Service])
@@ -2347,7 +2472,16 @@ async def get_services(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    services = await db.services.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for services: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    services = await target_db.services.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2369,6 +2503,15 @@ async def create_appointment(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for appointment creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     appointment = Appointment(
         tenant_id=current_user["tenant_id"],
         **appointment_data.model_dump()
@@ -2378,7 +2521,7 @@ async def create_appointment(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.appointments.insert_one(doc)
+    await target_db.appointments.insert_one(doc)
     return appointment
 
 @api_router.get("/appointments", response_model=List[Appointment])
@@ -2388,7 +2531,16 @@ async def get_appointments(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    appointments = await db.appointments.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for appointments: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    appointments = await target_db.appointments.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2407,7 +2559,16 @@ async def update_appointment_status(
     status: AppointmentStatus,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.appointments.update_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for appointment status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.appointments.update_one(
         {"id": appointment_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {"status": status.value, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -2426,8 +2587,17 @@ async def create_repair_ticket(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for repair creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Generate ticket number
-    count = await db.repairs.count_documents({"tenant_id": current_user["tenant_id"]})
+    count = await target_db.repairs.count_documents({"tenant_id": current_user["tenant_id"]})
     ticket_number = f"REP-{count + 1:05d}"
     
     repair = RepairTicket(
@@ -2440,7 +2610,7 @@ async def create_repair_ticket(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.repairs.insert_one(doc)
+    await target_db.repairs.insert_one(doc)
     return repair
 
 @api_router.get("/repairs", response_model=List[RepairTicket])
@@ -2450,7 +2620,16 @@ async def get_repair_tickets(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    repairs = await db.repairs.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for repairs: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    repairs = await target_db.repairs.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2469,7 +2648,16 @@ async def update_repair_status(
     status: RepairStatus,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.repairs.update_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for repair status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.repairs.update_one(
         {"id": repair_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {"status": status.value, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -2488,6 +2676,15 @@ async def create_table(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for table creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     table = Table(
         tenant_id=current_user["tenant_id"],
         **table_data.model_dump()
@@ -2497,7 +2694,7 @@ async def create_table(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.tables.insert_one(doc)
+    await target_db.tables.insert_one(doc)
     return table
 
 @api_router.get("/tables", response_model=List[Table])
@@ -2507,7 +2704,16 @@ async def get_tables(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    tables = await db.tables.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for tables: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    tables = await target_db.tables.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -2873,7 +3079,8 @@ async def create_sale(
         actor_user=current_user,
         activity_subtype=ActivitySubtype.POS_SALE_CREATED,
         title="New POS Sale Created",
-        message=f"{current_user.get('full_name', 'Staff')} created a sale {invoice_no} for ৳{total:.2f}"
+        message=f"{current_user.get('full_name', 'Staff')} created a sale {invoice_no} for ৳{total:.2f}",
+        target_db=target_db
     )
     
     return sale
@@ -2918,8 +3125,17 @@ async def add_payment_to_sale(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for sale payment: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Get the sale
-    sale = await db.sales.find_one(
+    sale = await target_db.sales.find_one(
         {"id": sale_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -2959,7 +3175,7 @@ async def add_payment_to_sale(
     payment_doc['created_at'] = payment_doc['created_at'].isoformat()
     payment_doc['updated_at'] = payment_doc['updated_at'].isoformat()
     payment_doc['received_at'] = payment_doc['received_at'].isoformat()
-    await db.payments.insert_one(payment_doc)
+    await target_db.payments.insert_one(payment_doc)
     
     # Update sale amounts and status
     new_amount_paid = sale.get('amount_paid', 0) + payment_data.amount
@@ -2974,7 +3190,7 @@ async def add_payment_to_sale(
         new_payment_status = PaymentStatus.UNPAID
     
     # Update sale
-    await db.sales.update_one(
+    await target_db.sales.update_one(
         {"id": sale_id, "tenant_id": current_user["tenant_id"]},
         {
             "$set": {
@@ -2990,12 +3206,12 @@ async def add_payment_to_sale(
     if sale.get('customer_name'):
         if new_balance_due == 0:
             # Delete customer due record when fully paid
-            await db.customer_dues.delete_one(
+            await target_db.customer_dues.delete_one(
                 {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]}
             )
         else:
             # Update customer due with new amounts
-            await db.customer_dues.update_one(
+            await target_db.customer_dues.update_one(
                 {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
                 {
                     "$set": {
@@ -3008,7 +3224,7 @@ async def add_payment_to_sale(
     
     # Remove sticky notification only when balance is exactly zero (fully paid)
     if new_balance_due == 0:
-        await db.notifications.update_many(
+        await target_db.notifications.update_many(
             {"sale_id": sale_id, "tenant_id": current_user["tenant_id"], "type": NotificationType.UNPAID_INVOICE.value},
             {
                 "$set": {
@@ -3030,7 +3246,7 @@ async def add_payment_to_sale(
         notif_doc = notif.model_dump()
         notif_doc['created_at'] = notif_doc['created_at'].isoformat()
         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-        await db.notifications.insert_one(notif_doc)
+        await target_db.notifications.insert_one(notif_doc)
     
     # Create activity notification for tenant_admins (if user is not admin)
     await create_activity_notification(
@@ -3038,7 +3254,8 @@ async def add_payment_to_sale(
         actor_user=current_user,
         activity_subtype=ActivitySubtype.PAYMENT_ADDED,
         title="Payment Added to Invoice",
-        message=f"{current_user.get('full_name', 'Staff')} added payment of ৳{payment_data.amount:.2f} to Invoice {sale['invoice_no']}"
+        message=f"{current_user.get('full_name', 'Staff')} added payment of ৳{payment_data.amount:.2f} to Invoice {sale['invoice_no']}",
+        target_db=target_db
     )
     
     return {
@@ -3057,8 +3274,17 @@ async def cancel_sale(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for sale cancellation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Get the sale
-    sale = await db.sales.find_one(
+    sale = await target_db.sales.find_one(
         {"id": sale_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -3081,7 +3307,7 @@ async def cancel_sale(
     for item in sale.get('items', []):
         if sale.get('branch_id'):
             # Restore branch-specific stock
-            await db.product_branches.update_one(
+            await target_db.product_branches.update_one(
                 {
                     "product_id": item['product_id'],
                     "branch_id": sale['branch_id'],
@@ -3094,7 +3320,7 @@ async def cancel_sale(
             )
         else:
             # Restore global stock
-            await db.products.update_one(
+            await target_db.products.update_one(
                 {"id": item['product_id'], "tenant_id": current_user["tenant_id"]},
                 {
                     "$inc": {"stock": item['quantity']},
@@ -3103,7 +3329,7 @@ async def cancel_sale(
             )
     
     # Update sale status
-    await db.sales.update_one(
+    await target_db.sales.update_one(
         {"id": sale_id, "tenant_id": current_user["tenant_id"]},
         {
             "$set": {
@@ -3118,12 +3344,12 @@ async def cancel_sale(
     
     # Remove customer due if exists
     if sale.get('customer_name'):
-        await db.customer_dues.delete_one(
+        await target_db.customer_dues.delete_one(
             {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]}
         )
     
     # Remove unpaid invoice notifications
-    await db.notifications.delete_many(
+    await target_db.notifications.delete_many(
         {
             "sale_id": sale_id,
             "tenant_id": current_user["tenant_id"],
@@ -3142,7 +3368,7 @@ async def cancel_sale(
     notif_doc = notif.model_dump()
     notif_doc['created_at'] = notif_doc['created_at'].isoformat()
     notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-    await db.notifications.insert_one(notif_doc)
+    await target_db.notifications.insert_one(notif_doc)
     
     return {
         "message": "Sale cancelled successfully",
@@ -3158,7 +3384,16 @@ async def get_customer_dues(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    dues = await db.customer_dues.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for customer dues: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    dues = await target_db.customer_dues.find(
         {
             "tenant_id": current_user["tenant_id"],
             "due_amount": {"$gt": 0}
@@ -3184,7 +3419,16 @@ async def get_customer_due(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    due = await db.customer_dues.find_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for customer due: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    due = await target_db.customer_dues.find_one(
         {"id": due_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -3210,6 +3454,15 @@ async def get_notifications(
 ):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for notifications: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
     
     query = {"tenant_id": current_user["tenant_id"]}
     
@@ -3241,7 +3494,7 @@ async def get_notifications(
     if unread_only:
         query["is_read"] = False
     
-    notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    notifications = await target_db.notifications.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
     for notif in notifications:
         if isinstance(notif.get('created_at'), str):
@@ -3256,7 +3509,16 @@ async def mark_notification_read(
     notification_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.notifications.update_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for notification read: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.notifications.update_one(
         {"id": notification_id, "tenant_id": current_user["tenant_id"]},
         {
             "$set": {
@@ -3278,18 +3540,27 @@ async def scheduled_notification_check(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for scheduled notification check: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     tenant_id = current_user["tenant_id"]
     created_count = 0
     
     # 1. Check for low stock products (≤5 units)
-    low_stock_products = await db.products.find(
+    low_stock_products = await target_db.products.find(
         {"tenant_id": tenant_id, "stock": {"$lte": 5}},
         {"_id": 0}
     ).to_list(1000)
     
     for product in low_stock_products:
         # Check if notification already exists
-        existing_notif = await db.notifications.find_one({
+        existing_notif = await target_db.notifications.find_one({
             "tenant_id": tenant_id,
             "type": NotificationType.LOW_STOCK,
             "reference_id": product['id']
@@ -3306,14 +3577,14 @@ async def scheduled_notification_check(
             notif_doc = notification.model_dump()
             notif_doc['created_at'] = notif_doc['created_at'].isoformat()
             notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-            await db.notifications.insert_one(notif_doc)
+            await target_db.notifications.insert_one(notif_doc)
             created_count += 1
     
     # 2. Check for unpaid/partially paid invoices older than 7 days
     from datetime import timedelta
     seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
     
-    overdue_sales = await db.sales.find(
+    overdue_sales = await target_db.sales.find(
         {
             "tenant_id": tenant_id,
             "payment_status": {"$in": [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID]},
@@ -3324,7 +3595,7 @@ async def scheduled_notification_check(
     
     for sale in overdue_sales:
         # Check if notification already exists and is still unread
-        existing_notif = await db.notifications.find_one({
+        existing_notif = await target_db.notifications.find_one({
             "tenant_id": tenant_id,
             "type": NotificationType.UNPAID_INVOICE,
             "sale_id": sale['id'],
@@ -3343,13 +3614,13 @@ async def scheduled_notification_check(
             notif_doc = notification.model_dump()
             notif_doc['created_at'] = notif_doc['created_at'].isoformat()
             notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-            await db.notifications.insert_one(notif_doc)
+            await target_db.notifications.insert_one(notif_doc)
             created_count += 1
     
     # 3. Daily notifications for all customer dues (check last notification was 24+ hours ago)
     twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
     
-    all_customer_dues = await db.customer_dues.find(
+    all_customer_dues = await target_db.customer_dues.find(
         {"tenant_id": tenant_id},
         {"_id": 0}
     ).to_list(1000)
@@ -3357,7 +3628,7 @@ async def scheduled_notification_check(
     daily_due_notifications = 0
     for due in all_customer_dues:
         # Check if a notification was created in the last 24 hours for this due
-        recent_notif = await db.notifications.find_one({
+        recent_notif = await target_db.notifications.find_one({
             "tenant_id": tenant_id,
             "type": NotificationType.UNPAID_INVOICE.value,
             "reference_id": due['id'],
@@ -3377,7 +3648,7 @@ async def scheduled_notification_check(
             notif_doc = notification.model_dump()
             notif_doc['created_at'] = notif_doc['created_at'].isoformat()
             notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-            await db.notifications.insert_one(notif_doc)
+            await target_db.notifications.insert_one(notif_doc)
             created_count += 1
             daily_due_notifications += 1
     
@@ -3397,7 +3668,16 @@ async def get_low_stock_products(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    products = await db.products.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for low-stock: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    products = await target_db.products.find(
         {"tenant_id": current_user["tenant_id"], "stock": {"$lt": 5}},
         {"_id": 0}
     ).to_list(1000)
@@ -3418,11 +3698,20 @@ async def get_dashboard_stats(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for dashboard stats: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
     # Total sales (branch-filtered)
-    sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
+    sales = await target_db.sales.find(query, {"_id": 0}).to_list(10000)
     total_sales = sum(sale.get("total", 0) for sale in sales)
     total_orders = len(sales)
     
@@ -3441,7 +3730,7 @@ async def get_dashboard_stats(
     )
     
     # Products stats (tenant-wide, not branch-specific)
-    products = await db.products.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
+    products = await target_db.products.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
     total_products = len(products)
     low_stock_items = len([p for p in products if p.get("stock", 0) < 5])
     
@@ -3461,11 +3750,20 @@ async def get_sales_chart(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for sales chart: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
     # Get last 7 days sales (branch-filtered)
-    sales = await db.sales.find(query, {"_id": 0}).to_list(10000)
+    sales = await target_db.sales.find(query, {"_id": 0}).to_list(10000)
     
     daily_sales = {}
     for i in range(7):
@@ -3488,10 +3786,19 @@ async def get_dashboard_alerts(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for dashboard alerts: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     tenant_id = current_user["tenant_id"]
     
     # Get all notifications
-    all_notifications = await db.notifications.find(
+    all_notifications = await target_db.notifications.find(
         {"tenant_id": tenant_id},
         {"_id": 0}
     ).to_list(10000)
@@ -3719,6 +4026,15 @@ async def create_expense(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for expense creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     expense = Expense(
         tenant_id=current_user["tenant_id"],
         **expense_data.model_dump()
@@ -3728,7 +4044,7 @@ async def create_expense(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.expenses.insert_one(doc)
+    await target_db.expenses.insert_one(doc)
     return expense
 
 @api_router.get("/expenses", response_model=List[Expense])
@@ -3738,10 +4054,19 @@ async def get_expenses(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for expenses: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
-    expenses = await db.expenses.find(query, {"_id": 0}).to_list(1000)
+    expenses = await target_db.expenses.find(query, {"_id": 0}).to_list(1000)
     
     for expense in expenses:
         if isinstance(expense.get('created_at'), str):
@@ -3760,8 +4085,17 @@ async def create_purchase(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for purchase creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Generate purchase number
-    count = await db.purchases.count_documents({"tenant_id": current_user["tenant_id"]})
+    count = await target_db.purchases.count_documents({"tenant_id": current_user["tenant_id"]})
     purchase_number = f"PO-{count + 1:06d}"
     
     purchase = Purchase(
@@ -3774,7 +4108,7 @@ async def create_purchase(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.purchases.insert_one(doc)
+    await target_db.purchases.insert_one(doc)
     return purchase
 
 @api_router.get("/purchases", response_model=List[Purchase])
@@ -3784,10 +4118,19 @@ async def get_purchases(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for purchases: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
-    purchases = await db.purchases.find(query, {"_id": 0}).to_list(1000)
+    purchases = await target_db.purchases.find(query, {"_id": 0}).to_list(1000)
     
     for purchase in purchases:
         if isinstance(purchase.get('created_at'), str):
@@ -3805,18 +4148,27 @@ async def get_profit_loss_report(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for profit-loss report: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     tenant_id = current_user["tenant_id"]
     
     # Get sales
-    sales = await db.sales.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    sales = await target_db.sales.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
     total_revenue = sum(sale.get("total", 0) for sale in sales)
     
     # Get expenses
-    expenses = await db.expenses.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    expenses = await target_db.expenses.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
     total_expenses = sum(expense.get("amount", 0) for expense in expenses)
     
     # Get purchases
-    purchases = await db.purchases.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    purchases = await target_db.purchases.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
     total_purchases = sum(purchase.get("total_amount", 0) for purchase in purchases)
     
     profit = total_revenue - total_expenses - total_purchases
@@ -3837,8 +4189,17 @@ async def get_top_products(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for top-products report: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Get all sales and aggregate by product
-    sales = await db.sales.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
+    sales = await target_db.sales.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0}).to_list(10000)
     
     product_sales = {}
     for sale in sales:
@@ -3862,7 +4223,7 @@ async def get_top_products(
     # Enrich with product details
     enriched_products = []
     for pid, data in top_products:
-        product = await db.products.find_one(
+        product = await target_db.products.find_one(
             {"id": pid, "tenant_id": current_user["tenant_id"]},
             {"_id": 0}
         )
@@ -3887,6 +4248,16 @@ async def create_doctor(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Doctor creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for doctor creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     doctor = Doctor(
         tenant_id=current_user["tenant_id"],
         **doctor_data.model_dump()
@@ -3896,7 +4267,7 @@ async def create_doctor(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.doctors.insert_one(doc)
+    await target_db.doctors.insert_one(doc)
     return doctor
 
 @api_router.get("/doctors", response_model=List[Doctor])
@@ -3906,7 +4277,16 @@ async def get_doctors(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    doctors = await db.doctors.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for doctors list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    doctors = await target_db.doctors.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -3928,6 +4308,16 @@ async def create_patient(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Patient creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for patient creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     patient = Patient(
         tenant_id=current_user["tenant_id"],
         **patient_data.model_dump()
@@ -3937,7 +4327,7 @@ async def create_patient(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.patients.insert_one(doc)
+    await target_db.patients.insert_one(doc)
     return patient
 
 @api_router.get("/patients", response_model=List[Patient])
@@ -3947,7 +4337,16 @@ async def get_patients(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    patients = await db.patients.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for patients list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    patients = await target_db.patients.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -3969,6 +4368,16 @@ async def create_vehicle(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Vehicle creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for vehicle creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     vehicle = Vehicle(
         tenant_id=current_user["tenant_id"],
         **vehicle_data.model_dump()
@@ -3978,7 +4387,7 @@ async def create_vehicle(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.vehicles.insert_one(doc)
+    await target_db.vehicles.insert_one(doc)
     return vehicle
 
 @api_router.get("/vehicles", response_model=List[Vehicle])
@@ -3988,7 +4397,16 @@ async def get_vehicles(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    vehicles = await db.vehicles.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for vehicles list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    vehicles = await target_db.vehicles.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4010,6 +4428,16 @@ async def create_property(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Property creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for property creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     property_obj = Property(
         tenant_id=current_user["tenant_id"],
         **property_data.model_dump()
@@ -4019,7 +4447,7 @@ async def create_property(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.properties.insert_one(doc)
+    await target_db.properties.insert_one(doc)
     return property_obj
 
 @api_router.get("/properties", response_model=List[Property])
@@ -4029,7 +4457,16 @@ async def get_properties(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    properties = await db.properties.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for properties list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    properties = await target_db.properties.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4051,6 +4488,16 @@ async def create_product_variant(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Product variant creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product variant creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     variant = ProductVariant(
         tenant_id=current_user["tenant_id"],
         **variant_data.model_dump()
@@ -4060,7 +4507,7 @@ async def create_product_variant(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.product_variants.insert_one(doc)
+    await target_db.product_variants.insert_one(doc)
     return variant
 
 @api_router.get("/product-variants", response_model=List[ProductVariant])
@@ -4071,11 +4518,20 @@ async def get_product_variants(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product variants list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if product_id:
         query["product_id"] = product_id
     
-    variants = await db.product_variants.find(query, {"_id": 0}).to_list(1000)
+    variants = await target_db.product_variants.find(query, {"_id": 0}).to_list(1000)
     
     for variant in variants:
         if isinstance(variant.get('created_at'), str):
@@ -4094,6 +4550,16 @@ async def create_offer(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Offer creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for offer creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     offer = Offer(
         tenant_id=current_user["tenant_id"],
         **offer_data.model_dump()
@@ -4103,7 +4569,7 @@ async def create_offer(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.offers.insert_one(doc)
+    await target_db.offers.insert_one(doc)
     return offer
 
 @api_router.get("/offers", response_model=List[Offer])
@@ -4113,7 +4579,16 @@ async def get_offers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    offers = await db.offers.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for offers list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    offers = await target_db.offers.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4131,12 +4606,21 @@ async def toggle_offer(
     offer_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    offer = await db.offers.find_one({"id": offer_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for offer toggle: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    offer = await target_db.offers.find_one({"id": offer_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not offer:
         raise HTTPException(status_code=404, detail="Offer not found")
     
     new_status = not offer.get("is_active", True)
-    await db.offers.update_one(
+    await target_db.offers.update_one(
         {"id": offer_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -4152,6 +4636,15 @@ async def create_warranty(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for warranty creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Calculate expiry date
     purchase_date = datetime.fromisoformat(warranty_data.purchase_date)
     expiry_date = purchase_date + timedelta(days=warranty_data.warranty_period_months * 30)
@@ -4166,7 +4659,7 @@ async def create_warranty(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.warranties.insert_one(doc)
+    await target_db.warranties.insert_one(doc)
     return warranty
 
 @api_router.get("/warranties", response_model=List[Warranty])
@@ -4176,7 +4669,16 @@ async def get_warranties(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    warranties = await db.warranties.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for warranties list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    warranties = await target_db.warranties.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4198,6 +4700,15 @@ async def create_return_request(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for return creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     return_request = ReturnRequest(
         tenant_id=current_user["tenant_id"],
         **return_data.model_dump()
@@ -4207,7 +4718,7 @@ async def create_return_request(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.returns.insert_one(doc)
+    await target_db.returns.insert_one(doc)
     return return_request
 
 @api_router.get("/returns", response_model=List[ReturnRequest])
@@ -4217,7 +4728,16 @@ async def get_returns(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    returns = await db.returns.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for returns list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    returns = await target_db.returns.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4235,7 +4755,16 @@ async def approve_return(
     return_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    return_req = await db.returns.find_one({"id": return_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for return approval: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    return_req = await target_db.returns.find_one({"id": return_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not return_req:
         raise HTTPException(status_code=404, detail="Return request not found")
     
@@ -4244,7 +4773,7 @@ async def approve_return(
         raise HTTPException(status_code=400, detail="Return already approved")
     
     # Get the associated sale to find branch_id
-    sale = await db.sales.find_one(
+    sale = await target_db.sales.find_one(
         {"id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -4253,7 +4782,7 @@ async def approve_return(
         # Restore stock based on branch_id
         if sale.get('branch_id'):
             # Restore to branch-specific stock
-            await db.product_branches.update_one(
+            await target_db.product_branches.update_one(
                 {
                     "product_id": return_req['product_id'],
                     "branch_id": sale['branch_id'],
@@ -4266,7 +4795,7 @@ async def approve_return(
             )
         else:
             # Restore to global stock
-            await db.products.update_one(
+            await target_db.products.update_one(
                 {"id": return_req['product_id'], "tenant_id": current_user["tenant_id"]},
                 {
                     "$inc": {"stock": return_req['quantity']},
@@ -4289,7 +4818,7 @@ async def approve_return(
             else:
                 new_payment_status = PaymentStatus.UNPAID
             
-            await db.sales.update_one(
+            await target_db.sales.update_one(
                 {"id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
                 {
                     "$set": {
@@ -4306,12 +4835,12 @@ async def approve_return(
             if sale.get('customer_name'):
                 if new_balance_due == 0:
                     # Delete customer due record when fully paid after refund
-                    await db.customer_dues.delete_one(
+                    await target_db.customer_dues.delete_one(
                         {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]}
                     )
                 else:
                     # Update customer due with new amounts
-                    await db.customer_dues.update_one(
+                    await target_db.customer_dues.update_one(
                         {"sale_id": return_req['sale_id'], "tenant_id": current_user["tenant_id"]},
                         {
                             "$set": {
@@ -4324,7 +4853,7 @@ async def approve_return(
                     )
     
     # Update return request status
-    await db.returns.update_one(
+    await target_db.returns.update_one(
         {"id": return_id, "tenant_id": current_user["tenant_id"]},
         {
             "$set": {
@@ -4350,6 +4879,16 @@ async def create_book(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Book creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for book creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     book = Book(
         tenant_id=current_user["tenant_id"],
         **book_data.model_dump()
@@ -4359,7 +4898,7 @@ async def create_book(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.books.insert_one(doc)
+    await target_db.books.insert_one(doc)
     return book
 
 @api_router.get("/books", response_model=List[Book])
@@ -4369,7 +4908,16 @@ async def get_books(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    books = await db.books.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for books list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    books = await target_db.books.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4391,6 +4939,16 @@ async def create_bulk_pricing(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Bulk pricing creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for bulk pricing creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     pricing = BulkPricing(
         tenant_id=current_user["tenant_id"],
         **pricing_data.model_dump()
@@ -4400,7 +4958,7 @@ async def create_bulk_pricing(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.bulk_pricing.insert_one(doc)
+    await target_db.bulk_pricing.insert_one(doc)
     return pricing
 
 @api_router.get("/bulk-pricing", response_model=List[BulkPricing])
@@ -4411,11 +4969,20 @@ async def get_bulk_pricing(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for bulk pricing list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if product_id:
         query["product_id"] = product_id
     
-    pricing = await db.bulk_pricing.find(query, {"_id": 0}).to_list(1000)
+    pricing = await target_db.bulk_pricing.find(query, {"_id": 0}).to_list(1000)
     
     for p in pricing:
         if isinstance(p.get('created_at'), str):
@@ -4434,6 +5001,16 @@ async def create_custom_order(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Custom order creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for custom order creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     order_number = f"CO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     
     order = CustomOrder(
@@ -4446,7 +5023,7 @@ async def create_custom_order(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.custom_orders.insert_one(doc)
+    await target_db.custom_orders.insert_one(doc)
     return order
 
 @api_router.get("/custom-orders", response_model=List[CustomOrder])
@@ -4456,7 +5033,16 @@ async def get_custom_orders(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    orders = await db.custom_orders.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for custom orders list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    orders = await target_db.custom_orders.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4475,14 +5061,23 @@ async def add_installment(
     installment: Dict[str, Any],
     current_user: dict = Depends(get_current_user)
 ):
-    order = await db.custom_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for custom order installment: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    order = await target_db.custom_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
     installments = order.get("installments", [])
     installments.append(installment)
     
-    await db.custom_orders.update_one(
+    await target_db.custom_orders.update_one(
         {"id": order_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {"installments": installments, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -4498,6 +5093,16 @@ async def create_tier_pricing(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Tier pricing creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for tier pricing creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     pricing = TierPricing(
         tenant_id=current_user["tenant_id"],
         **pricing_data.model_dump()
@@ -4507,7 +5112,7 @@ async def create_tier_pricing(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.tier_pricing.insert_one(doc)
+    await target_db.tier_pricing.insert_one(doc)
     return pricing
 
 @api_router.get("/tier-pricing", response_model=List[TierPricing])
@@ -4518,11 +5123,20 @@ async def get_tier_pricing(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for tier pricing list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if product_id:
         query["product_id"] = product_id
     
-    pricing = await db.tier_pricing.find(query, {"_id": 0}).to_list(1000)
+    pricing = await target_db.tier_pricing.find(query, {"_id": 0}).to_list(1000)
     
     for p in pricing:
         if isinstance(p.get('created_at'), str):
@@ -4541,6 +5155,16 @@ async def create_purchase_order(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Purchase order creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for purchase order creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     po_number = f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     
     po = PurchaseOrder(
@@ -4553,7 +5177,7 @@ async def create_purchase_order(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.purchase_orders.insert_one(doc)
+    await target_db.purchase_orders.insert_one(doc)
     return po
 
 @api_router.get("/purchase-orders", response_model=List[PurchaseOrder])
@@ -4563,7 +5187,16 @@ async def get_purchase_orders(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    orders = await db.purchase_orders.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for purchase orders list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    orders = await target_db.purchase_orders.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4585,6 +5218,16 @@ async def create_goods_receipt(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Goods receipt creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for goods receipt creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     grn_number = f"GRN-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     
     grn = GoodsReceipt(
@@ -4597,7 +5240,7 @@ async def create_goods_receipt(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.goods_receipts.insert_one(doc)
+    await target_db.goods_receipts.insert_one(doc)
     return grn
 
 @api_router.get("/goods-receipts", response_model=List[GoodsReceipt])
@@ -4607,7 +5250,16 @@ async def get_goods_receipts(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    receipts = await db.goods_receipts.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for goods receipts list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    receipts = await target_db.goods_receipts.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4629,6 +5281,16 @@ async def create_online_order(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Online order creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for online order creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     order_number = f"ORD-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     
     order = OnlineOrder(
@@ -4641,7 +5303,7 @@ async def create_online_order(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.online_orders.insert_one(doc)
+    await target_db.online_orders.insert_one(doc)
     return order
 
 @api_router.get("/online-orders", response_model=List[OnlineOrder])
@@ -4651,7 +5313,16 @@ async def get_online_orders(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    orders = await db.online_orders.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for online orders list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    orders = await target_db.online_orders.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4670,11 +5341,20 @@ async def update_order_status(
     status_update: Dict[str, str],
     current_user: dict = Depends(get_current_user)
 ):
-    order = await db.online_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for online order update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    order = await target_db.online_orders.find_one({"id": order_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    await db.online_orders.update_one(
+    await target_db.online_orders.update_one(
         {"id": order_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {**status_update, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -4750,7 +5430,16 @@ async def get_branch(
     branch_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    branch = await db.branches.find_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch retrieval: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    branch = await target_db.branches.find_one(
         {"id": branch_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -4774,11 +5463,20 @@ async def update_branch(
     if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
-    branch = await db.branches.find_one({"id": branch_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    branch = await target_db.branches.find_one({"id": branch_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found")
     
-    await db.branches.update_one(
+    await target_db.branches.update_one(
         {"id": branch_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {**branch_data.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -4793,12 +5491,21 @@ async def delete_branch(
     if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
-    result = await db.branches.delete_one({"id": branch_id, "tenant_id": current_user["tenant_id"]})
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.branches.delete_one({"id": branch_id, "tenant_id": current_user["tenant_id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Branch not found")
     
     # Also delete associated product-branch records
-    await db.product_branches.delete_many({"branch_id": branch_id, "tenant_id": current_user["tenant_id"]})
+    await target_db.product_branches.delete_many({"branch_id": branch_id, "tenant_id": current_user["tenant_id"]})
     
     return {"message": "Branch deleted successfully"}
 
@@ -4925,7 +5632,16 @@ async def update_product_branch(
     update_data: Dict[str, Any],
     current_user: dict = Depends(get_current_user)
 ):
-    assignment = await db.product_branches.find_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product-branch update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    assignment = await target_db.product_branches.find_one(
         {"id": assignment_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -4938,7 +5654,7 @@ async def update_product_branch(
         if assignment["branch_id"] != current_user.get("branch_id"):
             raise HTTPException(status_code=403, detail="Can only update own branch")
     
-    await db.product_branches.update_one(
+    await target_db.product_branches.update_one(
         {"id": assignment_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {**update_data, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -4953,7 +5669,16 @@ async def delete_product_branch(
     if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
-    result = await db.product_branches.delete_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product-branch deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.product_branches.delete_one({
         "id": assignment_id,
         "tenant_id": current_user["tenant_id"]
     })
@@ -4972,8 +5697,17 @@ async def create_stock_transfer(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for stock transfer creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Verify source branch has enough stock
-    source_assignment = await db.product_branches.find_one({
+    source_assignment = await target_db.product_branches.find_one({
         "product_id": transfer_data.product_id,
         "branch_id": transfer_data.from_branch_id,
         "tenant_id": current_user["tenant_id"]
@@ -4986,7 +5720,7 @@ async def create_stock_transfer(
         raise HTTPException(status_code=400, detail="Insufficient stock in source branch")
     
     # Verify destination branch exists
-    dest_assignment = await db.product_branches.find_one({
+    dest_assignment = await target_db.product_branches.find_one({
         "product_id": transfer_data.product_id,
         "branch_id": transfer_data.to_branch_id,
         "tenant_id": current_user["tenant_id"]
@@ -5009,10 +5743,10 @@ async def create_stock_transfer(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.stock_transfers.insert_one(doc)
+    await target_db.stock_transfers.insert_one(doc)
     
     # Update source branch stock (deduct)
-    await db.product_branches.update_one(
+    await target_db.product_branches.update_one(
         {"id": source_assignment["id"], "tenant_id": current_user["tenant_id"]},
         {
             "$inc": {"stock_quantity": -transfer_data.quantity},
@@ -5021,7 +5755,7 @@ async def create_stock_transfer(
     )
     
     # Update destination branch stock (add)
-    await db.product_branches.update_one(
+    await target_db.product_branches.update_one(
         {"id": dest_assignment["id"], "tenant_id": current_user["tenant_id"]},
         {
             "$inc": {"stock_quantity": transfer_data.quantity},
@@ -5039,6 +5773,15 @@ async def get_stock_transfers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for stock transfers list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     
     # Branch managers can only see transfers involving their branch
@@ -5053,7 +5796,7 @@ async def get_stock_transfers(
             {"to_branch_id": branch_id}
         ]
     
-    transfers = await db.stock_transfers.find(query, {"_id": 0}).to_list(10000)
+    transfers = await target_db.stock_transfers.find(query, {"_id": 0}).to_list(10000)
     
     for transfer in transfers:
         if isinstance(transfer.get('created_at'), str):
@@ -5072,8 +5815,17 @@ async def get_branch_stats(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch stats: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Verify branch exists and user has access
-    branch = await db.branches.find_one({
+    branch = await target_db.branches.find_one({
         "id": branch_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5087,13 +5839,13 @@ async def get_branch_stats(
             raise HTTPException(status_code=403, detail="Access denied")
     
     # Get total products in branch
-    products_count = await db.product_branches.count_documents({
+    products_count = await target_db.product_branches.count_documents({
         "branch_id": branch_id,
         "tenant_id": current_user["tenant_id"]
     })
     
     # Get total stock value
-    product_branches = await db.product_branches.find({
+    product_branches = await target_db.product_branches.find({
         "branch_id": branch_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0}).to_list(10000)
@@ -5122,6 +5874,16 @@ async def create_component(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Component creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for component creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     component = Component(
         tenant_id=current_user["tenant_id"],
         **component_data.model_dump()
@@ -5131,7 +5893,7 @@ async def create_component(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.components.insert_one(doc)
+    await target_db.components.insert_one(doc)
     return component
 
 @api_router.get("/components", response_model=List[Component])
@@ -5142,11 +5904,20 @@ async def get_components(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for components list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if category:
         query["category"] = category
     
-    components = await db.components.find(query, {"_id": 0}).to_list(10000)
+    components = await target_db.components.find(query, {"_id": 0}).to_list(10000)
     
     for comp in components:
         if isinstance(comp.get('created_at'), str):
@@ -5165,6 +5936,16 @@ async def create_computer_product(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Computer product creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for computer product creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     product = ComputerProduct(
         tenant_id=current_user["tenant_id"],
         **product_data.model_dump()
@@ -5174,7 +5955,7 @@ async def create_computer_product(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.computer_products.insert_one(doc)
+    await target_db.computer_products.insert_one(doc)
     return product
 
 @api_router.get("/computer-products", response_model=List[ComputerProduct])
@@ -5185,11 +5966,20 @@ async def get_computer_products(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for computer products list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if status:
         query["status"] = status
     
-    products = await db.computer_products.find(query, {"_id": 0}).to_list(10000)
+    products = await target_db.computer_products.find(query, {"_id": 0}).to_list(10000)
     
     for product in products:
         if isinstance(product.get('created_at'), str):
@@ -5204,7 +5994,16 @@ async def get_computer_product(
     product_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    product = await db.computer_products.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for computer product retrieval: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    product = await target_db.computer_products.find_one({
         "id": product_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5228,6 +6027,16 @@ async def create_job_card(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Job card creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for job card creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     job_number = f"JOB-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     received_date = datetime.now(timezone.utc).isoformat()
     
@@ -5242,7 +6051,7 @@ async def create_job_card(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.job_cards.insert_one(doc)
+    await target_db.job_cards.insert_one(doc)
     return job_card
 
 @api_router.get("/job-cards", response_model=List[JobCard])
@@ -5254,13 +6063,22 @@ async def get_job_cards(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for job cards list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if status:
         query["status"] = status
     if technician_id:
         query["technician_id"] = technician_id
     
-    job_cards = await db.job_cards.find(query, {"_id": 0}).to_list(10000)
+    job_cards = await target_db.job_cards.find(query, {"_id": 0}).to_list(10000)
     
     for job in job_cards:
         if isinstance(job.get('created_at'), str):
@@ -5276,7 +6094,16 @@ async def update_job_status(
     status_data: Dict[str, Any],
     current_user: dict = Depends(get_current_user)
 ):
-    job_card = await db.job_cards.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for job card status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    job_card = await target_db.job_cards.find_one({
         "id": job_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5289,7 +6116,7 @@ async def update_job_status(
     if status_data.get("status") == "completed" and not job_card.get("completion_date"):
         update_data["completion_date"] = datetime.now(timezone.utc).isoformat()
     
-    await db.job_cards.update_one(
+    await target_db.job_cards.update_one(
         {"id": job_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5302,7 +6129,16 @@ async def add_part_to_job(
     part_data: Dict[str, Any],
     current_user: dict = Depends(get_current_user)
 ):
-    job_card = await db.job_cards.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for job card part addition: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    job_card = await target_db.job_cards.find_one({
         "id": job_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5315,7 +6151,7 @@ async def add_part_to_job(
     
     actual_cost = job_card.get("actual_cost", 0) + part_data.get("cost", 0)
     
-    await db.job_cards.update_one(
+    await target_db.job_cards.update_one(
         {"id": job_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {
             "parts_used": parts_used,
@@ -5335,6 +6171,16 @@ async def create_device_history(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Device history creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for device history creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     device = DeviceHistory(
         tenant_id=current_user["tenant_id"],
         **device_data.model_dump()
@@ -5344,7 +6190,7 @@ async def create_device_history(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.device_history.insert_one(doc)
+    await target_db.device_history.insert_one(doc)
     return device
 
 @api_router.get("/device-history", response_model=List[DeviceHistory])
@@ -5356,13 +6202,22 @@ async def get_device_history(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for device history list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if customer_id:
         query["customer_id"] = customer_id
     if serial_number:
         query["serial_number"] = serial_number
     
-    devices = await db.device_history.find(query, {"_id": 0}).to_list(10000)
+    devices = await target_db.device_history.find(query, {"_id": 0}).to_list(10000)
     
     for device in devices:
         if isinstance(device.get('created_at'), str):
@@ -5378,7 +6233,16 @@ async def add_repair_to_device(
     job_card_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    device = await db.device_history.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for device repair addition: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    device = await target_db.device_history.find_one({
         "id": device_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5390,7 +6254,7 @@ async def add_repair_to_device(
     if job_card_id not in repair_history:
         repair_history.append(job_card_id)
     
-    await db.device_history.update_one(
+    await target_db.device_history.update_one(
         {"id": device_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {
             "repair_history": repair_history,
@@ -5409,6 +6273,16 @@ async def create_shipment(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ CNF shipment creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF shipment creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     shipment = Shipment(
         tenant_id=current_user["tenant_id"],
         **shipment_data.model_dump()
@@ -5418,7 +6292,7 @@ async def create_shipment(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.cnf_shipments.insert_one(doc)
+    await target_db.cnf_shipments.insert_one(doc)
     return shipment
 
 @api_router.get("/cnf/shipments", response_model=List[Shipment])
@@ -5426,7 +6300,16 @@ async def get_shipments(current_user: dict = Depends(get_current_user)):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    shipments = await db.cnf_shipments.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF shipments list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    shipments = await target_db.cnf_shipments.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(10000)
@@ -5445,7 +6328,16 @@ async def update_shipment(
     shipment_data: ShipmentCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    shipment = await db.cnf_shipments.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF shipment update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    shipment = await target_db.cnf_shipments.find_one({
         "id": shipment_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5456,7 +6348,7 @@ async def update_shipment(
     update_data = shipment_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.cnf_shipments.update_one(
+    await target_db.cnf_shipments.update_one(
         {"id": shipment_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5469,7 +6361,16 @@ async def update_shipment_status(
     status: ShipmentStatus,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_shipments.update_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF shipment status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_shipments.update_one(
         {"id": shipment_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {
             "status": status.value,
@@ -5487,7 +6388,16 @@ async def delete_shipment(
     shipment_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_shipments.delete_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF shipment deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_shipments.delete_one({
         "id": shipment_id,
         "tenant_id": current_user["tenant_id"]
     })
@@ -5506,6 +6416,16 @@ async def create_job_file(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ CNF job file creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF job file creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     job = JobFile(
         tenant_id=current_user["tenant_id"],
         **job_data.model_dump()
@@ -5515,7 +6435,7 @@ async def create_job_file(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.cnf_job_files.insert_one(doc)
+    await target_db.cnf_job_files.insert_one(doc)
     return job
 
 @api_router.get("/cnf/jobs", response_model=List[JobFile])
@@ -5523,7 +6443,16 @@ async def get_job_files(current_user: dict = Depends(get_current_user)):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    jobs = await db.cnf_job_files.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF job files list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    jobs = await target_db.cnf_job_files.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(10000)
@@ -5542,7 +6471,16 @@ async def update_job_file(
     job_data: JobFileCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    job = await db.cnf_job_files.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF job file update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    job = await target_db.cnf_job_files.find_one({
         "id": job_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5553,7 +6491,7 @@ async def update_job_file(
     update_data = job_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.cnf_job_files.update_one(
+    await target_db.cnf_job_files.update_one(
         {"id": job_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5566,7 +6504,16 @@ async def update_job_status(
     status: JobFileStatus,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_job_files.update_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF job status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_job_files.update_one(
         {"id": job_id, "tenant_id": current_user["tenant_id"]},
         {"$set": {
             "status": status.value,
@@ -5584,7 +6531,16 @@ async def delete_job_file(
     job_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_job_files.delete_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF job file deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_job_files.delete_one({
         "id": job_id,
         "tenant_id": current_user["tenant_id"]
     })
@@ -5603,6 +6559,16 @@ async def create_billing(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ CNF billing creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF billing creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Calculate totals
     subtotal = (
         billing_data.cnf_charges +
@@ -5614,7 +6580,7 @@ async def create_billing(
     total_amount = subtotal - billing_data.discount
     
     # Generate invoice number
-    invoice_count = await db.cnf_billing.count_documents({"tenant_id": current_user["tenant_id"]})
+    invoice_count = await target_db.cnf_billing.count_documents({"tenant_id": current_user["tenant_id"]})
     invoice_number = f"INV-CNF-{invoice_count + 1:05d}"
     
     billing = CNFBilling(
@@ -5629,7 +6595,7 @@ async def create_billing(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.cnf_billing.insert_one(doc)
+    await target_db.cnf_billing.insert_one(doc)
     return billing
 
 @api_router.get("/cnf/billing", response_model=List[CNFBilling])
@@ -5637,7 +6603,16 @@ async def get_billings(current_user: dict = Depends(get_current_user)):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    billings = await db.cnf_billing.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF billing list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    billings = await target_db.cnf_billing.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(10000)
@@ -5657,6 +6632,15 @@ async def update_payment_status(
     payment_date: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF billing payment update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     update_data = {
         "payment_status": payment_status,
         "updated_at": datetime.now(timezone.utc).isoformat()
@@ -5665,7 +6649,7 @@ async def update_payment_status(
     if payment_date:
         update_data["payment_date"] = payment_date
     
-    result = await db.cnf_billing.update_one(
+    result = await target_db.cnf_billing.update_one(
         {"id": billing_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5684,6 +6668,16 @@ async def create_document(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ CNF document creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF document creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     document = Document(
         tenant_id=current_user["tenant_id"],
         **document_data.model_dump()
@@ -5693,7 +6687,7 @@ async def create_document(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.cnf_documents.insert_one(doc)
+    await target_db.cnf_documents.insert_one(doc)
     return document
 
 @api_router.get("/cnf/documents", response_model=List[Document])
@@ -5705,13 +6699,22 @@ async def get_documents(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF documents list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if shipment_id:
         query["shipment_id"] = shipment_id
     if job_file_id:
         query["job_file_id"] = job_file_id
     
-    documents = await db.cnf_documents.find(query, {"_id": 0}).to_list(10000)
+    documents = await target_db.cnf_documents.find(query, {"_id": 0}).to_list(10000)
     
     for document in documents:
         if isinstance(document.get('created_at'), str):
@@ -5727,7 +6730,16 @@ async def update_document(
     document_data: DocumentCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    document = await db.cnf_documents.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF document update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    document = await target_db.cnf_documents.find_one({
         "id": document_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5738,7 +6750,7 @@ async def update_document(
     update_data = document_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.cnf_documents.update_one(
+    await target_db.cnf_documents.update_one(
         {"id": document_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5750,7 +6762,16 @@ async def delete_document(
     document_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_documents.delete_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF document deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_documents.delete_one({
         "id": document_id,
         "tenant_id": current_user["tenant_id"]
     })
@@ -5769,8 +6790,18 @@ async def create_transport(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ CNF transport creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF transport creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Generate transport number
-    transport_count = await db.cnf_transport.count_documents({"tenant_id": current_user["tenant_id"]})
+    transport_count = await target_db.cnf_transport.count_documents({"tenant_id": current_user["tenant_id"]})
     transport_number = f"TRN-{transport_count + 1:05d}"
     
     transport = Transport(
@@ -5783,7 +6814,7 @@ async def create_transport(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.cnf_transport.insert_one(doc)
+    await target_db.cnf_transport.insert_one(doc)
     return transport
 
 @api_router.get("/cnf/transport", response_model=List[Transport])
@@ -5795,13 +6826,22 @@ async def get_transports(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF transport list: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     if job_file_id:
         query["job_file_id"] = job_file_id
     if shipment_id:
         query["shipment_id"] = shipment_id
     
-    transports = await db.cnf_transport.find(query, {"_id": 0}).to_list(10000)
+    transports = await target_db.cnf_transport.find(query, {"_id": 0}).to_list(10000)
     
     for transport in transports:
         if isinstance(transport.get('created_at'), str):
@@ -5817,7 +6857,16 @@ async def update_transport(
     transport_data: TransportCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    transport = await db.cnf_transport.find_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF transport update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    transport = await target_db.cnf_transport.find_one({
         "id": transport_id,
         "tenant_id": current_user["tenant_id"]
     }, {"_id": 0})
@@ -5828,7 +6877,7 @@ async def update_transport(
     update_data = transport_data.model_dump()
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.cnf_transport.update_one(
+    await target_db.cnf_transport.update_one(
         {"id": transport_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5842,6 +6891,15 @@ async def update_transport_status(
     actual_delivery_date: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF transport status update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     update_data = {
         "status": status.value,
         "updated_at": datetime.now(timezone.utc).isoformat()
@@ -5850,7 +6908,7 @@ async def update_transport_status(
     if actual_delivery_date:
         update_data["actual_delivery_date"] = actual_delivery_date
     
-    result = await db.cnf_transport.update_one(
+    result = await target_db.cnf_transport.update_one(
         {"id": transport_id, "tenant_id": current_user["tenant_id"]},
         {"$set": update_data}
     )
@@ -5865,7 +6923,16 @@ async def delete_transport(
     transport_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    result = await db.cnf_transport.delete_one({
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF transport deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    result = await target_db.cnf_transport.delete_one({
         "id": transport_id,
         "tenant_id": current_user["tenant_id"]
     })
@@ -5881,22 +6948,31 @@ async def get_cnf_reports_summary(current_user: dict = Depends(get_current_user)
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for CNF reports: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     tenant_id = current_user["tenant_id"]
     
     # Get counts
-    total_shipments = await db.cnf_shipments.count_documents({"tenant_id": tenant_id})
-    active_shipments = await db.cnf_shipments.count_documents({
+    total_shipments = await target_db.cnf_shipments.count_documents({"tenant_id": tenant_id})
+    active_shipments = await target_db.cnf_shipments.count_documents({
         "tenant_id": tenant_id,
         "status": {"$nin": ["delivered"]}
     })
-    total_jobs = await db.cnf_job_files.count_documents({"tenant_id": tenant_id})
-    active_jobs = await db.cnf_job_files.count_documents({
+    total_jobs = await target_db.cnf_job_files.count_documents({"tenant_id": tenant_id})
+    active_jobs = await target_db.cnf_job_files.count_documents({
         "tenant_id": tenant_id,
         "status": {"$nin": ["completed", "cancelled"]}
     })
     
     # Get billing summary
-    billings = await db.cnf_billing.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
+    billings = await target_db.cnf_billing.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(10000)
     total_revenue = sum(b.get("total_amount", 0) for b in billings)
     pending_payments = sum(
         b.get("total_amount", 0) for b in billings 
@@ -5904,8 +6980,8 @@ async def get_cnf_reports_summary(current_user: dict = Depends(get_current_user)
     )
     
     # Get transport summary
-    total_transports = await db.cnf_transport.count_documents({"tenant_id": tenant_id})
-    active_transports = await db.cnf_transport.count_documents({
+    total_transports = await target_db.cnf_transport.count_documents({"tenant_id": tenant_id})
+    active_transports = await target_db.cnf_transport.count_documents({
         "tenant_id": tenant_id,
         "status": {"$nin": ["delivered", "cancelled"]}
     })
