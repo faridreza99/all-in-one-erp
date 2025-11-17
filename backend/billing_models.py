@@ -30,7 +30,8 @@ class Plan(BaseModel):
     name: str = Field(..., description="Display name (e.g., 'Professional Plan')")
     tier: PlanTier
     description: Optional[str] = Field(None, description="Plan description")
-    price: float = Field(0.0, description="Price in USD")
+    price: float = Field(0.0, description="Price in BDT (Taka)")
+    currency: str = Field("BDT", description="Currency code (Taka)")
     billing_cycle: BillingCycle = Field(BillingCycle.MONTHLY)
     
     quotas: Dict = Field(default_factory=dict, description="Resource limits")
@@ -114,7 +115,7 @@ class PaymentRecord(BaseModel):
     tenant_id: str = Field(..., description="Tenant who paid")
     
     amount: float = Field(..., description="Payment amount")
-    currency: str = Field("USD", description="Currency code")
+    currency: str = Field("BDT", description="Currency code (Taka)")
     
     payment_method: str = Field(..., description="How they paid (bank transfer, cash, check, etc)")
     payment_date: datetime = Field(..., description="Date payment received")

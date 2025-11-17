@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, Dict, List
 from datetime import datetime
 from enum import Enum
 
@@ -25,3 +25,11 @@ class RecordPaymentRequest(BaseModel):
     payment_date: Optional[str] = Field(default=None, description="Payment date (ISO format)")
     receipt_number: Optional[str] = Field(default=None, description="Receipt/invoice number")
     notes: Optional[str] = Field(default="", description="Payment notes")
+
+class UpdatePlanRequest(BaseModel):
+    """Request model for updating plan prices and limits"""
+    price: Optional[float] = Field(default=None, description="New price in BDT (Taka)", ge=0)
+    quotas: Optional[Dict] = Field(default=None, description="Updated resource limits")
+    features: Optional[List[str]] = Field(default=None, description="Updated feature list")
+    description: Optional[str] = Field(default=None, description="Updated plan description")
+    is_active: Optional[bool] = Field(default=None, description="Whether plan is available")

@@ -27,6 +27,7 @@ async def seed_billing_plans():
             "tier": "free",
             "description": "Basic features for small businesses getting started",
             "price": 0.0,
+            "currency": "BDT",
             "billing_cycle": "lifetime",
             "quotas": {
                 "max_products": 100,
@@ -51,7 +52,8 @@ async def seed_billing_plans():
             "name": "Basic Plan",
             "tier": "basic",
             "description": "Essential features for growing businesses",
-            "price": 29.0,
+            "price": 3000.0,
+            "currency": "BDT",
             "billing_cycle": "monthly",
             "quotas": {
                 "max_products": 1000,
@@ -81,7 +83,8 @@ async def seed_billing_plans():
             "name": "Professional Plan",
             "tier": "pro",
             "description": "Advanced features for established businesses",
-            "price": 99.0,
+            "price": 10000.0,
+            "currency": "BDT",
             "billing_cycle": "monthly",
             "quotas": {
                 "max_products": 10000,
@@ -117,7 +120,8 @@ async def seed_billing_plans():
             "name": "Enterprise Plan",
             "tier": "enterprise",
             "description": "Unlimited features for large organizations",
-            "price": 299.0,
+            "price": 30000.0,
+            "currency": "BDT",
             "billing_cycle": "monthly",
             "quotas": {
                 "max_products": -1,  # -1 means unlimited
@@ -166,7 +170,8 @@ async def seed_billing_plans():
     # Display summary
     print("\n📊 Plans Summary:")
     for plan in plans:
-        print(f"  • {plan['name']} ({plan['tier']}): ${plan['price']}/{plan['billing_cycle']}")
+        price_display = f"৳{plan['price']:,.0f}" if plan['price'] > 0 else "Free"
+        print(f"  • {plan['name']} ({plan['tier']}): {price_display}/{plan['billing_cycle']}")
         print(f"    - Products: {plan['quotas']['max_products'] if plan['quotas']['max_products'] != -1 else 'Unlimited'}")
         print(f"    - Users: {plan['quotas']['max_users'] if plan['quotas']['max_users'] != -1 else 'Unlimited'}")
         print(f"    - Features: {len(plan['features'])}")

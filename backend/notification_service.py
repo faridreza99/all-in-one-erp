@@ -142,11 +142,13 @@ class NotificationService:
         
         elif audience_type == AudienceType.SPECIFIC_SECTORS.value:
             sectors = announcement.get("target_sectors", [])
-            query["business_type"] = {"$in": sectors}
+            if sectors:
+                query["business_type"] = {"$in": sectors}  # type: ignore
         
         elif audience_type == AudienceType.SPECIFIC_TENANTS.value:
             tenant_ids = announcement.get("target_tenant_ids", [])
-            query["tenant_id"] = {"$in": tenant_ids}
+            if tenant_ids:
+                query["tenant_id"] = {"$in": tenant_ids}  # type: ignore
         
         elif audience_type == AudienceType.CUSTOM_FILTER.value:
             custom_filter = announcement.get("custom_filter", {})

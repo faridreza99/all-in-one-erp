@@ -31,7 +31,7 @@ from billing_models import (
     Plan, PlanTier, Subscription, SubscriptionStatus, BillingCycle,
     PaymentRecord, BillingEvent, UsageSnapshot
 )
-from billing_request_models import CreateSubscriptionRequest, RecordPaymentRequest
+from billing_request_models import CreateSubscriptionRequest, RecordPaymentRequest, UpdatePlanRequest
 from subscription_state_manager import SubscriptionStateManager
 from billing_scheduler import start_scheduler, stop_scheduler
 from notification_models import (
@@ -2066,6 +2066,76 @@ async def get_plans(
     try:
         plans = await admin_db.plans.find({"is_active": True}, {"_id": 0}).to_list(100)
         return {"plans": plans}
+    finally:
+        admin_client.close()
+
+@api_router.patch("/super/plans/{plan_id}")
+async def update_plan(
+    plan_id: str,
+    request: UpdatePlanRequest,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Update plan price and limits.
+    Super Admin only.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        # Build update document
+        update_data = {}
+        if request.price is not None:
+            update_data["price"] = request.price
+        if request.quotas is not None:
+            update_data["quotas"] = request.quotas
+        if request.features is not None:
+            update_data["features"] = request.features
+        if request.description is not None:
+            update_data["description"] = request.description
+        if request.is_active is not None:
+            update_data["is_active"] = request.is_active
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No update fields provided")
+        
+        update_data["updated_at"] = datetime.utcnow()
+        
+        # Update plan
+        result = await admin_db.plans.update_one(
+            {"plan_id": plan_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail=f"Plan '{plan_id}' not found")
+        
+        # Get updated plan
+        updated_plan = await admin_db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+        
+        # Log the action
+        await log_action(
+            user_id=current_user["id"],
+            action="UPDATE_PLAN",
+            tenant_id=None,
+            resource_type="plan",
+            resource_id=plan_id,
+            metadata={
+                "updated_fields": list(update_data.keys()),
+                "new_price": request.price
+            }
+        )
+        
+        return {
+            "success": True,
+            "message": f"Plan '{plan_id}' updated successfully",
+            "plan": updated_plan
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         admin_client.close()
 
