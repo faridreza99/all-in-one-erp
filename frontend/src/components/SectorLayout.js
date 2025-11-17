@@ -182,8 +182,9 @@ const SectorLayout = ({ children, user, onLogout }) => {
       <motion.div
         initial={false}
         animate={{ x: sidebarX, width: sidebarWidth }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
         className={`fixed left-0 top-0 h-full sidebar z-50 ${sidebarScrollClass}`}
-        style={{ scrollBehavior: "smooth" }}
+        style={{ scrollBehavior: "smooth", position: "relative" }}
       >
         <div
           className={`h-full flex flex-col ${!isMobile && !isCollapsed ? "px-4 py-4" : "px-0 py-3"}`}
@@ -287,13 +288,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
                 >
                   <motion.div
-                    whileHover={{ scale: 1.02, x: 2 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                      mass: 0.3,
-                    }}
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.2 }}
                     className={`
                       flex items-center w-full rounded-xl hover:bg-white/10
                       ${isDesktopCollapsed ? "justify-center h-12" : "px-3 py-2 gap-3 justify-start"}
@@ -330,13 +326,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
               <motion.div
-                whileHover={{ scale: 1.02, x: 2 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 20,
-                  mass: 0.3,
-                }}
+                whileHover={{ scale: 1.01 }}
+                transition={{ duration: 0.2 }}
                 className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
                   !isMobile && isCollapsed
                     ? "justify-center h-12"
@@ -356,13 +347,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
               >
                 <motion.div
-                  whileHover={{ scale: 1.02, x: 2 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 20,
-                    mass: 0.3,
-                  }}
+                  whileHover={{ scale: 1.01 }}
+                  transition={{ duration: 0.2 }}
                   className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
                     !isMobile && isCollapsed
                       ? "justify-center h-12"
@@ -378,13 +364,8 @@ const SectorLayout = ({ children, user, onLogout }) => {
             )}
 
             <motion.button
-              whileHover={{ scale: 1.02, x: 2 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 20,
-                mass: 0.3,
-              }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ duration: 0.2 }}
               onClick={onLogout}
               className={`sidebar-item w-full text-left flex items-center rounded-xl hover:bg-white/10 ${
                 !isMobile && isCollapsed
@@ -400,27 +381,30 @@ const SectorLayout = ({ children, user, onLogout }) => {
           </div>
         </div>
 
-        {/* Desktop Circular Toggle Button */}
-        {!isMobile && (
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="absolute -right-3 top-6 h-6 w-6 rounded-full border border-slate-700/50 bg-slate-900 shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center z-10"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4 text-white" />
-            ) : (
-              <ChevronLeft className="h-4 w-4 text-white" />
-            )}
-          </button>
-        )}
       </motion.div>
+
+      {/* Desktop Circular Toggle Button - Outside sidebar for visibility */}
+      {!isMobile && (
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="fixed top-6 z-[60] h-8 w-8 rounded-full border-2 border-white/20 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-xl hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 flex items-center justify-center"
+          style={{ left: isCollapsed ? '68px' : '244px' }}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-5 w-5 text-white" />
+          ) : (
+            <ChevronLeft className="h-5 w-5 text-white" />
+          )}
+        </button>
+      )}
 
       {/* Main */}
       <motion.div
         initial={false}
         animate={{ marginLeft: contentMarginLeft }}
-        className="min-h-screen transition-all duration-300"
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+        className="min-h-screen"
       >
         {isMobile && !isMobileMenuOpen && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 p-4">
