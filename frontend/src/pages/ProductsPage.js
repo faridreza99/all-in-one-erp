@@ -528,6 +528,7 @@ const ProductsPage = ({ user, onLogout }) => {
                       <th>Category</th>
                       <th>Price</th>
                       <th>Stock</th>
+                      <th>Warranty</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -555,6 +556,15 @@ const ProductsPage = ({ user, onLogout }) => {
                           >
                             {product.stock}
                           </span>
+                        </td>
+                        <td>
+                          {product.warranty_months > 0 ? (
+                            <span className="badge badge-info">
+                              {product.warranty_months} months
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-sm">No warranty</span>
+                          )}
                         </td>
                         <td>
                           <div className="flex gap-2">
@@ -906,6 +916,43 @@ const ProductsPage = ({ user, onLogout }) => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Warranty (Months)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={
+                        formData.warranty_months === "" || formData.warranty_months === null
+                          ? ""
+                          : formData.warranty_months
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "" || v === null) {
+                          setFormData({ ...formData, warranty_months: "" });
+                        } else {
+                          const n = Math.max(0, Math.floor(Number(v)));
+                          setFormData({
+                            ...formData,
+                            warranty_months: Number.isNaN(n) ? "" : n,
+                          });
+                        }
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown")
+                          e.preventDefault();
+                      }}
+                      placeholder="0 = No warranty"
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Leave 0 or empty for no warranty
+                    </p>
                   </div>
                 </div>
 
