@@ -2526,6 +2526,24 @@ async def create_sale(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database for multi-tenant isolation
+    target_db = db  # Default to global DB for backwards compatibility (legacy mode)
+    if current_user.get("tenant_slug"):
+        # STRICT: Multi-tenant users MUST use tenant-specific database
+        try:
+            from db_connection import resolve_tenant_db
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ POS Sale using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ CRITICAL: Failed to resolve tenant DB for multi-tenant user: {resolve_error}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to resolve tenant database. Please contact support. Error: {str(resolve_error)}"
+            )
+    else:
+        # Legacy mode: No tenant_slug means this is a pre-multi-tenant user
+        logger.info("⚠️  POS Sale using global DB (legacy mode - no tenant_slug)")
+    
     # Calculate totals
     subtotal = sum(item.price * item.quantity for item in sale_data.items)
     total = subtotal - sale_data.discount + sale_data.tax
@@ -2551,7 +2569,7 @@ async def create_sale(
         payment_status = PaymentStatus.UNPAID
     
     # Generate sale number and invoice number
-    count = await db.sales.count_documents({"tenant_id": current_user["tenant_id"]})
+    count = await target_db.sales.count_documents({"tenant_id": current_user["tenant_id"]})
     sale_number = f"SALE-{count + 1:06d}"
     invoice_no = f"INV-{count + 1:06d}"
     
@@ -2560,7 +2578,7 @@ async def create_sale(
     for item in sale_data.items:
         if sale_data.branch_id:
             # Update branch-specific stock
-            result = await db.product_branches.update_one(
+            result = await target_db.product_branches.update_one(
                 {"product_id": item.product_id, "branch_id": sale_data.branch_id, "tenant_id": current_user["tenant_id"]},
                 {"$inc": {"stock": -item.quantity}}
             )
@@ -2568,7 +2586,7 @@ async def create_sale(
                 raise HTTPException(status_code=400, detail=f"Product {item.product_id} not assigned to branch or insufficient stock")
         else:
             # Update global stock
-            await db.products.update_one(
+            await target_db.products.update_one(
                 {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
                 {"$inc": {"stock": -item.quantity}}
             )
@@ -2577,7 +2595,7 @@ async def create_sale(
     for item in sale_data.items:
         if sale_data.branch_id:
             # Check branch-specific stock
-            product_branch = await db.product_branches.find_one({
+            product_branch = await target_db.product_branches.find_one({
                 "product_id": item.product_id,
                 "branch_id": sale_data.branch_id,
                 "tenant_id": current_user["tenant_id"]
@@ -2585,13 +2603,13 @@ async def create_sale(
             
             if product_branch and product_branch.get("stock", 0) <= 5:
                 # Get product name
-                product = await db.products.find_one(
+                product = await target_db.products.find_one(
                     {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
                     {"_id": 0, "name": 1}
                 )
                 if product:
                     # Check if notification already exists for this product
-                    existing_notif = await db.notifications.find_one({
+                    existing_notif = await target_db.notifications.find_one({
                         "tenant_id": current_user["tenant_id"],
                         "type": NotificationType.LOW_STOCK,
                         "reference_id": f"{item.product_id}_{sale_data.branch_id}"
@@ -2608,17 +2626,17 @@ async def create_sale(
                         notif_doc = notification.model_dump()
                         notif_doc['created_at'] = notif_doc['created_at'].isoformat()
                         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-                        await db.notifications.insert_one(notif_doc)
+                        await target_db.notifications.insert_one(notif_doc)
         else:
             # Check global stock
-            product = await db.products.find_one(
+            product = await target_db.products.find_one(
                 {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
                 {"_id": 0}
             )
             
             if product and product.get("stock", 0) <= 5:
                 # Check if notification already exists for this product
-                existing_notif = await db.notifications.find_one({
+                existing_notif = await target_db.notifications.find_one({
                     "tenant_id": current_user["tenant_id"],
                     "type": NotificationType.LOW_STOCK,
                     "reference_id": item.product_id
@@ -2635,7 +2653,7 @@ async def create_sale(
                     notif_doc = notification.model_dump()
                     notif_doc['created_at'] = notif_doc['created_at'].isoformat()
                     notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-                    await db.notifications.insert_one(notif_doc)
+                    await target_db.notifications.insert_one(notif_doc)
     
     # Auto-create or update customer if customer details are provided
     actual_customer_id = sale_data.customer_id
@@ -2643,14 +2661,14 @@ async def create_sale(
         # Try to find existing customer by phone (more reliable) or name
         existing_customer = None
         if sale_data.customer_phone:
-            existing_customer = await db.customers.find_one({
+            existing_customer = await target_db.customers.find_one({
                 "tenant_id": current_user["tenant_id"],
                 "phone": sale_data.customer_phone
             }, {"_id": 0})
         
         if not existing_customer and sale_data.customer_name:
             # Fallback: try to find by name
-            existing_customer = await db.customers.find_one({
+            existing_customer = await target_db.customers.find_one({
                 "tenant_id": current_user["tenant_id"],
                 "name": sale_data.customer_name
             }, {"_id": 0})
@@ -2671,7 +2689,7 @@ async def create_sale(
             update_data['updated_at'] = datetime.utcnow().isoformat()
             
             if update_data:
-                await db.customers.update_one(
+                await target_db.customers.update_one(
                     {"id": actual_customer_id, "tenant_id": current_user["tenant_id"]},
                     {"$set": update_data}
                 )
@@ -2691,7 +2709,7 @@ async def create_sale(
                 "created_at": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
             }
-            await db.customers.insert_one(new_customer)
+            await target_db.customers.insert_one(new_customer)
             actual_customer_id = new_customer_id
     
     sale = Sale(
@@ -2722,21 +2740,10 @@ async def create_sale(
     doc['updated_at'] = doc['updated_at'].isoformat()
     
     sale_id = doc['id']
-    await db.sales.insert_one(doc)
+    await target_db.sales.insert_one(doc)
     
     # Auto-create warranty records for products with warranty
     try:
-        # Resolve tenant database for multi-tenant support
-        target_db = db
-        if current_user.get("tenant_slug"):
-            try:
-                from db_connection import resolve_tenant_db
-                target_db = await resolve_tenant_db(current_user["tenant_slug"])
-                logger.info(f"Using tenant-specific DB for warranty: {target_db.name}")
-            except Exception as resolve_error:
-                logger.warning(f"Failed to resolve tenant DB for warranties, using default: {resolve_error}")
-                target_db = db
-        
         for item in sale_data.items:
             product = await target_db.products.find_one(
                 {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
@@ -2821,7 +2828,7 @@ async def create_sale(
         payment_doc['created_at'] = payment_doc['created_at'].isoformat()
         payment_doc['updated_at'] = payment_doc['updated_at'].isoformat()
         payment_doc['received_at'] = payment_doc['received_at'].isoformat()
-        await db.payments.insert_one(payment_doc)
+        await target_db.payments.insert_one(payment_doc)
     
     # Create customer due if partial payment
     if paid_amount < total and sale_data.customer_name:
@@ -2841,7 +2848,7 @@ async def create_sale(
         due_doc['updated_at'] = due_doc['updated_at'].isoformat()
         due_doc['transaction_date'] = due_doc['transaction_date'].isoformat()
         
-        await db.customer_dues.insert_one(due_doc)
+        await target_db.customer_dues.insert_one(due_doc)
     
     # Create sticky notification for unpaid/partially paid invoices
     if balance_due > 0:
@@ -2855,7 +2862,7 @@ async def create_sale(
         notif_doc = notification.model_dump()
         notif_doc['created_at'] = notif_doc['created_at'].isoformat()
         notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-        await db.notifications.insert_one(notif_doc)
+        await target_db.notifications.insert_one(notif_doc)
     
     # Create activity notification for tenant_admins (if user is not admin)
     await create_activity_notification(
