@@ -3,7 +3,27 @@
 ## Overview
 This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors. The business vision is to provide a versatile ERP solution with market potential across numerous specialized industries.
 
-## Recent Changes (November 16, 2025)
+## Recent Changes (November 17, 2025)
+- **Complete POS Multi-Tenant Migration**: Full multi-tenant database isolation for all POS operations
+  - Migrated `/api/sales` endpoint to use tenant-specific databases for sales, products, stocks, customers, notifications, and warranties
+  - Implemented strict tenant database resolution: multi-tenant requests abort with HTTP 500 on failure (no silent fallbacks to prevent data leakage)
+  - Verified end-to-end POS flow: multi-tenant user (mobile@example.com) creates sale → data written exclusively to mobile_shop_db with zero leakage to global database
+  - **Test Results**: mobile_shop_db has 2 sales and 2 customers from multi-tenant users; erp_database unchanged
+- **Warranty QR Resolution End-to-End Verification**: Complete warranty lifecycle tested across tenant databases
+  - POS sale auto-creates warranty in tenant-specific database (mobile_shop_db.warranty_records)
+  - QR token generated with self-contained HMAC-SHA256 signature (includes tenant_id, warranty_id, guid, issued_at)
+  - Public `/api/warranty/resolve` endpoint successfully queries tenant registry → resolves tenant database → retrieves warranty data
+  - Token replay protection and constant-time signature verification working correctly
+  - **Fixed Registry Issue**: Updated tenants_registry to include `tenant_id` field for proper warranty QR resolution
+- **Legacy User Backwards Compatibility**: Verified pre-multi-tenant users continue working correctly
+  - Created dev tool `backend/test_legacy_token.py` for generating legacy JWT tokens (tenant_slug: null)
+  - Fixed critical SECRET_KEY mismatch: aligned JWT_SECRET fallback between server.py and test tool
+  - Tested legacy user POS sale: data written to erp_database (global) as intended
+  - **Test Results**: Legacy users write to erp_database (25 sales), multi-tenant users write to tenant-specific DBs (mobile_shop_db: 2 sales)
+  - Perfect database isolation: no cross-contamination between legacy and multi-tenant modes
+- **Architecture Decision**: Strict tenant resolution for multi-tenant users (fail fast), intentional global DB fallback for legacy users (backwards compatibility)
+
+## Previous Changes (November 16, 2025)
 - **Multi-Database Per Tenant Architecture**: Implemented complete tenant isolation with separate MongoDB databases
   - Created central admin database (`admin_hub`) with tenant registry
   - Implemented dynamic database connection helper with LRU caching for performance
