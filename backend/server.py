@@ -3965,6 +3965,7 @@ async def create_sale(
             if product and product.get('warranty_months', 0) > 0:
                 from warranty_utils import generate_warranty_token
                 from datetime import timedelta
+                from uuid import uuid4
                 
                 warranty_count = await target_db.warranty_records.count_documents({"tenant_id": current_user["tenant_id"]})
                 warranty_code = f"W-{datetime.now().year}-{warranty_count + 1:07d}"
