@@ -32,6 +32,13 @@ The ERP system is a full-stack application with multi-database per tenant archit
         - **Email Service** (backend/email_service.py): Python-based async email service supporting SMTP with rate limiting. Features batch email sending, campaign tracking, queue management, and delivery status monitoring.
         - **Email Models**: EmailCampaign and EmailQueue models with status tracking (draft, scheduled, sending, sent, failed). Support for HTML/text templates, personalization placeholders, and configurable rate limits.
         - **Dependencies**: aiosmtplib for async SMTP operations. Configurable SMTP settings via environment variables or database.
+    -   **Warranty Management System**:
+        - **Backend Infrastructure** (backend/warranty_models.py, warranty_utils.py, warranty_routes.py): Comprehensive warranty tracking with database models for warranty_records, warranty_events, and supplier_actions. QR token generation with GUID + HMAC-SHA256 signature for security. State machine managing warranty lifecycle (active → claimed → under_inspection → replaced/refunded/declined → closed).
+        - **Automatic Warranty Creation**: Integrated into sales flow (server.py lines 3834-3906). Automatically creates warranty records for products with warranty_months > 0, generates secure QR tokens, and creates initial warranty events.
+        - **API Endpoints**: Public QR resolution (GET /api/warranty/resolve), claim registration (POST /api/warranty/{id}/claim), staff inspection workflows (POST /api/warranty/{id}/inspection/start, /api/warranty/{id}/inspect), supplier action management (POST /api/warranty/{id}/supplier-action).
+        - **Frontend Components**: Public warranty resolution page (/w/{token}) for QR code scanning, customer claim registration form (/warranty/{warranty_id}/claim) with image upload support. Modern UI with glass-morphism effects showing warranty status, expiry dates, and available actions.
+        - **Security**: Token-based authentication with signature verification, fraud detection heuristics (invoice mismatch, duplicate claims, high-value refund dual approval), and anti-replay attack protection.
+        - **Business Logic**: Eligibility checks with grace periods, SLA enforcement, status transition validation, and financial transaction tracking for refunds.
     -   **Deployment**: `build.sh` script handles frontend builds using yarn.
 
 ## External Dependencies

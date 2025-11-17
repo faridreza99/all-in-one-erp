@@ -58,6 +58,9 @@ import TransportPage from "./pages/cnf/TransportPage";
 import CNFReportsPage from "./pages/cnf/CNFReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UserManagementPage from "./pages/UserManagementPage";
+import WarrantyResolve from "./pages/WarrantyResolve";
+import WarrantyClaim from "./pages/WarrantyClaim";
+import WarrantyClaimSuccess from "./pages/WarrantyClaimSuccess";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 import { SidebarProvider } from "./contexts/SidebarContext";
@@ -206,6 +209,24 @@ const App = () => {
                 <Navigate to={`/${user.business_type}`} />
               )
             }
+          />
+
+          {/* Public Warranty QR Resolution Route */}
+          <Route
+            path="/w/:token"
+            element={<WarrantyResolve />}
+          />
+
+          {/* Public Warranty Claim Registration Route */}
+          <Route
+            path="/warranty/:warranty_id/claim"
+            element={<WarrantyClaim />}
+          />
+
+          {/* Public Warranty Claim Success Route */}
+          <Route
+            path="/warranty/claim-success"
+            element={<WarrantyClaimSuccess />}
           />
 
           {user ? (

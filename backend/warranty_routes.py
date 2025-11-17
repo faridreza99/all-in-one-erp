@@ -3,6 +3,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import uuid
 
 from warranty_models import (
     WarrantyRecord, WarrantyEvent, SupplierAction, FinancialTransaction,
