@@ -70,13 +70,26 @@ const BillingManagement = () => {
   const handleAssignPlan = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/super/subscriptions`, assignForm);
+      // Clean up the form data - remove empty billing_cycle
+      const payload = { ...assignForm };
+      if (!payload.billing_cycle) {
+        delete payload.billing_cycle;
+      }
+      
+      await axios.post(`${API}/super/subscriptions`, payload);
       toast.success('Subscription created successfully');
       setShowAssignModal(false);
       setAssignForm({ tenant_id: '', plan_id: 'free', billing_cycle: '', notes: '' });
       loadData();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create subscription');
+      console.error('Assign plan error:', error.response?.data);
+      // Handle Pydantic validation errors
+      if (error.response?.data?.detail && Array.isArray(error.response.data.detail)) {
+        const errorMessages = error.response.data.detail.map(err => err.msg || JSON.stringify(err)).join(', ');
+        toast.error(errorMessages);
+      } else {
+        toast.error(error.response?.data?.detail || error.message || 'Failed to create subscription');
+      }
     }
   };
 
