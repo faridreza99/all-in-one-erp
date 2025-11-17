@@ -4882,10 +4882,20 @@ async def download_invoice(
         {"_id": 0}
     ).to_list(None) if hasattr(target_db, 'payments') else []
     
+    # Get warranty records for this sale
+    warranties = []
+    if hasattr(target_db, 'warranty_records'):
+        warranty_records = await target_db.warranty_records.find(
+            {"sale_id": sale_id},
+            {"_id": 0, "warranty_id": 1, "warranty_token": 1, "product_id": 1, "product_name": 1, "warranty_months": 1, "warranty_expiry_date": 1}
+        ).to_list(None)
+        warranties = warranty_records or []
+    
     # Return invoice data as JSON for the frontend
     return {
         "sale": sale,
-        "payments": payments
+        "payments": payments,
+        "warranties": warranties
     }
 
 # ========== SUPPLIER ROUTES ==========

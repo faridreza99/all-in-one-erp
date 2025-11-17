@@ -10,10 +10,12 @@ import {
   Printer,
   Download,
   Plus,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { QRCodeSVG } from "qrcode.react";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import Footer from "../components/Footer";
@@ -151,7 +153,7 @@ const InvoicePage = ({ user, onLogout }) => {
     );
   }
 
-  const { sale = {}, payments = [] } = invoice ?? {};
+  const { sale = {}, payments = [], warranties = [] } = invoice ?? {};
   const items = Array.isArray(sale.items) ? sale.items : [];
   const subtotal = items.reduce(
     (s, it) => s + Number(it?.price ?? 0) * Number(it?.quantity ?? 0),
@@ -162,6 +164,14 @@ const InvoicePage = ({ user, onLogout }) => {
   const total = subtotal - discount + tax;
   const amountPaid = Number(sale.amount_paid ?? 0);
   const balance = Math.max(total - amountPaid, 0);
+
+  // Create warranty lookup map by product_id
+  const warrantyMap = {};
+  warranties.forEach(w => {
+    if (w.product_id && w.warranty_token) {
+      warrantyMap[w.product_id] = w;
+    }
+  });
 
   return (
     <SectorLayout user={user} onLogout={onLogout}>
@@ -443,6 +453,57 @@ const InvoicePage = ({ user, onLogout }) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* warranty qr codes */}
+          {warranties.length > 0 && (
+            <div className="relative px-0 mt-8">
+              <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                <Shield size={18} className="text-blue-600" />
+                Product Warranties
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {warranties.map((warranty, idx) => {
+                  const warrantyUrl = `${window.location.origin}/w/${warranty.warranty_token}`;
+                  const expiryDate = warranty.warranty_expiry_date 
+                    ? new Date(warranty.warranty_expiry_date).toLocaleDateString()
+                    : 'N/A';
+                  
+                  return (
+                    <div 
+                      key={warranty.warranty_id || idx}
+                      className="rounded-xl border border-slate-200 p-4 bg-slate-50 flex items-start gap-4"
+                    >
+                      <div className="flex-shrink-0 bg-white p-2 rounded-lg border border-slate-200">
+                        <QRCodeSVG 
+                          value={warrantyUrl}
+                          size={80}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">
+                          {warranty.product_name || 'Product'}
+                        </p>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Warranty: {warranty.warranty_months || 0} months
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Valid until: {expiryDate}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-2 font-medium">
+                          Scan to claim warranty
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-500 mt-3 text-center">
+                Scan the QR code with your phone camera to access warranty information and file claims online.
+              </p>
             </div>
           )}
 
