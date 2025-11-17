@@ -100,13 +100,11 @@ const CustomersPage = ({ user, onLogout }) => {
 
       // Fetch sales and products in parallel
       const [salesRes, productsReq] = await Promise.all([
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/sales`, { headers }),
-        axios.get(`${API}/products`, { headers }),
+        axios.get(`${API}/sales`, { withCredentials: true }),
+        axios.get(`${API}/products`, { withCredentials: true }),
       ]);
 
-      if (!salesRes.ok) throw new Error("Sales fetch failed");
-
-      const allSales = await salesRes.json();
+      const allSales = salesRes?.data || [];
       const productsData = productsReq?.data || [];
       
       // Build product index immediately to avoid race conditions
