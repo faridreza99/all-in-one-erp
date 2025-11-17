@@ -98,7 +98,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     }
   };
 
-  const handleImpersonate = async (tenantId, tenantName) => {
+  const handleImpersonate = async (tenantId, tenantName, businessType) => {
     const result = await Swal.fire({
       title: 'Impersonate Tenant Admin?',
       text: `You will login as the admin of "${tenantName}"`,
@@ -119,9 +119,9 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
         // Show success message
         toast.success(`Now impersonating ${tenantName}`);
         
-        // Redirect to tenant dashboard
+        // Redirect to tenant dashboard using business_type
         setTimeout(() => {
-          window.location.href = `/${tenantId}`;
+          window.location.href = `/${businessType}`;
         }, 1000);
       } catch (error) {
         toast.error('Failed to impersonate tenant');
@@ -266,7 +266,7 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                         </button>
                         <span className="text-slate-600">|</span>
                         <button
-                          onClick={() => handleImpersonate(tenant.tenant_id, tenant.name)}
+                          onClick={() => handleImpersonate(tenant.tenant_id, tenant.name, tenant.business_type)}
                           className="text-purple-400 hover:text-purple-300 text-sm font-medium"
                         >
                           Impersonate
