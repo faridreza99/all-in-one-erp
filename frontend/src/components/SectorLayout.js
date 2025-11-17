@@ -184,7 +184,6 @@ const SectorLayout = ({ children, user, onLogout }) => {
         animate={{ x: sidebarX, width: sidebarWidth }}
         transition={{ duration: 0.4, ease: "easeInOut" }}
         className={`fixed left-0 top-0 h-full sidebar z-50 ${sidebarScrollClass}`}
-        style={{ scrollBehavior: "smooth", position: "relative" }}
       >
         <div
           className={`h-full flex flex-col ${!isMobile && !isCollapsed ? "px-4 py-4" : "px-0 py-3"}`}
