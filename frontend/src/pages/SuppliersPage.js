@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import Swal from "sweetalert2";
 import BackButton from "../components/BackButton";
 import SectorLayout from "../components/SectorLayout";
 import { API } from "../App";
@@ -176,25 +177,38 @@ const SuppliersPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (supplierId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `${API}/suppliers/${supplierId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
 
-      if (response.ok) {
-        toast.success("Supplier deleted successfully!");
-        fetchSuppliers();
-      } else {
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `${API}/suppliers/${supplierId}`,
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+
+        if (response.ok) {
+          toast.success("Supplier deleted successfully!");
+          fetchSuppliers();
+        } else {
+          toast.error("Failed to delete supplier");
+        }
+      } catch (error) {
+        console.error("Error deleting supplier:", error);
         toast.error("Failed to delete supplier");
       }
-    } catch (error) {
-      console.error("Error deleting supplier:", error);
-      toast.error("Failed to delete supplier");
     }
   };
 

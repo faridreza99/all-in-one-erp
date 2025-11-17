@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { Plus, Edit2, Trash2, Search } from "lucide-react";
+import Swal from "sweetalert2";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import { API } from "../App";
@@ -174,12 +175,25 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${API}/products/${id}`);
-      toast.success("Product deleted successfully");
-      fetchProducts();
-    } catch (error) {
-      toast.error("Failed to delete product");
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API}/products/${id}`);
+        toast.success("Product deleted successfully");
+        fetchProducts();
+      } catch (error) {
+        toast.error("Failed to delete product");
+      }
     }
   };
 
@@ -277,12 +291,25 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleCategoryDelete = async (id) => {
-    try {
-      await axios.delete(`${API}/categories/${id}`);
-      toast.success("Category deleted successfully");
-      fetchCategories();
-    } catch (error) {
-      toast.error("Failed to delete category");
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API}/categories/${id}`);
+        toast.success("Category deleted successfully");
+        fetchCategories();
+      } catch (error) {
+        toast.error("Failed to delete category");
+      }
     }
   };
 
@@ -341,12 +368,25 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleBrandDelete = async (id) => {
-    try {
-      await axios.delete(`${API}/brands/${id}`);
-      toast.success("Brand deleted successfully");
-      fetchBrands();
-    } catch (error) {
-      toast.error("Failed to delete brand");
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API}/brands/${id}`);
+        toast.success("Brand deleted successfully");
+        fetchBrands();
+      } catch (error) {
+        toast.error("Failed to delete brand");
+      }
     }
   };
 

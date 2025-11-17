@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import BackButton from '../components/BackButton';
 import { motion } from 'framer-motion';
 import { Plus, Edit2, Trash2, Search } from 'lucide-react';
@@ -55,12 +56,25 @@ const ComponentsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${API}/components/${id}`);
-      toast.success('Component deleted successfully');
-      fetchComponents();
-    } catch (error) {
-      toast.error(formatErrorMessage(error, 'Failed to delete component'));
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API}/components/${id}`);
+        toast.success('Component deleted successfully');
+        fetchComponents();
+      } catch (error) {
+        toast.error(formatErrorMessage(error, 'Failed to delete component'));
+      }
     }
   };
 

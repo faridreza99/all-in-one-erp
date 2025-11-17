@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import Swal from 'sweetalert2';
 import BackButton from '../components/BackButton';
 import SectorLayout from '../components/SectorLayout';
 import { Building2, Phone, MapPin, User, CheckCircle, XCircle, Hash, Save } from 'lucide-react';
@@ -87,16 +88,29 @@ function BranchesPage({ user, onLogout }) {
   };
 
   const handleDelete = async (branchId) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/api/branches/${branchId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Branch deleted successfully');
-      fetchBranches();
-    } catch (error) {
-      console.error('Error deleting branch:', error);
-      toast.error(error.response?.data?.detail || 'Error deleting branch');
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem('token');
+        await axios.delete(`${API_URL}/api/branches/${branchId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Branch deleted successfully');
+        fetchBranches();
+      } catch (error) {
+        console.error('Error deleting branch:', error);
+        toast.error(error.response?.data?.detail || 'Error deleting branch');
+      }
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Truck, Plus, Edit2, Trash2 } from 'lucide-react';
+import Swal from 'sweetalert2';
 import SectorLayout from '../../components/SectorLayout';
 import { API } from '../../App';
 import { toast } from 'sonner';
@@ -50,12 +51,25 @@ const TransportPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${API}/cnf/transport/${id}`);
-      toast.success('Transport deleted successfully');
-      fetchTransports();
-    } catch (error) {
-      toast.error('Failed to delete transport');
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await axios.delete(`${API}/cnf/transport/${id}`);
+        toast.success('Transport deleted successfully');
+        fetchTransports();
+      } catch (error) {
+        toast.error('Failed to delete transport');
+      }
     }
   };
 
