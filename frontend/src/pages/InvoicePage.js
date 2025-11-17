@@ -507,9 +507,14 @@ const InvoicePage = ({ user, onLogout }) => {
                         <p className="text-xs text-slate-600">
                           Valid until: {expiryDate}
                         </p>
-                        <p className="text-xs text-blue-600 mt-2 font-medium">
-                          Scan to claim warranty
-                        </p>
+                        <a 
+                          href={warrantyUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 mt-2 font-medium hover:underline inline-block"
+                        >
+                          Scan QR or click to test warranty claim →
+                        </a>
                       </div>
                     </div>
                   );
