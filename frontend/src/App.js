@@ -65,10 +65,18 @@ import { isSectorAllowed } from "./config/sectorModules";
 const getBackendUrl = () => {
   // If running in Replit webview (hostname contains replit.dev)
   if (window.location.hostname.includes("replit.dev")) {
-    // In Replit, backend runs on port 8000, frontend on 5000
-    // Both are accessible through the same hostname
+    // In Replit, use the public hostname for API calls
+    // The backend must be on port 5000 or use a separate deployment URL
     const hostname = window.location.hostname;
-    return `${window.location.protocol}//${hostname}:8000`;
+    // Use the hostname with the backend port from environment or default to same origin
+    const backendPort = process.env.REACT_APP_BACKEND_PORT || "";
+    const backendHost = process.env.REACT_APP_BACKEND_HOST || hostname;
+    
+    if (backendPort) {
+      return `${window.location.protocol}//${backendHost}:${backendPort}`;
+    }
+    // For production, backend and frontend are on same domain
+    return window.location.origin;
   }
   // For local development
   return process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
