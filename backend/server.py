@@ -3957,6 +3957,89 @@ async def get_suppliers(
     
     return suppliers
 
+@api_router.put("/suppliers/{supplier_id}", response_model=Supplier)
+async def update_supplier(
+    supplier_id: str,
+    supplier_data: SupplierCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for supplier update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Check if supplier exists
+    existing = await target_db.suppliers.find_one(
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    # Update supplier
+    update_data = supplier_data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await target_db.suppliers.update_one(
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": update_data}
+    )
+    
+    # Return updated supplier
+    updated = await target_db.suppliers.find_one(
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if isinstance(updated.get('created_at'), str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    if isinstance(updated.get('updated_at'), str):
+        updated['updated_at'] = datetime.fromisoformat(updated['updated_at'])
+    
+    return updated
+
+@api_router.delete("/suppliers/{supplier_id}")
+async def delete_supplier(
+    supplier_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for supplier deletion: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Check if supplier exists
+    existing = await target_db.suppliers.find_one(
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    # Delete supplier
+    result = await target_db.suppliers.delete_one(
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]}
+    )
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    
+    return {"message": "Supplier deleted successfully"}
+
 # ========== CUSTOMER ROUTES ==========
 @api_router.post("/customers", response_model=Customer)
 async def create_customer(
