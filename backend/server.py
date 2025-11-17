@@ -1806,59 +1806,81 @@ async def get_tenant_stats(
 ):
     """
     Get sales statistics for a specific tenant.
+    Accepts both UUID tenant_id or slug.
     Returns: total_sales, today_sales, sales_count
     """
-    # Get tenant info from registry
-    from tenant_models import TenantRegistry
     admin_client = AsyncIOMotorClient(mongo_url)
     admin_db = admin_client["admin_hub"]
     
-    tenant_registry = await admin_db.tenants.find_one({"slug": tenant_id})
-    if not tenant_registry:
-        raise HTTPException(status_code=404, detail="Tenant not found in registry")
-    
-    # Connect to tenant's database
-    tenant_db_name = tenant_registry.get("db_name")
-    tenant_db = admin_client[tenant_db_name]
-    
-    # Aggregate sales statistics
-    now = datetime.utcnow()
-    today_start = datetime(now.year, now.month, now.day)
-    
-    # Total sales amount
-    total_pipeline = [
-        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
-    ]
-    total_result = await tenant_db.sales.aggregate(total_pipeline).to_list(1)
-    total_sales = total_result[0]["total"] if total_result else 0
-    
-    # Today's sales amount
-    today_pipeline = [
-        {"$match": {"created_at": {"$gte": today_start}}},
-        {"$group": {"_id": None, "total": {"$sum": "$total"}}}
-    ]
-    today_result = await tenant_db.sales.aggregate(today_pipeline).to_list(1)
-    today_sales = today_result[0]["total"] if today_result else 0
-    
-    # Sales count
-    sales_count = await tenant_db.sales.count_documents({})
-    
-    # Recent sales (last 7 days)
-    week_ago = now - timedelta(days=7)
-    recent_sales = await tenant_db.sales.find(
-        {"created_at": {"$gte": week_ago}},
-        {"_id": 0}
-    ).sort("created_at", -1).limit(10).to_list(10)
-    
-    admin_client.close()
-    
-    return {
-        "tenant_id": tenant_id,
-        "total_sales": round(total_sales, 2),
-        "today_sales": round(today_sales, 2),
-        "sales_count": sales_count,
-        "recent_sales": recent_sales
-    }
+    try:
+        # First, try to find tenant by UUID in main database
+        tenant = await db.tenants.find_one({"tenant_id": tenant_id}, {"_id": 0})
+        
+        # If not found, try by slug in registry
+        if not tenant:
+            tenant_registry = await admin_db.tenants.find_one({"slug": tenant_id})
+            
+            if not tenant_registry:
+                raise HTTPException(status_code=404, detail="Tenant not found")
+            
+            tenant_slug = tenant_registry.get("slug")
+            db_name = tenant_registry.get("db_name")
+        else:
+            # Found by UUID, now get the registry info to find the slug and db_name
+            # Try to match by email
+            tenant_registry = await admin_db.tenants.find_one({"admin_email": tenant.get("email")})
+            
+            if not tenant_registry:
+                raise HTTPException(status_code=404, detail="Tenant not found in registry")
+            
+            tenant_slug = tenant_registry.get("slug")
+            db_name = tenant_registry.get("db_name")
+        
+        if not db_name:
+            raise HTTPException(status_code=404, detail="Tenant database not configured")
+        
+        # Connect to tenant's database
+        tenant_db = admin_client[db_name]
+        
+        # Aggregate sales statistics
+        now = datetime.utcnow()
+        today_start = datetime(now.year, now.month, now.day)
+        
+        # Total sales amount
+        total_pipeline = [
+            {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+        ]
+        total_result = await tenant_db.sales.aggregate(total_pipeline).to_list(1)
+        total_sales = total_result[0]["total"] if total_result else 0
+        
+        # Today's sales amount
+        today_pipeline = [
+            {"$match": {"created_at": {"$gte": today_start}}},
+            {"$group": {"_id": None, "total": {"$sum": "$total"}}}
+        ]
+        today_result = await tenant_db.sales.aggregate(today_pipeline).to_list(1)
+        today_sales = today_result[0]["total"] if today_result else 0
+        
+        # Sales count
+        sales_count = await tenant_db.sales.count_documents({})
+        
+        # Recent sales (last 7 days)
+        week_ago = now - timedelta(days=7)
+        recent_sales = await tenant_db.sales.find(
+            {"created_at": {"$gte": week_ago}},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(10).to_list(10)
+        
+        return {
+            "tenant_id": tenant_id,
+            "tenant_slug": tenant_slug,
+            "total_sales": round(total_sales, 2),
+            "today_sales": round(today_sales, 2),
+            "sales_count": sales_count,
+            "recent_sales": recent_sales
+        }
+    finally:
+        admin_client.close()
 
 @api_router.patch("/super/tenants/{tenant_id}/status")
 async def update_tenant_status(
