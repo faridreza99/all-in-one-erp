@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Plus, Search, Package, DollarSign, Calendar, Hash, Building2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
+import { API } from '../App';
 import BackButton from '../components/BackButton';
 import SectorLayout from '../components/SectorLayout';
 
@@ -30,16 +32,8 @@ const PurchasesPage = ({ user, onLogout }) => {
 
   const fetchPurchases = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPurchases(data);
-      }
+      const response = await axios.get(`${API}/purchases`, { withCredentials: true });
+      setPurchases(response.data || []);
     } catch (error) {
       console.error('Error fetching purchases:', error);
       toast.error('Failed to load purchases');
@@ -48,18 +42,8 @@ const PurchasesPage = ({ user, onLogout }) => {
 
   const fetchSuppliers = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/suppliers`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSuppliers(data);
-      } else {
-        toast.error('Failed to load suppliers');
-      }
+      const response = await axios.get(`${API}/suppliers`, { withCredentials: true });
+      setSuppliers(response.data || []);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
       toast.error('Failed to load suppliers');
@@ -68,18 +52,8 @@ const PurchasesPage = ({ user, onLogout }) => {
 
   const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      } else {
-        toast.error('Failed to load products');
-      }
+      const response = await axios.get(`${API}/products`, { withCredentials: true });
+      setProducts(response.data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
@@ -136,43 +110,30 @@ const PurchasesPage = ({ user, onLogout }) => {
     const total = calculateTotal();
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          supplier_id: formData.supplier_id,
-          items: formData.items,
-          total_amount: total,
-          payment_status: formData.payment_status
-        })
-      });
+      await axios.post(`${API}/purchases`, {
+        supplier_id: formData.supplier_id,
+        items: formData.items,
+        total_amount: total,
+        payment_status: formData.payment_status
+      }, { withCredentials: true });
 
-      if (response.ok) {
-        toast.success('Purchase created successfully!');
-        setShowForm(false);
-        setFormData({
-          supplier_id: '',
-          items: [],
-          payment_status: 'pending'
-        });
-        setCurrentItem({
-          product_id: '',
-          product_name: '',
-          quantity: 1,
-          price: 0
-        });
-        fetchPurchases();
-      } else {
-        const error = await response.json();
-        toast.error(error.detail || 'Failed to create purchase');
-      }
+      toast.success('Purchase created successfully!');
+      setShowForm(false);
+      setFormData({
+        supplier_id: '',
+        items: [],
+        payment_status: 'pending'
+      });
+      setCurrentItem({
+        product_id: '',
+        product_name: '',
+        quantity: 1,
+        price: 0
+      });
+      fetchPurchases();
     } catch (error) {
       console.error('Error creating purchase:', error);
-      toast.error('Failed to create purchase');
+      toast.error(error.response?.data?.detail || 'Failed to create purchase');
     }
   };
 
