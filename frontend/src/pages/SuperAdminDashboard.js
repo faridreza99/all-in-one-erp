@@ -7,6 +7,7 @@ import Layout from '../components/Layout';
 import { API } from '../App';
 import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
+import BillingManagement from '../components/BillingManagement';
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('tenants');
@@ -173,17 +174,54 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             <h1 className="text-4xl font-bold text-white mb-2">Super Admin Dashboard</h1>
             <p className="text-slate-400">Manage all tenants and their business modules</p>
           </div>
+          {activeTab === 'tenants' && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn-primary flex items-center gap-2"
+              data-testid="create-tenant-button"
+            >
+              <Plus className="w-5 h-5" />
+              Create Tenant
+            </button>
+          )}
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-4 mb-8 border-b border-white/10">
           <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center gap-2"
-            data-testid="create-tenant-button"
+            onClick={() => setActiveTab('tenants')}
+            className={`px-6 py-3 font-medium transition-all ${
+              activeTab === 'tenants'
+                ? 'text-white border-b-2 border-purple-500'
+                : 'text-gray-400 hover:text-white'
+            }`}
           >
-            <Plus className="w-5 h-5" />
-            Create Tenant
+            <div className="flex items-center gap-2">
+              <Building className="w-4 h-4" />
+              Tenants
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('billing')}
+            className={`px-6 py-3 font-medium transition-all ${
+              activeTab === 'billing'
+                ? 'text-white border-b-2 border-purple-500'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Billing
+            </div>
           </button>
         </div>
 
-        {/* Stats */}
+        {/* Tab Content */}
+        {activeTab === 'billing' ? (
+          <BillingManagement />
+        ) : (
+          <>
+            {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="stat-card">
             <div className="flex items-center gap-4">
@@ -482,6 +520,8 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
             </div>
           )}
         </AnimatePresence>
+          </>
+        )}
       </motion.div>
     </Layout>
   );
