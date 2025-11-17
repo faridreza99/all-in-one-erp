@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, Home, FileText } from 'lucide-react';
+import WarrantySidebar from '../components/WarrantySidebar';
 
 const WarrantyClaimSuccess = () => {
   const location = useLocation();
@@ -8,8 +9,10 @@ const WarrantyClaimSuccess = () => {
   const claimResponse = location.state?.claimResponse;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-12 border border-white/20 text-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <WarrantySidebar />
+      <div className="lg:ml-64 flex items-center justify-center min-h-screen p-4">
+        <div className="max-w-2xl w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-12 border border-white/20 text-center">
         {/* Success Icon */}
         <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-green-600 to-emerald-600 mb-6">
           <CheckCircle className="w-12 h-12 text-white" />
@@ -87,6 +90,7 @@ const WarrantyClaimSuccess = () => {
               Contact Support
             </a>
           </p>
+        </div>
         </div>
       </div>
     </div>

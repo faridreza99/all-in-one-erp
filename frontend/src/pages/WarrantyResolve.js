@@ -4,6 +4,7 @@ import axios from 'axios';
 import { API } from '../App';
 import { Shield, Calendar, CheckCircle, XCircle, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import WarrantySidebar from '../components/WarrantySidebar';
 
 const WarrantyResolve = () => {
   const { token } = useParams();
@@ -80,10 +81,13 @@ const WarrantyResolve = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white text-lg">Verifying warranty...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <WarrantySidebar />
+        <div className="lg:ml-64 flex items-center justify-center min-h-screen p-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white text-lg">Verifying warranty...</p>
+          </div>
         </div>
       </div>
     );
@@ -91,22 +95,27 @@ const WarrantyResolve = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center border border-white/20">
-          <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Invalid Warranty</h2>
-          <p className="text-gray-300 mb-6">{error}</p>
-          <p className="text-sm text-gray-400">
-            If you believe this is an error, please contact support.
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <WarrantySidebar />
+        <div className="lg:ml-64 flex items-center justify-center min-h-screen p-4">
+          <div className="max-w-md w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center border border-white/20">
+            <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Invalid Warranty</h2>
+            <p className="text-gray-300 mb-6">{error}</p>
+            <p className="text-sm text-gray-400">
+              If you believe this is an error, please contact support.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <WarrantySidebar />
+      <div className="lg:ml-64 p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
         {/* Header Card */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 md:p-8 mb-6 border border-white/20">
           <div className="flex items-center gap-4 mb-6">
@@ -234,6 +243,7 @@ const WarrantyResolve = () => {
               support@myerp.com
             </a>
           </p>
+        </div>
         </div>
       </div>
     </div>

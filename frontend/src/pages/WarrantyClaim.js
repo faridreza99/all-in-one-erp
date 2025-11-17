@@ -4,6 +4,7 @@ import axios from 'axios';
 import { API } from '../App';
 import { AlertTriangle, Upload, X, CheckCircle, FileImage } from 'lucide-react';
 import { toast } from 'sonner';
+import WarrantySidebar from '../components/WarrantySidebar';
 
 const WarrantyClaim = () => {
   const { warranty_id } = useParams();
@@ -134,8 +135,10 @@ const WarrantyClaim = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <WarrantySidebar />
+      <div className="lg:ml-64 p-4 md:p-8">
+        <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 md:p-8 mb-6 border border-white/20">
           <div className="flex items-center gap-4 mb-4">
@@ -342,6 +345,7 @@ const WarrantyClaim = () => {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
