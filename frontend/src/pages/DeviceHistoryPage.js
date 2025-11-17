@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
+import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -59,7 +60,7 @@ function DeviceHistoryPage() {
       fetchDevices();
     } catch (error) {
       console.error('Error creating device record:', error);
-      alert(error.response?.data?.detail || 'Error creating device record');
+      toast.error(error.response?.data?.detail || 'Error creating device record');
     }
   };
 

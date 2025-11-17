@@ -174,14 +174,12 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      try {
-        await axios.delete(`${API}/products/${id}`);
-        toast.success("Product deleted successfully");
-        fetchProducts();
-      } catch (error) {
-        toast.error("Failed to delete product");
-      }
+    try {
+      await axios.delete(`${API}/products/${id}`);
+      toast.success("Product deleted successfully");
+      fetchProducts();
+    } catch (error) {
+      toast.error("Failed to delete product");
     }
   };
 
@@ -279,14 +277,12 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleCategoryDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
-      try {
-        await axios.delete(`${API}/categories/${id}`);
-        toast.success("Category deleted successfully");
-        fetchCategories();
-      } catch (error) {
-        toast.error("Failed to delete category");
-      }
+    try {
+      await axios.delete(`${API}/categories/${id}`);
+      toast.success("Category deleted successfully");
+      fetchCategories();
+    } catch (error) {
+      toast.error("Failed to delete category");
     }
   };
 
@@ -345,14 +341,12 @@ const ProductsPage = ({ user, onLogout }) => {
   };
 
   const handleBrandDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this brand?")) {
-      try {
-        await axios.delete(`${API}/brands/${id}`);
-        toast.success("Brand deleted successfully");
-        fetchBrands();
-      } catch (error) {
-        toast.error("Failed to delete brand");
-      }
+    try {
+      await axios.delete(`${API}/brands/${id}`);
+      toast.success("Brand deleted successfully");
+      fetchBrands();
+    } catch (error) {
+      toast.error("Failed to delete brand");
     }
   };
 

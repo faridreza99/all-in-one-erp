@@ -176,9 +176,6 @@ const SuppliersPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (supplierId) => {
-    if (!window.confirm("Are you sure you want to delete this supplier?"))
-      return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(

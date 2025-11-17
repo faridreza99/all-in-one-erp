@@ -68,7 +68,7 @@ function BranchesPage({ user, onLogout }) {
       fetchBranches();
     } catch (error) {
       console.error('Error saving branch:', error);
-      alert(error.response?.data?.detail || 'Error saving branch');
+      toast.error(error.response?.data?.detail || 'Error saving branch');
     }
   };
 
@@ -87,19 +87,16 @@ function BranchesPage({ user, onLogout }) {
   };
 
   const handleDelete = async (branchId) => {
-    if (!window.confirm('Are you sure you want to delete this branch? All product assignments will be removed.')) {
-      return;
-    }
-    
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/api/branches/${branchId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      toast.success('Branch deleted successfully');
       fetchBranches();
     } catch (error) {
       console.error('Error deleting branch:', error);
-      alert(error.response?.data?.detail || 'Error deleting branch');
+      toast.error(error.response?.data?.detail || 'Error deleting branch');
     }
   };
 

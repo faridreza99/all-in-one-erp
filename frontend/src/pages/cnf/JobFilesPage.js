@@ -58,14 +58,12 @@ const JobFilesPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this job file?')) {
-      try {
-        await axios.delete(`${API}/cnf/jobs/${id}`);
-        toast.success('Job file deleted successfully');
-        fetchJobs();
-      } catch (error) {
-        toast.error('Failed to delete job file');
-      }
+    try {
+      await axios.delete(`${API}/cnf/jobs/${id}`);
+      toast.success('Job file deleted successfully');
+      fetchJobs();
+    } catch (error) {
+      toast.error('Failed to delete job file');
     }
   };
 

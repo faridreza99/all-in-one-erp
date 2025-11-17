@@ -48,14 +48,12 @@ const DocumentsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this document?')) {
-      try {
-        await axios.delete(`${API}/cnf/documents/${id}`);
-        toast.success('Document deleted successfully');
-        fetchDocuments();
-      } catch (error) {
-        toast.error('Failed to delete document');
-      }
+    try {
+      await axios.delete(`${API}/cnf/documents/${id}`);
+      toast.success('Document deleted successfully');
+      fetchDocuments();
+    } catch (error) {
+      toast.error('Failed to delete document');
     }
   };
 

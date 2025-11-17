@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
+import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -67,7 +68,7 @@ function JobCardsPage() {
       fetchJobCards();
     } catch (error) {
       console.error('Error creating job card:', error);
-      alert(error.response?.data?.detail || 'Error creating job card');
+      toast.error(error.response?.data?.detail || 'Error creating job card');
     }
   };
 

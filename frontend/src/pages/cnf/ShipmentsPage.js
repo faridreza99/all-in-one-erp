@@ -65,14 +65,12 @@ const ShipmentsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this shipment?')) {
-      try {
-        await axios.delete(`${API}/cnf/shipments/${id}`);
-        toast.success('Shipment deleted successfully');
-        fetchShipments();
-      } catch (error) {
-        toast.error('Failed to delete shipment');
-      }
+    try {
+      await axios.delete(`${API}/cnf/shipments/${id}`);
+      toast.success('Shipment deleted successfully');
+      fetchShipments();
+    } catch (error) {
+      toast.error('Failed to delete shipment');
     }
   };
 

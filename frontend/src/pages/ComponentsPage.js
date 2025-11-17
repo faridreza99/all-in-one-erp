@@ -55,14 +55,12 @@ const ComponentsPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this component?')) {
-      try {
-        await axios.delete(`${API}/components/${id}`);
-        toast.success('Component deleted successfully');
-        fetchComponents();
-      } catch (error) {
-        toast.error(formatErrorMessage(error, 'Failed to delete component'));
-      }
+    try {
+      await axios.delete(`${API}/components/${id}`);
+      toast.success('Component deleted successfully');
+      fetchComponents();
+    } catch (error) {
+      toast.error(formatErrorMessage(error, 'Failed to delete component'));
     }
   };
 

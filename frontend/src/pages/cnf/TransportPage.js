@@ -50,14 +50,12 @@ const TransportPage = ({ user, onLogout }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this transport?')) {
-      try {
-        await axios.delete(`${API}/cnf/transport/${id}`);
-        toast.success('Transport deleted successfully');
-        fetchTransports();
-      } catch (error) {
-        toast.error('Failed to delete transport');
-      }
+    try {
+      await axios.delete(`${API}/cnf/transport/${id}`);
+      toast.success('Transport deleted successfully');
+      fetchTransports();
+    } catch (error) {
+      toast.error('Failed to delete transport');
     }
   };
 
