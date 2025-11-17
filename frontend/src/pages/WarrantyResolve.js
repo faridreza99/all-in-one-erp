@@ -21,11 +21,10 @@ const WarrantyResolve = () => {
   const resolveWarranty = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/warranty/resolve?q=${token}`, {
-        withCredentials: true
-      });
+      const response = await axios.get(`${API}/warranty/resolve?q=${token}`);
       setWarranty(response.data);
     } catch (err) {
+      console.error('Warranty resolution error:', err);
       setError(err.response?.data?.detail || 'Invalid or expired warranty token');
       toast.error('Failed to load warranty details');
     } finally {
