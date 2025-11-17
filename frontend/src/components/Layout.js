@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -12,12 +12,18 @@ import {
   LogOut,
   Menu,
   X,
-  Building2
+  Building2,
+  Bell
 } from 'lucide-react';
+import axios from 'axios';
+import { API } from '../App';
+import NotificationFeed from './NotificationFeed';
 
 const Layout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,6 +38,21 @@ const Layout = ({ children, user, onLogout }) => {
     { path: '/sales', label: 'Sales', icon: DollarSign },
     { path: '/reports', label: 'Reports', icon: LayoutDashboard },
   ];
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await axios.get(`${API}/notifications/unread-count`);
+        setUnreadCount(response.data.unread_count || 0);
+      } catch (error) {
+        console.error('Failed to fetch unread count:', error);
+      }
+    };
+
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -117,10 +138,34 @@ const Layout = ({ children, user, onLogout }) => {
         animate={{ marginLeft: sidebarOpen ? 256 : 80 }}
         className="min-h-screen transition-all duration-300"
       >
+        {/* Header Bar with Notification Bell */}
+        <div className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-lg border-b border-white/10 px-8 py-4">
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => setNotificationOpen(true)}
+              className="relative p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <Bell className="w-6 h-6 text-gray-300" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
         <div className="p-8">
           {children}
         </div>
       </motion.div>
+
+      {/* Notification Feed */}
+      <NotificationFeed 
+        user={user}
+        isOpen={notificationOpen}
+        onClose={() => setNotificationOpen(false)}
+      />
     </div>
   );
 };
