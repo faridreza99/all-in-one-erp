@@ -15,13 +15,32 @@ import {
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { QRCodeSVG } from "qrcode.react";
+import QRCode from "qrcode";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import Footer from "../components/Footer";
 import { API } from "../App";
 import { formatErrorMessage } from "../utils/errorHandler";
 import { formatCurrency } from "../utils/formatters";
+
+// Simple QR Code component using qrcode library
+const QRCodeDisplay = ({ value, size = 80 }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (canvasRef.current && value) {
+      QRCode.toCanvas(canvasRef.current, value, {
+        width: size,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      }, (error) => {
+        if (error) console.error('QR Code generation error:', error);
+      });
+    }
+  }, [value, size]);
+
+  return <canvas ref={canvasRef} />;
+};
 
 const human = (v, fb = "—") =>
   typeof v === "string" && v.trim().length ? v : fb;
@@ -476,12 +495,7 @@ const InvoicePage = ({ user, onLogout }) => {
                       className="rounded-xl border border-slate-200 p-4 bg-slate-50 flex items-start gap-4"
                     >
                       <div className="flex-shrink-0 bg-white p-2 rounded-lg border border-slate-200">
-                        <QRCodeSVG 
-                          value={warrantyUrl}
-                          size={80}
-                          level="M"
-                          includeMargin={false}
-                        />
+                        <QRCodeDisplay value={warrantyUrl} size={80} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-800 text-sm truncate">
