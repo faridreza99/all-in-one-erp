@@ -383,20 +383,21 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
       </motion.div>
 
-      {/* Desktop Circular Toggle Button - Outside sidebar for visibility */}
+      {/* Desktop Toggle Button - Positioned on sidebar edge */}
       {!isMobile && (
-        <button
+        <motion.button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="fixed top-6 z-[60] h-8 w-8 rounded-full border-2 border-white/20 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-xl hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 flex items-center justify-center"
-          style={{ left: isCollapsed ? '68px' : '244px' }}
+          animate={{ left: isCollapsed ? '68px' : '244px' }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="fixed top-20 z-[60] h-10 w-10 rounded-full border-2 border-white/30 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-2xl hover:from-indigo-500 hover:to-purple-500 hover:scale-110 transition-all duration-200 flex items-center justify-center cursor-pointer"
           title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
-            <ChevronRight className="h-5 w-5 text-white" />
+            <ChevronRight className="h-6 w-6 text-white" />
           ) : (
-            <ChevronLeft className="h-5 w-5 text-white" />
+            <ChevronLeft className="h-6 w-6 text-white" />
           )}
-        </button>
+        </motion.button>
       )}
 
       {/* Main */}

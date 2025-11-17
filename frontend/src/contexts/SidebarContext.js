@@ -11,11 +11,12 @@ export const useSidebar = () => {
 };
 
 export const SidebarProvider = ({ children }) => {
-  // Initialize from localStorage or default to true for desktop
+  // Initialize from localStorage or default to expanded (false) for desktop
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sidebar-collapsed');
-      return saved ? JSON.parse(saved) : window.innerWidth < 1024;
+      // If saved preference exists, use it. Otherwise default to expanded (false)
+      return saved ? JSON.parse(saved) : false;
     }
     return false;
   });
