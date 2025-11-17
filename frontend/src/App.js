@@ -62,6 +62,7 @@ import WarrantyResolve from "./pages/WarrantyResolve";
 import WarrantyClaim from "./pages/WarrantyClaim";
 import WarrantyClaimSuccess from "./pages/WarrantyClaimSuccess";
 import WarrantyDetails from "./pages/WarrantyDetails";
+import SectorLayout from "./components/SectorLayout";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 import { SidebarProvider } from "./contexts/SidebarContext";
