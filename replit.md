@@ -4,6 +4,22 @@
 This project is a comprehensive, sector-specific ERP system designed to support 15 distinct business types. It features a complete multi-tenant architecture with data isolation, robust role-based access control, and specialized functionalities tailored for each industry. The system aims to provide a full-stack solution for business management, covering inventory, sales, purchases, customer relations, and reporting, with a strong emphasis on flexibility and scalability for various sectors. The business vision is to provide a versatile ERP solution with market potential across numerous specialized industries.
 
 ## Recent Changes (November 17, 2025)
+- **Critical Production Bug Fixes - Multi-Tenant Database Resolution**: Fixed 8 critical routes that were still using global database instead of tenant-specific databases
+  - **Fixed BusinessType Enum**: Added missing 'computer_shop' to BusinessType enum (was causing 500 errors on /api/tenants)
+  - **Fixed Invoice Generation**: Updated `/api/sales/{sale_id}/invoice` to use tenant-specific database resolution
+  - **Fixed Branches Routes**: Updated GET/POST `/api/branches` to resolve tenant databases
+  - **Fixed Suppliers Routes**: Updated GET/POST `/api/suppliers` to resolve tenant databases
+  - **Fixed Customers Routes**: Updated GET/POST `/api/customers` to resolve tenant databases
+  - **Fixed Product-Branches Routes**: Updated GET/POST `/api/product-branches` to resolve tenant databases (includes notifications)
+  - **Fixed Sales List Route**: Updated GET `/api/sales` to resolve tenant databases
+  - **Removed Duplicate Route**: Eliminated duplicate `/api/sales/{sale_id}/invoice` endpoint
+  - **Pattern Implemented**: All routes now follow consistent tenant resolution pattern:
+    - Check for `tenant_slug` in JWT token
+    - Call `resolve_tenant_db()` to get tenant-specific database connection
+    - Use `target_db` for all queries instead of global `db`
+    - Maintain backwards compatibility for legacy users (without tenant_slug)
+    - Proper error handling with HTTP 500 on tenant resolution failure
+  - **Architect Review**: ✅ All fixes validated - tenant isolation properly maintained, no data leakage risks, backwards compatible
 - **Complete POS Multi-Tenant Migration**: Full multi-tenant database isolation for all POS operations
   - Migrated `/api/sales` endpoint to use tenant-specific databases for sales, products, stocks, customers, notifications, and warranties
   - Implemented strict tenant database resolution: multi-tenant requests abort with HTTP 500 on failure (no silent fallbacks to prevent data leakage)
