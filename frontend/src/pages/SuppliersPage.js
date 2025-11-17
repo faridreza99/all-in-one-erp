@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import BackButton from "../components/BackButton";
 import SectorLayout from "../components/SectorLayout";
+import { API } from "../App";
 
 /* ---------------------- BD phone helpers ---------------------- */
 const onlyDigits = (s = "") => (s || "").replace(/\D/g, "");
@@ -72,7 +73,7 @@ const SuppliersPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/suppliers`,
+        `${API}/suppliers`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -124,8 +125,8 @@ const SuppliersPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       const url = editingSupplier
-        ? `${process.env.REACT_APP_BACKEND_URL}/api/suppliers/${editingSupplier.supplier_id}`
-        : `${process.env.REACT_APP_BACKEND_URL}/api/suppliers`;
+        ? `${API}/suppliers/${editingSupplier.supplier_id}`
+        : `${API}/suppliers`;
 
       const method = editingSupplier ? "PUT" : "POST";
       const payload = { ...formData, phone: e164 };
@@ -181,7 +182,7 @@ const SuppliersPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/suppliers/${supplierId}`,
+        `${API}/suppliers/${supplierId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
@@ -332,7 +333,7 @@ const SuppliersPage = ({ user, onLogout }) => {
         });
       }
 
-      return fetch(`${process.env.REACT_APP_BACKEND_URL}/api/suppliers`, {
+      return fetch(`${API}/suppliers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
