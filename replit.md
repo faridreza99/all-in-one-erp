@@ -20,7 +20,7 @@ The ERP system is a full-stack application with multi-database per tenant archit
     -   **Authentication & Authorization**: JWT-based with RBAC, branch-based access control, and route guards.
     -   **Inventory Management**: Product assignment to branches, stock transfers, critical stock alerts, and stock quantity standardization.
     -   **Sales & Payments**: POS system with partial payments, invoice generation, customer due tracking, sales cancellations with stock restoration, and returns handling.
-    -   **Customer Relationship Management**: Daily reminders for customer dues.
+    -   **Customer Relationship Management**: Automated daily reminders for customer dues (scheduled at 9 AM via APScheduler). Customer dues widget on dashboard showing top 5 outstanding payments with total amount. Instant notifications when sales created with unpaid/partially paid status.
     -   **User Management**: CRUD operations for users with configurable roles and route permissions.
     -   **Settings**: File upload system for logos and background images with Cloudinary integration.
     -   **Billing & Subscription Management**: Manual billing system for tenant subscription management with 4-tier pricing in BDT (Taka): Free (৳0), Basic (৳3,000/month), Pro (৳10,000/month), Enterprise (৳30,000/month). Features manual payment recording, subscription lifecycle tracking (trial→active→grace→suspended), automated enforcement via APScheduler, and payment history. Super Admin can edit plan prices and quotas via PATCH /api/super/plans/{plan_id}. All billing data stored in admin_hub database with Pydantic validation and audit logging.
