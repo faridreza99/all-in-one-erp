@@ -2517,12 +2517,12 @@ async def create_announcement(
     try:
         announcement_data = Announcement(
             **request.dict(),
-            created_by=current_user["username"]
+            created_by=current_user["email"]
         )
         
         result = await NotificationService.create_announcement(
             announcement_data,
-            created_by=current_user["username"]
+            created_by=current_user["email"]
         )
         
         return {
