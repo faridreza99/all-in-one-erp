@@ -49,6 +49,10 @@ class NotificationService:
         if NotificationChannel.IN_APP in announcement["channels"] or NotificationChannel.BOTH in announcement["channels"]:
             await NotificationService._create_notification_receipts(announcement)
         
+        # Remove MongoDB's _id field before returning (it's not JSON serializable)
+        if "_id" in announcement:
+            del announcement["_id"]
+        
         logger.info(f"✅ Created announcement {announcement['announcement_id']} for {recipient_count} recipients")
         return announcement
     
