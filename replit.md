@@ -23,6 +23,7 @@ The ERP system is a full-stack application with multi-database per tenant archit
     -   **Customer Relationship Management**: Daily reminders for customer dues.
     -   **User Management**: CRUD operations for users with configurable roles and route permissions.
     -   **Settings**: File upload system for logos and background images with Cloudinary integration.
+    -   **Billing & Subscription Management** (NEW): Manual billing system for tenant subscription management with 4-tier pricing (Free/Basic/Pro/Enterprise), manual payment recording, subscription lifecycle tracking (trial→active→grace→suspended), and payment history. All billing data stored in admin_hub database with Pydantic validation and audit logging. API routes include plan catalog, subscription CRUD, and payment recording with automatic expiration calculation based on billing cycle.
     -   **Deployment**: `build.sh` script handles frontend builds using yarn.
 
 ## External Dependencies
