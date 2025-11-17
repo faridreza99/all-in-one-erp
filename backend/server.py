@@ -1831,13 +1831,32 @@ async def get_tenant_stats(
             tenant_registry = await admin_db.tenants.find_one({"admin_email": tenant.get("email")})
             
             if not tenant_registry:
-                raise HTTPException(status_code=404, detail="Tenant not found in registry")
+                # Tenant doesn't have a registry entry (legacy mode)
+                # Return empty stats
+                return {
+                    "tenant_id": tenant_id,
+                    "tenant_slug": None,
+                    "total_sales": 0,
+                    "today_sales": 0,
+                    "sales_count": 0,
+                    "recent_sales": [],
+                    "message": "Tenant is in legacy mode - no sales data available"
+                }
             
             tenant_slug = tenant_registry.get("slug")
             db_name = tenant_registry.get("db_name")
         
         if not db_name:
-            raise HTTPException(status_code=404, detail="Tenant database not configured")
+            # No database configured, return empty stats
+            return {
+                "tenant_id": tenant_id,
+                "tenant_slug": tenant_slug,
+                "total_sales": 0,
+                "today_sales": 0,
+                "sales_count": 0,
+                "recent_sales": [],
+                "message": "Tenant database not configured"
+            }
         
         # Connect to tenant's database
         tenant_db = admin_client[db_name]

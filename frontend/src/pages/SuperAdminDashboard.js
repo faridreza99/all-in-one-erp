@@ -384,6 +384,13 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
                   </div>
                 ) : tenantStats ? (
                   <div>
+                    {/* Show message if tenant is in legacy mode */}
+                    {tenantStats.message && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                        <p className="text-yellow-400 text-sm">ℹ️ {tenantStats.message}</p>
+                      </div>
+                    )}
+
                     {/* Stats Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl p-6 border border-blue-500/30">
