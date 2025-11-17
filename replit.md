@@ -24,7 +24,14 @@ The ERP system is a full-stack application with multi-database per tenant archit
     -   **User Management**: CRUD operations for users with configurable roles and route permissions.
     -   **Settings**: File upload system for logos and background images with Cloudinary integration.
     -   **Billing & Subscription Management**: Manual billing system for tenant subscription management with 4-tier pricing in BDT (Taka): Free (৳0), Basic (৳3,000/month), Pro (৳10,000/month), Enterprise (৳30,000/month). Features manual payment recording, subscription lifecycle tracking (trial→active→grace→suspended), automated enforcement via APScheduler, and payment history. Super Admin can edit plan prices and quotas via PATCH /api/super/plans/{plan_id}. All billing data stored in admin_hub database with Pydantic validation and audit logging.
-    -   **Announcement System**: Super Admin can create system-wide announcements with audience targeting (all tenants, specific sectors, specific tenant IDs, custom filters). Features in-app notification feed, read/unread tracking, badge counters, and expiration dates. API routes for announcement CRUD, tenant notification feed, and mark-as-read/dismiss functionality.
+    -   **Announcement & Notification System**: 
+        - **Super Admin Features**: Complete announcement management UI in Super Admin Dashboard (Announcements tab). Create system-wide announcements with audience targeting (all tenants, specific sectors, specific tenant IDs). Support for multiple announcement types (info, warning, critical, maintenance, feature, promotion) with priority levels and expiration dates.
+        - **Tenant Features**: In-app notification feed with real-time badge counter showing unread announcements. Notifications slide-in panel with read/unread tracking, mark-as-read functionality, and dismiss capability. Automatically updates every 30 seconds. Only visible to tenant users (not super admins).
+        - **Backend Infrastructure**: Notification service with audience filtering, receipt tracking, and read/dismiss status management. API endpoints: /api/super/announcements (CRUD), /api/notifications (feed), /api/notifications/unread-count (badge), /api/notifications/{id}/read and /dismiss.
+    -   **Email Campaign Infrastructure**:
+        - **Email Service** (backend/email_service.py): Python-based async email service supporting SMTP with rate limiting. Features batch email sending, campaign tracking, queue management, and delivery status monitoring.
+        - **Email Models**: EmailCampaign and EmailQueue models with status tracking (draft, scheduled, sending, sent, failed). Support for HTML/text templates, personalization placeholders, and configurable rate limits.
+        - **Dependencies**: aiosmtplib for async SMTP operations. Configurable SMTP settings via environment variables or database.
     -   **Deployment**: `build.sh` script handles frontend builds using yarn.
 
 ## External Dependencies
