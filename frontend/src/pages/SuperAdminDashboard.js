@@ -8,6 +8,7 @@ import { API } from '../App';
 import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
 import BillingManagement from '../components/BillingManagement';
+import AnnouncementManagement from '../components/AnnouncementManagement';
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('tenants');
@@ -214,11 +215,26 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
               Billing
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('announcements')}
+            className={`px-6 py-3 font-medium transition-all ${
+              activeTab === 'announcements'
+                ? 'text-white border-b-2 border-purple-500'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4" />
+              Announcements
+            </div>
+          </button>
         </div>
 
         {/* Tab Content */}
         {activeTab === 'billing' ? (
           <BillingManagement />
+        ) : activeTab === 'announcements' ? (
+          <AnnouncementManagement />
         ) : (
           <>
             {/* Stats */}
