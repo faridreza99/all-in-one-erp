@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Activity,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Users,
+  Pill,
+  Building,
+  FileText,
+  LayoutDashboard,
+  Shield,
+  Menu,
+  X,
+} from "lucide-react";
+import { supabase } from "@/db/supabase";
+import { profilesApi } from "@/db/api";
+import type { Profile } from "@/types/types";
+import routes from "../../routes";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "@/contexts/SidebarContext";
+
+const Sidebar: React.FC = () => {
+  const { isCollapsed, setIsCollapsed } = useSidebar();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Icon mapping
+  const iconMap: Record<string, React.ReactNode> = {
+    Dashboard: <LayoutDashboard className="h-5 w-5" />,
+    Employees: <Users className="h-5 w-5" />,
+    Medicines: <Pill className="h-5 w-5" />,
+    Companies: <Building className="h-5 w-5" />,
+    Prescriptions: <FileText className="h-5 w-5" />,
+    Users: <Shield className="h-5 w-5" />,
+    "Create Prescription": <FileText className="h-5 w-5" />,
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  useEffect(() => {
+    // Redirect to appropriate dashboard on login
+    if (profile && location.pathname === "/") {
+      const dashboardPath = getDashboardPath();
+      if (dashboardPath !== "/") {
+        navigate(dashboardPath, { replace: true });
+      }
+    }
+  }, [profile, location.pathname, navigate]);
+
+  const loadProfile = async () => {
+    try {
+      const data = await profilesApi.getCurrentUser();
+      setProfile(data);
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
+
+  // Filter routes based on user role
+  const navigation = routes.filter((route) => {
+    if (!route.visible) return false;
+    if (!route.roles) return true;
+    if (!profile) return false;
+    return route.roles.includes(profile.role);
+  });
+
+  // Get dashboard path based on role
+  const getDashboardPath = () => {
+    if (!profile) return "/";
+    switch (profile.role) {
+      case "admin":
+        return "/";
+      case "doctor":
+        return "/doctor";
+      case "employee":
+        return "/employee";
+      default:
+        return "/";
+    }
+  };
+
+  const SidebarContent = () => (
+    <>
+      {/* Logo Area */}
+      <div className={cn("flex items-center gap-3 px-4 py-6", isCollapsed && "justify-center px-2")}>
+        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+          <Activity className="w-6 h-6 text-primary-foreground" />
+        </div>
+        {!isCollapsed && (
+          <div className="flex flex-col">
+            <span className="text-lg font-bold text-foreground">Pharmacy Dashboard</span>
+            <span className="text-xs text-muted-foreground">Medical Allowance System</span>
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Navigation Menu */}
+      <nav className="flex-1 px-2 py-4 space-y-1">
+        {navigation.map((item) => {
+          // For dashboard, use role-specific path
+          const itemPath = item.name === "Dashboard" ? getDashboardPath() : item.path;
+          const isActive = location.pathname === itemPath;
+          
+          return (
+            <Link
+              key={itemPath}
+              to={itemPath}
+              onClick={() => setIsMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-muted",
+                isCollapsed && "justify-center"
+              )}
+              title={isCollapsed ? item.name : undefined}
+            >
+              {iconMap[item.name] || <LayoutDashboard className="h-5 w-5" />}
+              {!isCollapsed && <span>{item.name}</span>}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <Separator />
+
+      {/* User Info Area */}
+      <div className="p-4">
+        <div
+          className={cn(
+            "flex items-center gap-3 p-3 rounded-lg bg-muted",
+            isCollapsed && "justify-center"
+          )}
+        >
+          <Avatar className="h-9 w-9 flex-shrink-0">
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {profile?.username?.charAt(0).toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{profile?.username || "User"}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {profile?.role === "admin" ? "Admin" : profile?.role === "doctor" ? "Doctor" : "Employee"}
+              </p>
+            </div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          className={cn("w-full mt-2 justify-start", isCollapsed && "justify-center px-2")}
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4" />
+          {!isCollapsed && <span className="ml-2">Logout</span>}
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col fixed left-0 top-0 h-screen bg-card border-r transition-all duration-300 z-40",
+          isCollapsed ? "w-20" : "w-64"
+        )}
+      >
+        <SidebarContent />
+
+        {/* Collapse Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-background shadow-md"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      </aside>
+
+      {/* Mobile Top Bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b flex items-center justify-between px-4 z-50">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <Activity className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="text-lg font-bold">Pharmacy</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleLogout}
+            title="Logout"
+          >
+            <LogOut className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => setIsMobileOpen(!isMobileOpen)}>
+            {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile Sidebar Drawer */}
+      {isMobileOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            onClick={() => setIsMobileOpen(false)}
+          />
+          <aside className="md:hidden fixed left-0 top-0 h-screen w-64 bg-card border-r flex flex-col z-50 overflow-y-auto">
+            <SidebarContent />
+          </aside>
+        </>
+      )}
+    </>
+  );
+};
+
+export default Sidebar;

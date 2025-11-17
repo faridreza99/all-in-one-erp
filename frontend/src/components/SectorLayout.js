@@ -25,10 +25,13 @@ import {
   File,
   Truck,
   Settings,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { getSectorModules, MODULE_ROUTES } from "../config/sectorModules";
 import NotificationBell from "./NotificationBell";
 import { API } from "../App"; // make sure this points to your API base
+import { useSidebar } from "../contexts/SidebarContext";
 
 const ICON_MAP = {
   dashboard: LayoutDashboard,
@@ -61,13 +64,12 @@ const ICON_MAP = {
 const SectorLayout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isCollapsed, setIsCollapsed } = useSidebar();
 
   const initialIsMobile =
     typeof window !== "undefined" ? window.innerWidth < 1024 : false;
-  const initialSidebarOpen =
-    typeof window !== "undefined" ? window.innerWidth >= 1024 : true;
 
-  const [sidebarOpen, setSidebarOpen] = useState(initialSidebarOpen);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(initialIsMobile);
 
   // Branding pulled from `${API}/settings`
@@ -80,11 +82,11 @@ const SectorLayout = ({ children, user, onLogout }) => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (mobile && sidebarOpen) setSidebarOpen(false); // auto-close on mobile
+      if (mobile && isMobileMenuOpen) setIsMobileMenuOpen(false); // auto-close on mobile
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [sidebarOpen]);
+  }, [isMobileMenuOpen]);
 
   // Fetch branding: expects fields like { website_name, logo_url } (sample you sent)
   useEffect(() => {
@@ -155,28 +157,24 @@ const SectorLayout = ({ children, user, onLogout }) => {
   })();
 
   // Layout/scroll behavior
-  const isDesktopMini = !isMobile && !sidebarOpen;
   const sidebarWidth = isMobile
-    ? sidebarOpen
+    ? isMobileMenuOpen
       ? 256
       : 0
-    : sidebarOpen
-      ? 256
-      : 80;
-  const sidebarX = isMobile && !sidebarOpen ? -256 : 0;
-  const contentMarginLeft = isMobile ? 0 : sidebarOpen ? 256 : 80;
-  const sidebarScrollClass =
-    sidebarOpen || isDesktopMini
-      ? "overflow-y-auto scrollbar-hide"
-      : "overflow-hidden";
+    : isCollapsed
+      ? 80
+      : 256;
+  const sidebarX = isMobile && !isMobileMenuOpen ? -256 : 0;
+  const contentMarginLeft = isMobile ? 0 : isCollapsed ? 80 : 256;
+  const sidebarScrollClass = "overflow-y-auto scrollbar-hide";
 
   return (
     <div className="min-h-screen gradient-bg">
       {/* Mobile backdrop */}
-      {isMobile && sidebarOpen && (
+      {isMobile && isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
@@ -188,18 +186,18 @@ const SectorLayout = ({ children, user, onLogout }) => {
         style={{ scrollBehavior: "smooth" }}
       >
         <div
-          className={`h-full flex flex-col ${sidebarOpen ? "px-4 py-4" : "px-0 py-3"}`}
+          className={`h-full flex flex-col ${!isMobile && !isCollapsed ? "px-4 py-4" : "px-0 py-3"}`}
         >
-          {/* Header / Toggle */}
+          {/* Header */}
           <div
             className={`${
-              sidebarOpen
+              !isMobile && !isCollapsed
                 ? "flex items-center justify-between"
                 : "flex items-center justify-center"
             } mb-6 flex-shrink-0`}
           >
-            {sidebarOpen ? (
-              <div className="flex items-center gap-3">
+            {!isMobile && !isCollapsed ? (
+              <div className="flex items-center gap-3 px-2">
                 {branding.logo ? (
                   <img
                     src={branding.logo}
@@ -221,69 +219,72 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   </h2>
                 </div>
               </div>
-            ) : (
-              // Collapsed: also show compact logo so brand is always visible
-              <div className="flex items-center justify-between w-full px-2">
-                <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-white/10">
+            ) : isMobile ? (
+              // Mobile: show logo and close button
+              <div className="flex items-center justify-between w-full px-4">
+                <div className="flex items-center gap-3">
                   {branding.logo ? (
                     <img
                       src={branding.logo}
-                      alt="logo"
+                      alt={branding.name}
                       crossOrigin="anonymous"
-                      className="w-full h-full object-cover"
+                      className="w-10 h-10 rounded-lg object-cover"
                       onError={(e) => {
-                        e.currentTarget.replaceWith(
-                          document.createElement("div"),
-                        );
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   ) : (
-                    <Building2 className="w-5 h-5 text-white opacity-90" />
+                    <Building2 className="w-6 h-6 text-white" />
                   )}
+                  <h2 className="font-bold text-white text-sm">
+                    {branding.name}
+                  </h2>
                 </div>
                 <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 text-white transition-colors"
-                  data-testid="sidebar-toggle"
-                  title="Expand"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
                 >
-                  <Menu className="w-5 h-5" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            )}
-
-            {sidebarOpen && (
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
-                data-testid="sidebar-toggle"
-                title="Collapse"
-              >
-                <X className="w-5 h-5" />
-              </button>
+            ) : (
+              // Desktop collapsed: compact logo
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-white/10 mx-auto">
+                {branding.logo ? (
+                  <img
+                    src={branding.logo}
+                    alt="logo"
+                    crossOrigin="anonymous"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.replaceWith(
+                        document.createElement("div"),
+                      );
+                    }}
+                  />
+                ) : (
+                  <Building2 className="w-5 h-5 text-white opacity-90" />
+                )}
+              </div>
             )}
           </div>
 
           {/* Nav */}
-          <nav
-            className={`${
-              sidebarOpen || isDesktopMini
-                ? "overflow-y-auto scrollbar-hide"
-                : "overflow-hidden"
-            } flex-1 space-y-2`}
-          >
+          <nav className="overflow-y-auto scrollbar-hide flex-1 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive =
                 location.pathname === item.path ||
                 (item.module === "dashboard" &&
                   location.pathname === `/${businessType}`);
+              
+              const isDesktopCollapsed = !isMobile && isCollapsed;
 
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => isMobile && setSidebarOpen(false)}
+                  onClick={() => isMobile && setIsMobileMenuOpen(false)}
                 >
                   <motion.div
                     whileHover={{ scale: 1.02, x: 2 }}
@@ -295,17 +296,17 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     }}
                     className={`
                       flex items-center w-full rounded-xl hover:bg-white/10
-                      ${sidebarOpen ? "px-3 py-2 gap-3 justify-start" : "justify-center h-12"}
+                      ${isDesktopCollapsed ? "justify-center h-12" : "px-3 py-2 gap-3 justify-start"}
                       sidebar-item ${isActive ? "active" : ""}
                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60
                     `}
                     data-testid={`menu-${item.label.toLowerCase()}`}
-                    title={!sidebarOpen ? item.label : undefined}
+                    title={isDesktopCollapsed ? item.label : undefined}
                   >
                     <motion.span className="grid place-items-center">
                       <Icon className="w-5 h-5 mx-auto" />
                     </motion.span>
-                    {sidebarOpen && (
+                    {!isDesktopCollapsed && (
                       <motion.span
                         initial={{ opacity: 0, x: -6 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -326,7 +327,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
           <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0 space-y-2">
             <Link
               to={`/${businessType}/settings`}
-              onClick={() => isMobile && setSidebarOpen(false)}
+              onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
               <motion.div
                 whileHover={{ scale: 1.02, x: 2 }}
@@ -337,22 +338,22 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   mass: 0.3,
                 }}
                 className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
-                  sidebarOpen
-                    ? "px-3 py-2 gap-3 justify-start"
-                    : "justify-center h-12"
+                  !isMobile && isCollapsed
+                    ? "justify-center h-12"
+                    : "px-3 py-2 gap-3 justify-start"
                 } ${location.pathname === `/${businessType}/settings` ? "active" : ""}`}
                 data-testid="settings-button"
-                title={!sidebarOpen ? "Settings" : undefined}
+                title={!isMobile && isCollapsed ? "Settings" : undefined}
               >
                 <Settings className="w-5 h-5 mx-auto" />
-                {sidebarOpen && <span>Settings</span>}
+                {(!isMobile && !isCollapsed || isMobile) && <span>Settings</span>}
               </motion.div>
             </Link>
 
             {(user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
               <Link
                 to={`/${businessType}/user-management`}
-                onClick={() => isMobile && setSidebarOpen(false)}
+                onClick={() => isMobile && setIsMobileMenuOpen(false)}
               >
                 <motion.div
                   whileHover={{ scale: 1.02, x: 2 }}
@@ -363,15 +364,15 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     mass: 0.3,
                   }}
                   className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
-                    sidebarOpen
-                      ? "px-3 py-2 gap-3 justify-start"
-                      : "justify-center h-12"
+                    !isMobile && isCollapsed
+                      ? "justify-center h-12"
+                      : "px-3 py-2 gap-3 justify-start"
                   } ${location.pathname === `/${businessType}/user-management` ? "active" : ""}`}
                   data-testid="user-management-button"
-                  title={!sidebarOpen ? "User Management" : undefined}
+                  title={!isMobile && isCollapsed ? "User Management" : undefined}
                 >
                   <Users className="w-5 h-5 mx-auto" />
-                  {sidebarOpen && <span>User Management</span>}
+                  {(!isMobile && !isCollapsed || isMobile) && <span>User Management</span>}
                 </motion.div>
               </Link>
             )}
@@ -386,18 +387,33 @@ const SectorLayout = ({ children, user, onLogout }) => {
               }}
               onClick={onLogout}
               className={`sidebar-item w-full text-left flex items-center rounded-xl hover:bg-white/10 ${
-                sidebarOpen
-                  ? "px-3 py-2 gap-3 justify-start"
-                  : "justify-center h-12"
+                !isMobile && isCollapsed
+                  ? "justify-center h-12"
+                  : "px-3 py-2 gap-3 justify-start"
               }`}
               data-testid="logout-button"
-              title={!sidebarOpen ? "Logout" : undefined}
+              title={!isMobile && isCollapsed ? "Logout" : undefined}
             >
               <LogOut className="w-5 h-5 mx-auto" />
-              {sidebarOpen && <span>Logout</span>}
+              {(!isMobile && !isCollapsed || isMobile) && <span>Logout</span>}
             </motion.button>
           </div>
         </div>
+
+        {/* Desktop Circular Toggle Button */}
+        {!isMobile && (
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-6 h-6 w-6 rounded-full border border-slate-700/50 bg-slate-900 shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center z-10"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4 text-white" />
+            ) : (
+              <ChevronLeft className="h-4 w-4 text-white" />
+            )}
+          </button>
+        )}
       </motion.div>
 
       {/* Main */}
@@ -406,11 +422,11 @@ const SectorLayout = ({ children, user, onLogout }) => {
         animate={{ marginLeft: contentMarginLeft }}
         className="min-h-screen transition-all duration-300"
       >
-        {isMobile && !sidebarOpen && (
+        {isMobile && !isMobileMenuOpen && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 p-4">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => setIsMobileMenuOpen(true)}
                 className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 <Menu className="w-6 h-6 text-white" />

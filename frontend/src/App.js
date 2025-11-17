@@ -60,6 +60,7 @@ import SettingsPage from "./pages/SettingsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
+import { SidebarProvider } from "./contexts/SidebarContext";
 
 // Auto-detect backend URL based on environment
 const getBackendUrl = () => {
@@ -190,8 +191,9 @@ const App = () => {
   }
 
   return (
-    <div className="App">
-      <BrowserRouter>
+    <SidebarProvider>
+      <div className="App">
+        <BrowserRouter>
         <Routes>
           <Route
             path="/auth"
@@ -777,9 +779,10 @@ const App = () => {
             <Route path="*" element={<Navigate to="/auth" />} />
           )}
         </Routes>
-      </BrowserRouter>
-      <Toaster position="top-right" richColors />
-    </div>
+        </BrowserRouter>
+        <Toaster position="top-right" richColors />
+      </div>
+    </SidebarProvider>
   );
 };
 
