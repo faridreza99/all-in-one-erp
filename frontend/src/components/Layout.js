@@ -41,6 +41,11 @@ const Layout = ({ children, user, onLogout }) => {
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
+      // Only fetch notifications for tenant users (not super admins)
+      if (!user || user.role === 'super_admin') {
+        return;
+      }
+      
       try {
         const response = await axios.get(`${API}/notifications/unread-count`);
         setUnreadCount(response.data.unread_count || 0);
@@ -52,7 +57,7 @@ const Layout = ({ children, user, onLogout }) => {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -138,22 +143,24 @@ const Layout = ({ children, user, onLogout }) => {
         animate={{ marginLeft: sidebarOpen ? 256 : 80 }}
         className="min-h-screen transition-all duration-300"
       >
-        {/* Header Bar with Notification Bell */}
-        <div className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-lg border-b border-white/10 px-8 py-4">
-          <div className="flex items-center justify-end">
-            <button
-              onClick={() => setNotificationOpen(true)}
-              className="relative p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <Bell className="w-6 h-6 text-gray-300" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
+        {/* Header Bar with Notification Bell (only for tenant users) */}
+        {user && user.role !== 'super_admin' && (
+          <div className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-lg border-b border-white/10 px-8 py-4">
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => setNotificationOpen(true)}
+                className="relative p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <Bell className="w-6 h-6 text-gray-300" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="p-8">
           {children}

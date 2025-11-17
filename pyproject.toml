@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "aiosmtplib>=5.0.0",
     "annotated-types>=0.7.0",
     "anyio>=4.11.0",
     "apscheduler>=3.11.1",
