@@ -4737,45 +4737,17 @@ async def download_invoice(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
     
-    tenant = await target_db.tenants.find_one({"tenant_id": current_user["tenant_id"]}, {"_id": 0})
-    tenant_name = tenant.get("name", "Business Name") if tenant else "Business Name"
+    # Get payments for this sale if they exist
+    payments = await target_db.payments.find(
+        {"sale_id": sale_id},
+        {"_id": 0}
+    ).to_list(None) if hasattr(target_db, 'payments') else []
     
-    # Create PDF
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    
-    # Header
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, 750, tenant_name)
-    c.setFont("Helvetica", 10)
-    c.drawString(50, 735, f"Invoice: {sale.get('sale_number', '')}")
-    c.drawString(50, 720, f"Date: {sale.get('created_at', '')[:10]}")
-    
-    # Items
-    y = 680
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y, "Items")
-    y -= 20
-    
-    c.setFont("Helvetica", 10)
-    items = sale.get("items", [])
-    for item in items:
-        c.drawString(50, y, f"{item.get('quantity')}x - ${item.get('price'):.2f}")
-        y -= 15
-    
-    # Total
-    y -= 20
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(50, y, f"Total: ${sale.get('total', 0):.2f}")
-    
-    c.save()
-    buffer.seek(0)
-    
-    return StreamingResponse(
-        buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=invoice-{sale.get('sale_number')}.pdf"}
-    )
+    # Return invoice data as JSON for the frontend
+    return {
+        "sale": sale,
+        "payments": payments
+    }
 
 # ========== SUPPLIER ROUTES ==========
 @api_router.post("/suppliers", response_model=Supplier)

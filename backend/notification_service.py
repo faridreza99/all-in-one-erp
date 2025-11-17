@@ -306,7 +306,7 @@ class NotificationService:
         Returns:
             List of announcements
         """
-        announcements = await admin_db.announcements.find().sort("created_at", -1).skip(skip).limit(limit).to_list(None)
+        announcements = await admin_db.announcements.find({}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(None)
         return announcements
     
     @staticmethod
