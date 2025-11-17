@@ -626,7 +626,7 @@ const SuppliersPage = ({ user, onLogout }) => {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(s.supplier_id)}
+                            onClick={() => handleDelete(s.id)}
                             className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center gap-2"
                             title="Delete"
                           >
