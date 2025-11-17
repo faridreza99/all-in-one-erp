@@ -34,6 +34,11 @@ from billing_models import (
 from billing_request_models import CreateSubscriptionRequest, RecordPaymentRequest
 from subscription_state_manager import SubscriptionStateManager
 from billing_scheduler import start_scheduler, stop_scheduler
+from notification_models import (
+    Announcement, CreateAnnouncementRequest, NotificationChannel,
+    AnnouncementType, AudienceType
+)
+from notification_service import NotificationService
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2428,6 +2433,178 @@ async def check_tenant_access(
         "has_access": is_active,
         "subscription": subscription
     }
+
+# ========== ANNOUNCEMENT & NOTIFICATION ROUTES ==========
+@api_router.post("/super/announcements")
+async def create_announcement(
+    request: CreateAnnouncementRequest,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Create a new announcement for tenants.
+    Super Admin only.
+    """
+    try:
+        announcement_data = Announcement(
+            **request.dict(),
+            created_by=current_user["username"]
+        )
+        
+        result = await NotificationService.create_announcement(
+            announcement_data,
+            created_by=current_user["username"]
+        )
+        
+        return {
+            "success": True,
+            "announcement": result,
+            "message": f"Announcement created for {result['total_recipients']} recipients"
+        }
+    except Exception as e:
+        logger.error(f"Error creating announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/super/announcements")
+async def get_all_announcements(
+    skip: int = 0,
+    limit: int = 50,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get all announcements (for Super Admin dashboard).
+    """
+    try:
+        announcements = await NotificationService.get_all_announcements(skip, limit)
+        return {
+            "success": True,
+            "announcements": announcements,
+            "count": len(announcements)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching announcements: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/super/announcements/{announcement_id}")
+async def delete_announcement(
+    announcement_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Delete an announcement (soft delete).
+    """
+    try:
+        deleted = await NotificationService.delete_announcement(announcement_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Announcement not found")
+        
+        return {
+            "success": True,
+            "message": "Announcement deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting announcement: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/notifications")
+async def get_tenant_notifications(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get all active announcements for the current tenant.
+    """
+    tenant_id = current_user.get("tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    try:
+        notifications = await NotificationService.get_announcements_for_tenant(tenant_id)
+        unread_count = await NotificationService.get_unread_count(tenant_id)
+        
+        return {
+            "success": True,
+            "notifications": notifications,
+            "unread_count": unread_count
+        }
+    except Exception as e:
+        logger.error(f"Error fetching notifications: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.patch("/notifications/{announcement_id}/read")
+async def mark_notification_as_read(
+    announcement_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Mark a notification as read for the current tenant.
+    """
+    tenant_id = current_user.get("tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    try:
+        updated = await NotificationService.mark_as_read(announcement_id, tenant_id)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        
+        return {
+            "success": True,
+            "message": "Notification marked as read"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.patch("/notifications/{announcement_id}/dismiss")
+async def dismiss_notification(
+    announcement_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Dismiss a notification for the current tenant.
+    """
+    tenant_id = current_user.get("tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    try:
+        updated = await NotificationService.mark_as_dismissed(announcement_id, tenant_id)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        
+        return {
+            "success": True,
+            "message": "Notification dismissed"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error dismissing notification: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/notifications/unread-count")
+async def get_unread_notifications_count(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get count of unread notifications for badge counter.
+    """
+    tenant_id = current_user.get("tenant_id")
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    try:
+        count = await NotificationService.get_unread_count(tenant_id)
+        return {
+            "success": True,
+            "unread_count": count
+        }
+    except Exception as e:
+        logger.error(f"Error getting unread count: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ========== SETTINGS ROUTES ==========
 @api_router.get("/settings", response_model=Settings)
