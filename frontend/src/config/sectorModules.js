@@ -23,13 +23,13 @@ export const SECTOR_MODULES = {
     name: 'Mobile Shop',
     icon: '📱',
     color: 'purple',
-    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'repairs', 'purchases', 'suppliers', 'pos', 'sales', 'customers', 'customer-dues', 'low-stock', 'reports']
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'warranties', 'repairs', 'purchases', 'suppliers', 'pos', 'sales', 'customers', 'customer-dues', 'low-stock', 'reports']
   },
   computer_shop: {
     name: 'Computer Shop',
     icon: '🖥️',
     color: 'cyan',
-    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'components', 'repairs', 'job-cards', 'pos', 'sales', 'customers', 'suppliers', 'device-history', 'reports']
+    modules: ['dashboard', 'branches', 'products', 'product-assignment', 'stock-transfer', 'warranties', 'components', 'repairs', 'job-cards', 'pos', 'sales', 'customers', 'suppliers', 'device-history', 'reports']
   },
   grocery: {
     name: 'Grocery',

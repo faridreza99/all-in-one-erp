@@ -61,6 +61,7 @@ import UserManagementPage from "./pages/UserManagementPage";
 import WarrantyResolve from "./pages/WarrantyResolve";
 import WarrantyClaim from "./pages/WarrantyClaim";
 import WarrantyClaimSuccess from "./pages/WarrantyClaimSuccess";
+import WarrantyDetails from "./pages/WarrantyDetails";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 import { SidebarProvider } from "./contexts/SidebarContext";
@@ -573,6 +574,14 @@ const App = () => {
                           <WarrantiesPage user={user} onLogout={handleLogout} />
                         }
                       />
+                    }
+                  />
+                  <Route
+                    path="/warranty/:warranty_id/details"
+                    element={
+                      <SectorLayout user={user} onLogout={handleLogout}>
+                        <WarrantyDetails />
+                      </SectorLayout>
                     }
                   />
                   <Route
