@@ -32,6 +32,8 @@ from billing_models import (
     PaymentRecord, BillingEvent, UsageSnapshot
 )
 from billing_request_models import CreateSubscriptionRequest, RecordPaymentRequest
+from subscription_state_manager import SubscriptionStateManager
+from billing_scheduler import start_scheduler, stop_scheduler
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -112,6 +114,21 @@ async def test_database_connection():
         print("\n⚠️  Server will continue but authentication will NOT work!")
         print("⚠️  All login/register attempts will fail until MongoDB is connected.")
         print("=" * 60)
+    
+    # Start the billing scheduler
+    try:
+        start_scheduler()
+        print("✅ Billing scheduler started - checking subscriptions hourly")
+    except Exception as e:
+        print(f"⚠️  Failed to start billing scheduler: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    """Stop the billing scheduler on shutdown"""
+    try:
+        stop_scheduler()
+    except Exception as e:
+        print(f"⚠️  Error stopping scheduler: {str(e)}")
 
 # ========== ENUMS ==========
 class UserRole(str, Enum):
@@ -2315,6 +2332,102 @@ async def get_payment_history(
         return {"payments": payments}
     finally:
         admin_client.close()
+
+@api_router.patch("/super/subscriptions/{subscription_id}/status")
+async def update_subscription_status(
+    subscription_id: str,
+    data: dict,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Manually transition subscription to a new status.
+    """
+    new_status_str = data.get("status")
+    reason = data.get("reason", "Manual status change by Super Admin")
+    
+    if not new_status_str:
+        raise HTTPException(status_code=400, detail="status is required")
+    
+    try:
+        new_status = SubscriptionStatus(new_status_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {new_status_str}")
+    
+    try:
+        updated_sub = await SubscriptionStateManager.transition_state(
+            subscription_id,
+            new_status,
+            reason,
+            current_user["email"]
+        )
+        
+        if not updated_sub:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        
+        # Log the action
+        await log_action(
+            user_id=current_user["id"],
+            action="UPDATE_SUBSCRIPTION_STATUS",
+            tenant_id=updated_sub["tenant_id"],
+            resource_type="subscription",
+            resource_id=subscription_id,
+            metadata={"new_status": new_status_str, "reason": reason}
+        )
+        
+        return {"message": "Status updated successfully", "subscription": updated_sub}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.get("/super/subscriptions/{subscription_id}/status")
+async def get_subscription_status_endpoint(
+    subscription_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get current status and lifecycle details of a subscription.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        subscription = await admin_db.subscriptions.find_one(
+            {"subscription_id": subscription_id},
+            {"_id": 0}
+        )
+        
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        
+        # Get recent billing events
+        events = await admin_db.billing_events.find(
+            {"subscription_id": subscription_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(10).to_list(10)
+        
+        return {
+            "subscription": subscription,
+            "recent_events": events,
+            "is_active": subscription["status"] in ["active", "trial", "grace"]
+        }
+    finally:
+        admin_client.close()
+
+@api_router.get("/super/tenants/{tenant_id}/access")
+async def check_tenant_access(
+    tenant_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Check if a tenant has active subscription access.
+    """
+    is_active = await SubscriptionStateManager.is_subscription_active(tenant_id)
+    subscription = await SubscriptionStateManager.get_subscription_status(tenant_id)
+    
+    return {
+        "tenant_id": tenant_id,
+        "has_access": is_active,
+        "subscription": subscription
+    }
 
 # ========== SETTINGS ROUTES ==========
 @api_router.get("/settings", response_model=Settings)
