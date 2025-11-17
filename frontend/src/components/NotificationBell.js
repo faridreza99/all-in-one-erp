@@ -40,11 +40,14 @@ const NotificationBell = ({ user }) => {
       const response = await axios.get(`${API}/notifications`, {
         params: { limit: 20 }
       });
-      setNotifications(response.data);
-      const unread = response.data.filter(n => !n.read).length;
+      const notificationsList = response.data?.notifications || response.data || [];
+      setNotifications(Array.isArray(notificationsList) ? notificationsList : []);
+      const unread = notificationsList.filter(n => !n.read).length;
       setUnreadCount(unread);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
