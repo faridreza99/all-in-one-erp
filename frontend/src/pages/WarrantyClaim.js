@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API } from '../App';
 import { AlertTriangle, Upload, X, CheckCircle, FileImage } from 'lucide-react';
@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 const WarrantyClaim = () => {
   const { warranty_id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const warrantyToken = location.state?.token;
   const [formData, setFormData] = useState({
     customer_name: '',
     customer_phone: '',
@@ -42,7 +44,7 @@ const WarrantyClaim = () => {
         formDataUpload.append('file', file);
 
         const response = await axios.post(
-          `${API}/upload-image`,
+          `${API}/upload-image?warranty_token=${warrantyToken}`,
           formDataUpload,
           {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -83,6 +85,12 @@ const WarrantyClaim = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate warranty token is present
+    if (!warrantyToken) {
+      toast.error('Invalid warranty session. Please scan the QR code again.');
+      return;
+    }
+
     if (!formData.customer_name || !formData.customer_phone) {
       toast.error('Please provide your name and phone number');
       return;
@@ -102,6 +110,7 @@ const WarrantyClaim = () => {
       const response = await axios.post(
         `${API}/warranty/${warranty_id}/claim`,
         {
+          warranty_token: warrantyToken,  // Include HMAC token for server-side validation
           customer_name: formData.customer_name,
           customer_phone: formData.customer_phone,
           customer_email: formData.customer_email || null,

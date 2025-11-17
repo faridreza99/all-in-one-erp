@@ -2904,6 +2904,129 @@ async def upload_background(
     
     return {"url": file_url, "filename": filename}
 
+@api_router.post("/upload-image")
+async def upload_image_public(
+    file: UploadFile = File(...),
+    warranty_token: str = None
+):
+    """
+    Secured endpoint for uploading warranty claim evidence.
+    Requires a valid signed warranty_token (HMAC-authenticated) and enforces strict quotas.
+    """
+    # Require warranty_token for HMAC-based authentication
+    if not warranty_token:
+        raise HTTPException(
+            status_code=400,
+            detail="warranty_token is required for image uploads"
+        )
+    
+    # Verify and extract token payload (HMAC signature validation)
+    from warranty_utils import verify_and_extract_token
+    token_payload = verify_and_extract_token(warranty_token)
+    
+    if not token_payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired warranty token"
+        )
+    
+    # Extract warranty_id from validated token
+    warranty_id = token_payload.get("warranty_id")
+    tenant_id = token_payload.get("tenant_id")
+    
+    # Verify warranty still exists in database
+    warranty_record = await db.warranty_records.find_one(
+        {"id": warranty_id, "tenant_id": tenant_id},
+        {"_id": 0, "tenant_id": 1, "current_status": 1}
+    )
+    
+    if not warranty_record:
+        raise HTTPException(
+            status_code=404,
+            detail="Warranty not found"
+        )
+    
+    # Check upload quota: max 5 images per warranty claim
+    existing_uploads_count = await db.warranty_uploads.count_documents(
+        {"warranty_id": warranty_id}
+    )
+    
+    if existing_uploads_count >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Maximum 5 images allowed per warranty claim"
+        )
+    
+    # Validate file type
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (5MB max)
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB in bytes
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be less than 5MB"
+        )
+    
+    # Upload to Cloudinary if configured, otherwise use local storage
+    if cloudinary_url:
+        try:
+            # Upload as authenticated to prevent abuse
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                folder="erp/warranty_claims",
+                public_id=f"claim_{secrets.token_hex(12)}",
+                resource_type="image",
+                type="authenticated"
+            )
+            
+            # Generate authenticated signed URL (valid for 1 year)
+            public_id = upload_result.get("public_id")
+            file_url = cloudinary.CloudinaryImage(public_id).build_url(
+                secure=True,
+                type="authenticated",
+                sign_url=True
+            )
+            filename = public_id
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload image: {str(e)}"
+            )
+    else:
+        # Fallback to local storage
+        secure_filename = f"claim_{secrets.token_hex(12)}{file_ext}"
+        upload_dir = Path(__file__).parent / "static" / "uploads" / "warranty_claims"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / secure_filename
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        file_url = f"/uploads/warranty_claims/{secure_filename}"
+        filename = secure_filename
+    
+    # Track upload in database for quota enforcement
+    upload_record = {
+        "id": str(uuid.uuid4()),
+        "warranty_id": warranty_id,
+        "tenant_id": warranty_record["tenant_id"],
+        "file_url": file_url,
+        "filename": filename,
+        "file_size": len(file_content),
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.warranty_uploads.insert_one(upload_record)
+    
+    return {"url": file_url, "filename": filename}
+
 # ========== CATEGORY ROUTES ==========
 @api_router.post("/categories", response_model=Category)
 async def create_category(

@@ -111,6 +111,7 @@ class FinancialTransaction(BaseDBModel):
     approved_at: Optional[datetime] = None
 
 class ClaimCreate(BaseModel):
+    warranty_token: str  # Required HMAC-signed token for authentication
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None

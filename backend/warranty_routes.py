@@ -258,14 +258,50 @@ async def resolve_warranty_qr(q: str = Query(..., description="Warranty token fr
 @warranty_router.post("/warranty/{warranty_id}/claim")
 async def register_claim(
     warranty_id: str,
-    claim_data: ClaimCreate,
-    tenant_ctx: TenantContext = Depends(get_tenant_context)
+    claim_data: ClaimCreate
 ):
-    tenant_db = tenant_ctx.db
-    tenant_id = tenant_ctx.user.get("tenant_id")
+    """
+    Public endpoint for customer warranty claim registration.
+    Validates warranty token in claim data for authentication.
+    """
+    # Validate warranty token from claim data
+    if not claim_data.warranty_token:
+        raise HTTPException(
+            status_code=400,
+            detail="warranty_token is required for claim submission"
+        )
     
+    # Verify HMAC signature and extract payload
+    token_payload = verify_and_extract_token(claim_data.warranty_token)
+    if not token_payload:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired warranty token"
+        )
+    
+    # Extract tenant_id and warranty_id from validated token
+    token_tenant_id = token_payload.get("tenant_id")
+    token_warranty_id = token_payload.get("warranty_id")
+    
+    # Ensure URL warranty_id matches token warranty_id (prevent ID substitution)
+    if token_warranty_id != warranty_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Warranty ID mismatch - token does not match claim"
+        )
+    
+    # Resolve tenant database from validated token
+    from db_connection import resolve_tenant_db, get_tenant_by_id
+    
+    tenant_doc = await get_tenant_by_id(token_tenant_id)
+    if not tenant_doc:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    tenant_db = await resolve_tenant_db(tenant_doc['slug'])
+    
+    # Fetch warranty with validated tenant_id
     warranty = await tenant_db.warranty_records.find_one(
-        {"id": warranty_id, "tenant_id": tenant_id},
+        {"id": warranty_id, "tenant_id": token_tenant_id},
         {"_id": 0}
     )
     
