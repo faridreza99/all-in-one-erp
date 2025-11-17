@@ -1,0 +1,258 @@
+You are an expert full-stack developer. Build a working minimal example of a **multi-tenant SaaS ERP control system** with:
+
+- Backend: FastAPI (Python) + MongoDB
+- Frontend: React + Vite + TailwindCSS
+- JWT auth with roles and tenant context
+- Fully runnable inside Replit
+
+🎯 GOAL
+
+I want a **Super Admin dashboard** that can control multiple tenants (businesses), manage their enabled modules (like POS), see per-tenant sales stats, and suspend/delete tenants. Each tenant has its own isolated data and dashboard.
+
+Focus on the **core system logic**, not all 15 sector modules. I just need a clean base that I can extend.
+
+---
+
+## DATA MODEL (MongoDB)
+
+Create these core collections:
+
+1) `tenants` collection
+
+Each document:
+
+- `_id`: string (tenant id)
+- `business_name`: string
+- `email`: string
+- `business_type`: string (e.g. "pharmacy", "grocery", "mobile_shop")
+- `enabled_modules`: array of strings (e.g. ["core", "pos"])
+- `status`: "active" | "suspended" | "deleted"
+- `created_at`: datetime
+
+2) `users` collection
+
+Each document:
+
+- `_id`: string
+- `name`: string
+- `email`: string
+- `password_hash`: string
+- `tenant_id`: string or null  
+  - `null` (or "system") for super admin
+  - tenant `_id` for tenant users
+- `role`: "super_admin" | "tenant_admin" | "staff"
+- `is_active`: bool
+
+3) `sales` collection (for demo stats)
+
+Each document:
+
+- `_id`
+- `tenant_id`
+- `total`: number
+- `created_at`: datetime
+
+4) `audit_logs` collection (simple activity log)
+
+Each document:
+
+- `_id`
+- `tenant_id`
+- `user_id`
+- `action`: string (e.g. "CREATE_SALE", "LOGIN")
+- `resource_type`: string
+- `resource_id`: string or null
+- `metadata`: object
+- `created_at`: datetime
+
+---
+
+## AUTHENTICATION & TENANT CONTEXT
+
+Use JWT-based auth.
+
+On login, the JWT payload should include:
+
+- `sub`: user id
+- `tenant_id`: tenant id or null
+- `role`: user role
+
+Implement FastAPI dependencies:
+
+- `get_current_user`  
+  - Reads token, fetches user from DB, returns `{ id, tenant_id, role }`
+
+- `require_super_admin`  
+  - Only allows `role == "super_admin"`
+
+- `require_tenant_user`  
+  - Requires `tenant_id` not null
+
+Also create a helper:
+
+- `require_module(module_name: str)`  
+  - Loads tenant by `tenant_id`
+  - Verifies `tenant.status == "active"`
+  - Verifies `module_name in tenant.enabled_modules`
+  - Returns `{ user, tenant }`
+
+---
+
+## BACKEND ENDPOINTS
+
+### Auth
+
+- `POST /api/auth/register-super-admin` (for seeding one super admin)
+- `POST /api/auth/login`
+  - Body: email + password
+  - Response: JWT access token + basic user info
+
+### Super Admin: Tenant Management
+
+All these routes require `require_super_admin`.
+
+1) List all tenants (for main table):
+
+- `GET /api/super/tenants`
+- Returns array of tenant documents
+
+2) Update enabled modules:
+
+- `PATCH /api/super/tenants/{tenant_id}/modules`
+- Body: `{ "enabled_modules": ["core", "pos"] }`
+- Updates the tenant document
+
+3) Update status:
+
+- `PATCH /api/super/tenants/{tenant_id}/status`
+- Body: `{ "status": "active" | "suspended" | "deleted" }`
+
+4) Per-tenant stats:
+
+- `GET /api/super/tenants/{tenant_id}/stats`
+- Return at least:
+  - `total_sales`
+  - `today_sales` (sales from today)
+  - `sales_count`
+
+Use MongoDB aggregation to compute these from the `sales` collection.
+
+5) Impersonation (login as tenant admin):
+
+- `POST /api/super/tenants/{tenant_id}/impersonate`
+- Finds a user with `tenant_id` and `role = "tenant_admin"`
+- Returns a JWT where:
+  - `sub` = that admin’s user id
+  - `tenant_id` = tenant’s id
+  - `role` = "tenant_admin"
+  - Include `impersonated_by: "super_admin"` in payload
+
+### Tenant-Level Example Endpoints
+
+All of these must filter by `tenant_id` and use the helper dependencies.
+
+1) Demo products endpoint:
+
+- `GET /api/products`
+  - Use `require_module("core")`
+  - Returns dummy list filtered by `tenant_id`
+
+2) Demo POS sales endpoint:
+
+- `POST /api/pos/sales`
+  - Use `require_module("pos")`
+  - Inserts into `sales` with `tenant_id` from token
+
+---
+
+## TENANT ISOLATION RULE
+
+Every DB query for business data **must** filter by `tenant_id`.  
+Only super admin routes (under `/api/super/...`) are allowed to aggregate across multiple tenants.
+
+---
+
+## FRONTEND (React + Vite + Tailwind)
+
+Implement a minimal UI with two main areas:
+
+### 1) Login Page
+
+- Email / password form
+- On success, store JWT in localStorage
+- Decode token to know if user is `super_admin` or tenant user
+- Simple error handling
+
+### 2) Super Admin Dashboard
+
+If `role === "super_admin"`:
+
+**Page: `/super/tenants`**
+
+- Fetch `/api/super/tenants`
+- Render a table:
+
+  Columns:
+  - Business Name
+  - Email
+  - Business Type
+  - Modules Enabled
+  - Status
+  - Actions
+
+- Actions for each row:
+  - **Toggle POS**:
+    - If "pos" in `enabled_modules`, remove it and send PATCH to `/modules`
+    - Else add "pos" and send PATCH
+  - **Suspend / Activate**:
+    - Button that calls `/status` with `"suspended"` or `"active"`
+  - **View Stats**:
+    - When clicked, call `/stats` for that tenant and show:
+      - Total sales
+      - Today’s sales
+      - Sales count
+  - **Impersonate**:
+    - Calls `/impersonate`
+    - Replaces stored JWT with the returned token
+    - Redirects to `/tenant/dashboard`
+
+Use simple Tailwind-powered UI: responsive table + side panel or modal for stats.
+
+### 3) Tenant Dashboard (for tenant_admin / staff)
+
+If `role !== "super_admin"`:
+
+- Show a basic “Tenant Dashboard” layout
+- Display:
+  - Tenant name (from API `/api/auth/me` or `/api/tenant/me`)
+  - A simple card: “Total Sales” (fetched from a tenant stats endpoint)
+  - A list or dummy data using `/api/products` and `/api/pos/sales`
+
+This tenant view must not show other tenants.
+
+---
+
+## IMPLEMENTATION REQUIREMENTS
+
+1. Provide a clear FastAPI `main.py` with:
+   - MongoDB connection
+   - Routers for `/api/auth`, `/api/super`, `/api`
+   - CORS settings for the React frontend
+
+2. Include clear instructions in a `README.md`:
+   - How to set environment variables (JWT secret, Mongo URI)
+   - How to run backend and frontend inside Replit
+   - Default seeded users:
+     - Super admin: `admin@erp.com / admin123`
+     - At least 2 sample tenants with tenant_admin users and some dummy sales
+
+3. Keep code organized and easy to extend:
+   - Separate `models.py` / `schemas.py` / `routes` modules where possible
+   - Avoid over-complication; focus on a clean, working demo
+
+4. Ensure the project actually runs in Replit:
+   - Proper `pyproject.toml` or `requirements.txt` for backend
+   - `package.json` for React+Vite frontend
+   - Document how to run both (or set up a simple proxy if needed)
+
+The output should be a complete, runnable minimal example of this multi-tenant control system with super admin, tenant isolation, module toggling, and stats.
