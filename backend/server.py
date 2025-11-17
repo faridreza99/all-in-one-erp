@@ -23,6 +23,8 @@ from io import BytesIO
 from fastapi.responses import StreamingResponse
 import cloudinary
 import cloudinary.uploader
+from tenant_dependency import TenantContext, get_tenant_context
+from db_connection import resolve_tenant_db
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -119,6 +121,7 @@ class BusinessType(str, Enum):
     SALON = "salon"
     RESTAURANT = "restaurant"
     MOBILE_SHOP = "mobile_shop"
+    COMPUTER_SHOP = "computer_shop"
     GROCERY = "grocery"
     CLINIC = "clinic"
     ELECTRONICS = "electronics"
@@ -2882,10 +2885,19 @@ async def get_sales(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for sales: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
-    sales = await db.sales.find(query, {"_id": 0}).to_list(1000)
+    sales = await target_db.sales.find(query, {"_id": 0}).to_list(1000)
     
     for sale in sales:
         if isinstance(sale.get('created_at'), str):
@@ -2895,71 +2907,7 @@ async def get_sales(
     
     return sales
 
-@api_router.get("/sales/{sale_id}/invoice")
-async def get_sale_invoice(
-    sale_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    if not current_user.get("tenant_id"):
-        raise HTTPException(status_code=400, detail="Tenant ID required")
-    
-    # Get the sale
-    sale = await db.sales.find_one(
-        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    )
-    
-    if not sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
-    
-    # Enrich sale items with full product details
-    if sale.get('items'):
-        for item in sale['items']:
-            product_id = item.get('product_id')
-            if product_id:
-                product = await db.products.find_one(
-                    {"id": product_id, "tenant_id": current_user["tenant_id"]},
-                    {"_id": 0}
-                )
-                if product:
-                    item['product_name'] = product.get('name')
-                    item['product_sku'] = product.get('sku')
-                    item['product_category'] = product.get('category')
-                    item['product_brand'] = product.get('brand')
-    
-    # Get all payments for this sale
-    payments = await db.payments.find(
-        {"sale_id": sale_id, "tenant_id": current_user["tenant_id"]},
-        {"_id": 0}
-    ).to_list(1000)
-    
-    # Get customer info if customer_id exists
-    customer = None
-    if sale.get('customer_id'):
-        customer = await db.customers.find_one(
-            {"id": sale['customer_id'], "tenant_id": current_user["tenant_id"]},
-            {"_id": 0}
-        )
-    
-    # Format dates
-    if isinstance(sale.get('created_at'), str):
-        sale['created_at'] = datetime.fromisoformat(sale['created_at'])
-    if isinstance(sale.get('updated_at'), str):
-        sale['updated_at'] = datetime.fromisoformat(sale['updated_at'])
-    
-    for payment in payments:
-        if isinstance(payment.get('created_at'), str):
-            payment['created_at'] = datetime.fromisoformat(payment['created_at'])
-        if isinstance(payment.get('updated_at'), str):
-            payment['updated_at'] = datetime.fromisoformat(payment['updated_at'])
-        if isinstance(payment.get('received_at'), str):
-            payment['received_at'] = datetime.fromisoformat(payment['received_at'])
-    
-    return {
-        "sale": sale,
-        "payments": payments,
-        "customer": customer
-    }
+# Invoice data endpoint removed - use PDF endpoint directly
 
 @api_router.post("/sales/{sale_id}/payments")
 async def add_payment_to_sale(
@@ -3585,11 +3533,24 @@ async def download_invoice(
     sale_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    sale = await db.sales.find_one({"id": sale_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db  # Default to global DB for backwards compatibility
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Invoice generation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for invoice: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    sale = await target_db.sales.find_one({"id": sale_id, "tenant_id": current_user["tenant_id"]}, {"_id": 0})
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
     
-    tenant = await db.tenants.find_one({"tenant_id": current_user["tenant_id"]}, {"_id": 0})
+    tenant = await target_db.tenants.find_one({"tenant_id": current_user["tenant_id"]}, {"_id": 0})
     tenant_name = tenant.get("name", "Business Name") if tenant else "Business Name"
     
     # Create PDF
@@ -3638,6 +3599,16 @@ async def create_supplier(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Supplier creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for supplier: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     supplier = Supplier(
         tenant_id=current_user["tenant_id"],
         **supplier_data.model_dump()
@@ -3647,7 +3618,7 @@ async def create_supplier(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.suppliers.insert_one(doc)
+    await target_db.suppliers.insert_one(doc)
     return supplier
 
 @api_router.get("/suppliers", response_model=List[Supplier])
@@ -3657,10 +3628,19 @@ async def get_suppliers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for suppliers: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
-    suppliers = await db.suppliers.find(query, {"_id": 0}).to_list(1000)
+    suppliers = await target_db.suppliers.find(query, {"_id": 0}).to_list(1000)
     
     for supplier in suppliers:
         if isinstance(supplier.get('created_at'), str):
@@ -3679,6 +3659,16 @@ async def create_customer(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Customer creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for customer: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     customer = Customer(
         tenant_id=current_user["tenant_id"],
         **customer_data.model_dump()
@@ -3688,7 +3678,7 @@ async def create_customer(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.customers.insert_one(doc)
+    await target_db.customers.insert_one(doc)
     return customer
 
 @api_router.get("/customers", response_model=List[Customer])
@@ -3698,10 +3688,19 @@ async def get_customers(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for customers: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
     
-    customers = await db.customers.find(query, {"_id": 0}).to_list(1000)
+    customers = await target_db.customers.find(query, {"_id": 0}).to_list(1000)
     
     for customer in customers:
         if isinstance(customer.get('created_at'), str):
@@ -4695,6 +4694,16 @@ async def create_branch(
     if current_user["role"] not in ["tenant_admin", "head_office", "super_admin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Branch creation using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch creation: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     branch = Branch(
         tenant_id=current_user["tenant_id"],
         **branch_data.model_dump()
@@ -4704,7 +4713,7 @@ async def create_branch(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.branches.insert_one(doc)
+    await target_db.branches.insert_one(doc)
     return branch
 
 @api_router.get("/branches", response_model=List[Branch])
@@ -4714,7 +4723,16 @@ async def get_branches(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    branches = await db.branches.find(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branches: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    branches = await target_db.branches.find(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     ).to_list(1000)
@@ -4793,8 +4811,18 @@ async def assign_product_to_branch(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Product-branch assignment using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product-branch: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Check if assignment already exists
-    existing = await db.product_branches.find_one({
+    existing = await target_db.product_branches.find_one({
         "product_id": assignment.product_id,
         "branch_id": assignment.branch_id,
         "tenant_id": current_user["tenant_id"]
@@ -4812,22 +4840,22 @@ async def assign_product_to_branch(
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
     
-    await db.product_branches.insert_one(doc)
+    await target_db.product_branches.insert_one(doc)
     
     # Create notifications for users in this branch about new stock
-    product = await db.products.find_one(
+    product = await target_db.products.find_one(
         {"id": assignment.product_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0, "name": 1}
     )
     
-    branch = await db.branches.find_one(
+    branch = await target_db.branches.find_one(
         {"id": assignment.branch_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0, "name": 1}
     )
     
     if product and branch:
         # Get all users assigned to this branch
-        branch_users = await db.users.find(
+        branch_users = await target_db.users.find(
             {"branch_id": assignment.branch_id, "tenant_id": current_user["tenant_id"]},
             {"_id": 0, "id": 1}
         ).to_list(1000)
@@ -4848,7 +4876,7 @@ async def assign_product_to_branch(
             notif_doc = notification.model_dump()
             notif_doc['created_at'] = notif_doc['created_at'].isoformat()
             notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-            await db.notifications.insert_one(notif_doc)
+            await target_db.notifications.insert_one(notif_doc)
     
     return product_branch
 
@@ -4861,6 +4889,15 @@ async def get_product_branches(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for product-branches: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     query = {"tenant_id": current_user["tenant_id"]}
     
     # Branch managers can only see their branch
@@ -4872,7 +4909,7 @@ async def get_product_branches(
     if product_id:
         query["product_id"] = product_id
     
-    assignments = await db.product_branches.find(query, {"_id": 0}).to_list(10000)
+    assignments = await target_db.product_branches.find(query, {"_id": 0}).to_list(10000)
     
     for assignment in assignments:
         if isinstance(assignment.get('created_at'), str):
