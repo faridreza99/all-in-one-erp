@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { CreditCard, DollarSign, Calendar, Receipt, Check, X, AlertCircle } from 'lucide-react';
+import { CreditCard, DollarSign, Calendar, Receipt, Check, X, AlertCircle, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { API } from '../App';
 
@@ -12,8 +12,10 @@ const BillingManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [payments, setPayments] = useState([]);
 
   const [assignForm, setAssignForm] = useState({
@@ -30,6 +32,17 @@ const BillingManagement = () => {
     payment_date: new Date().toISOString().split('T')[0],
     receipt_number: '',
     notes: ''
+  });
+
+  const [editPlanForm, setEditPlanForm] = useState({
+    price: '',
+    quotas: {
+      max_products: '',
+      max_users: '',
+      max_branches: '',
+      max_storage_gb: ''
+    },
+    description: ''
   });
 
   useEffect(() => {
@@ -96,6 +109,47 @@ const BillingManagement = () => {
     }
   };
 
+  const handleEditPlan = (plan) => {
+    setSelectedPlan(plan);
+    setEditPlanForm({
+      price: plan.price || '',
+      quotas: {
+        max_products: plan.quotas?.max_products || '',
+        max_users: plan.quotas?.max_users || '',
+        max_branches: plan.quotas?.max_branches || '',
+        max_storage_gb: plan.quotas?.max_storage_gb || ''
+      },
+      description: plan.description || ''
+    });
+    setShowEditPlanModal(true);
+  };
+
+  const handleUpdatePlan = async (e) => {
+    e.preventDefault();
+    try {
+      // Build update payload
+      const payload = {};
+      if (editPlanForm.price !== '') payload.price = parseFloat(editPlanForm.price);
+      if (editPlanForm.description) payload.description = editPlanForm.description;
+      
+      // Build quotas object
+      const quotas = {};
+      if (editPlanForm.quotas.max_products !== '') quotas.max_products = parseInt(editPlanForm.quotas.max_products);
+      if (editPlanForm.quotas.max_users !== '') quotas.max_users = parseInt(editPlanForm.quotas.max_users);
+      if (editPlanForm.quotas.max_branches !== '') quotas.max_branches = parseInt(editPlanForm.quotas.max_branches);
+      if (editPlanForm.quotas.max_storage_gb !== '') quotas.max_storage_gb = parseInt(editPlanForm.quotas.max_storage_gb);
+      
+      if (Object.keys(quotas).length > 0) payload.quotas = quotas;
+
+      await axios.patch(`${API}/super/plans/${selectedPlan.plan_id}`, payload);
+      toast.success('Plan updated successfully');
+      setShowEditPlanModal(false);
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update plan');
+    }
+  };
+
   const getStatusBadge = (status) => {
     const colors = {
       active: 'bg-green-500/20 text-green-400 border-green-500/30',
@@ -117,7 +171,8 @@ const BillingManagement = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    if (amount === 0) return '৳0.00';
+    return `৳${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
   };
 
   if (loading) {
@@ -170,6 +225,13 @@ const BillingManagement = () => {
                 <span className="text-white">{plan.quotas.max_branches === -1 ? '∞' : plan.quotas.max_branches}</span>
               </div>
             </div>
+            <button
+              onClick={() => handleEditPlan(plan)}
+              className="mt-4 w-full px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Plan
+            </button>
           </motion.div>
         ))}
       </div>
@@ -335,7 +397,7 @@ const BillingManagement = () => {
             <form onSubmit={handleRecordPayment} className="space-y-4 mb-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Amount ($)</label>
+                  <label className="block text-sm font-medium mb-2">Amount (৳)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -423,6 +485,118 @@ const BillingManagement = () => {
                 </div>
               </div>
             )}
+          </motion.div>
+        </div>
+      )}
+
+      {showEditPlanModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gray-900 rounded-xl p-6 max-w-2xl w-full border border-white/10 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Edit Plan: {selectedPlan.name}</h3>
+              <button onClick={() => setShowEditPlanModal(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdatePlan} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Price (৳)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editPlanForm.price}
+                  onChange={(e) => setEditPlanForm({ ...editPlanForm, price: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                  placeholder={`Current: ৳${selectedPlan.price}`}
+                />
+                <p className="text-xs text-gray-400 mt-1">Leave blank to keep current price</p>
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                <h4 className="font-medium mb-3">Resource Limits</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Products</label>
+                    <input
+                      type="number"
+                      value={editPlanForm.quotas.max_products}
+                      onChange={(e) => setEditPlanForm({
+                        ...editPlanForm,
+                        quotas: { ...editPlanForm.quotas, max_products: e.target.value }
+                      })}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                      placeholder={`Current: ${selectedPlan.quotas.max_products === -1 ? 'Unlimited' : selectedPlan.quotas.max_products}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">-1 for unlimited</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Users</label>
+                    <input
+                      type="number"
+                      value={editPlanForm.quotas.max_users}
+                      onChange={(e) => setEditPlanForm({
+                        ...editPlanForm,
+                        quotas: { ...editPlanForm.quotas, max_users: e.target.value }
+                      })}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                      placeholder={`Current: ${selectedPlan.quotas.max_users === -1 ? 'Unlimited' : selectedPlan.quotas.max_users}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">-1 for unlimited</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Branches</label>
+                    <input
+                      type="number"
+                      value={editPlanForm.quotas.max_branches}
+                      onChange={(e) => setEditPlanForm({
+                        ...editPlanForm,
+                        quotas: { ...editPlanForm.quotas, max_branches: e.target.value }
+                      })}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                      placeholder={`Current: ${selectedPlan.quotas.max_branches === -1 ? 'Unlimited' : selectedPlan.quotas.max_branches}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">-1 for unlimited</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Storage (GB)</label>
+                    <input
+                      type="number"
+                      value={editPlanForm.quotas.max_storage_gb}
+                      onChange={(e) => setEditPlanForm({
+                        ...editPlanForm,
+                        quotas: { ...editPlanForm.quotas, max_storage_gb: e.target.value }
+                      })}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                      placeholder={`Current: ${selectedPlan.quotas.max_storage_gb === -1 ? 'Unlimited' : selectedPlan.quotas.max_storage_gb}`}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">-1 for unlimited</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Description</label>
+                <textarea
+                  value={editPlanForm.description}
+                  onChange={(e) => setEditPlanForm({ ...editPlanForm, description: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                  rows={3}
+                  placeholder={selectedPlan.description}
+                />
+                <p className="text-xs text-gray-400 mt-1">Leave blank to keep current description</p>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+              >
+                Update Plan
+              </button>
+            </form>
           </motion.div>
         </div>
       )}
