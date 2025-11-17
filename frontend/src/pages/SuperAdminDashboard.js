@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Users, Building, TrendingUp, X, DollarSign, ShoppingCart, Activity, UserCheck } from 'lucide-react';
+import { Plus, Users, Building, TrendingUp, X, DollarSign, ShoppingCart, Activity, UserCheck, CreditCard, Receipt } from 'lucide-react';
 import Swal from 'sweetalert2';
 import Layout from '../components/Layout';
 import { API } from '../App';
@@ -9,10 +9,16 @@ import { toast } from 'sonner';
 import { formatErrorMessage } from '../utils/errorHandler';
 
 const SuperAdminDashboard = ({ user, onLogout }) => {
+  const [activeTab, setActiveTab] = useState('tenants');
   const [tenants, setTenants] = useState([]);
+  const [plans, setPlans] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(null);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [tenantStats, setTenantStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,6 +26,20 @@ const SuperAdminDashboard = ({ user, onLogout }) => {
     email: '',
     business_type: 'pharmacy',
     admin_password: ''
+  });
+  const [subscriptionForm, setSubscriptionForm] = useState({
+    tenant_id: '',
+    plan_id: 'free',
+    billing_cycle: 'monthly',
+    notes: ''
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    subscription_id: '',
+    amount: '',
+    payment_method: 'bank_transfer',
+    payment_date: new Date().toISOString().split('T')[0],
+    receipt_number: '',
+    notes: ''
   });
 
   useEffect(() => {

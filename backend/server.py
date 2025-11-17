@@ -27,6 +27,11 @@ from tenant_dependency import TenantContext, get_tenant_context
 from db_connection import resolve_tenant_db
 from sales_models import Sale, SaleCreate
 from audit_logger import log_action
+from billing_models import (
+    Plan, PlanTier, Subscription, SubscriptionStatus, BillingCycle,
+    PaymentRecord, BillingEvent, UsageSnapshot
+)
+from billing_request_models import CreateSubscriptionRequest, RecordPaymentRequest
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -2024,6 +2029,292 @@ async def impersonate_tenant_admin(
             "impersonated_by": current_user["id"]
         }
     }
+
+# ========== BILLING & SUBSCRIPTION MANAGEMENT ROUTES ==========
+@api_router.get("/super/plans")
+async def get_plans(
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get all available billing plans.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        plans = await admin_db.plans.find({"is_active": True}, {"_id": 0}).to_list(100)
+        return {"plans": plans}
+    finally:
+        admin_client.close()
+
+@api_router.get("/super/subscriptions")
+async def get_all_subscriptions(
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get all tenant subscriptions.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        subscriptions = await admin_db.subscriptions.find({}, {"_id": 0}).to_list(1000)
+        return {"subscriptions": subscriptions}
+    finally:
+        admin_client.close()
+
+@api_router.get("/super/subscriptions/{tenant_id}")
+async def get_tenant_subscription(
+    tenant_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get subscription for a specific tenant.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        subscription = await admin_db.subscriptions.find_one(
+            {"tenant_id": tenant_id},
+            {"_id": 0}
+        )
+        
+        if not subscription:
+            return {"subscription": None, "message": "No subscription found"}
+        
+        return {"subscription": subscription}
+    finally:
+        admin_client.close()
+
+@api_router.post("/super/subscriptions")
+async def create_subscription(
+    request: CreateSubscriptionRequest,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Create or assign a subscription to a tenant.
+    Uses Pydantic validation and plan billing_cycle for expiration calculation.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        # Get plan details
+        plan = await admin_db.plans.find_one({"plan_id": request.plan_id}, {"_id": 0})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Check if subscription already exists
+        existing = await admin_db.subscriptions.find_one({"tenant_id": request.tenant_id})
+        if existing:
+            raise HTTPException(status_code=400, detail="Subscription already exists for this tenant")
+        
+        # Create subscription
+        now = datetime.now(timezone.utc)
+        subscription_id = f"sub_{uuid.uuid4().hex[:12]}"
+        
+        # Use plan's billing_cycle if not specified in request
+        effective_billing_cycle = request.billing_cycle.value if request.billing_cycle else plan.get("billing_cycle", "monthly")
+        
+        # Validate billing_cycle (should be one of: monthly, quarterly, yearly, lifetime)
+        valid_cycles = ["monthly", "quarterly", "yearly", "lifetime"]
+        if effective_billing_cycle not in valid_cycles:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid billing_cycle: {effective_billing_cycle}. Must be one of: {', '.join(valid_cycles)}"
+            )
+        
+        # Calculate expiration based on effective billing cycle
+        if effective_billing_cycle == "lifetime":
+            expires_on = None
+            current_period_end = None
+        elif effective_billing_cycle == "yearly":
+            expires_on = now + timedelta(days=365)
+            current_period_end = expires_on
+        elif effective_billing_cycle == "quarterly":
+            expires_on = now + timedelta(days=90)
+            current_period_end = expires_on
+        else:  # monthly
+            expires_on = now + timedelta(days=30)
+            current_period_end = expires_on
+        
+        subscription_doc = {
+            "subscription_id": subscription_id,
+            "tenant_id": request.tenant_id,
+            "plan_id": request.plan_id,
+            "status": SubscriptionStatus.TRIAL.value if plan["price"] > 0 else SubscriptionStatus.ACTIVE.value,
+            "billing_cycle": effective_billing_cycle,
+            "starts_on": now,
+            "expires_on": expires_on,
+            "current_period_start": now,
+            "current_period_end": current_period_end,
+            "trial_ends_at": now + timedelta(days=14) if plan["price"] > 0 else None,
+            "grace_period_days": 3,
+            "plan_snapshot": plan,
+            "metadata": {},
+            "notes": request.notes,
+            "created_at": now,
+            "updated_at": now
+        }
+        
+        await admin_db.subscriptions.insert_one(subscription_doc)
+        
+        # Create billing event
+        event_doc = {
+            "event_id": f"evt_{uuid.uuid4().hex[:12]}",
+            "subscription_id": subscription_id,
+            "tenant_id": request.tenant_id,
+            "event_type": "subscription_created",
+            "old_status": None,
+            "new_status": subscription_doc["status"],
+            "triggered_by": current_user["email"],
+            "reason": "Subscription created by Super Admin",
+            "metadata": {"plan_id": request.plan_id, "billing_cycle": effective_billing_cycle},
+            "created_at": now
+        }
+        await admin_db.billing_events.insert_one(event_doc)
+        
+        # Log the action
+        await log_action(
+            user_id=current_user["id"],
+            action="CREATE_SUBSCRIPTION",
+            tenant_id=request.tenant_id,
+            resource_type="subscription",
+            resource_id=subscription_id,
+            metadata={"plan_id": request.plan_id, "billing_cycle": effective_billing_cycle}
+        )
+        
+        return {
+            "message": "Subscription created successfully",
+            "subscription": {k: v for k, v in subscription_doc.items() if k != "_id"}
+        }
+    finally:
+        admin_client.close()
+
+@api_router.post("/super/payments")
+async def record_payment(
+    request: RecordPaymentRequest,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Record a manual payment for a subscription.
+    Uses Pydantic validation and extends subscription based on billing_cycle.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        # Get subscription
+        subscription = await admin_db.subscriptions.find_one({"subscription_id": request.subscription_id})
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        
+        # Parse payment date
+        if request.payment_date:
+            payment_dt = datetime.fromisoformat(request.payment_date.replace('Z', '+00:00'))
+        else:
+            payment_dt = datetime.now(timezone.utc)
+        
+        # Calculate new period based on subscription billing_cycle
+        billing_cycle = subscription["billing_cycle"]
+        if billing_cycle == "lifetime":
+            new_period_end = None
+        elif billing_cycle == "yearly":
+            new_period_end = payment_dt + timedelta(days=365)
+        elif billing_cycle == "quarterly":
+            new_period_end = payment_dt + timedelta(days=90)
+        else:  # monthly (default)
+            new_period_end = payment_dt + timedelta(days=30)
+        
+        # Create payment record with all required fields
+        payment_id = f"pay_{uuid.uuid4().hex[:12]}"
+        payment_doc = {
+            "payment_id": payment_id,
+            "subscription_id": request.subscription_id,
+            "tenant_id": subscription["tenant_id"],
+            "amount": float(request.amount),
+            "currency": "USD",
+            "payment_method": request.payment_method,
+            "payment_date": payment_dt,
+            "period_start": payment_dt,
+            "period_end": new_period_end,
+            "receipt_number": request.receipt_number,
+            "notes": request.notes,
+            "recorded_by": current_user["email"],
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await admin_db.payment_ledger.insert_one(payment_doc)
+        
+        # Update subscription status to active and extend expiration
+        await admin_db.subscriptions.update_one(
+            {"subscription_id": request.subscription_id},
+            {"$set": {
+                "status": SubscriptionStatus.ACTIVE.value,
+                "expires_on": new_period_end,
+                "current_period_start": payment_dt,
+                "current_period_end": new_period_end,
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+        
+        # Create billing event
+        event_doc = {
+            "event_id": f"evt_{uuid.uuid4().hex[:12]}",
+            "subscription_id": request.subscription_id,
+            "tenant_id": subscription["tenant_id"],
+            "event_type": "payment_recorded",
+            "old_status": subscription["status"],
+            "new_status": SubscriptionStatus.ACTIVE.value,
+            "triggered_by": current_user["email"],
+            "reason": f"Manual payment recorded: ${request.amount}",
+            "metadata": {
+                "payment_id": payment_id,
+                "amount": request.amount,
+                "payment_method": request.payment_method
+            },
+            "created_at": datetime.now(timezone.utc)
+        }
+        await admin_db.billing_events.insert_one(event_doc)
+        
+        # Log the action
+        await log_action(
+            user_id=current_user["id"],
+            action="RECORD_PAYMENT",
+            tenant_id=subscription["tenant_id"],
+            resource_type="payment",
+            resource_id=payment_id,
+            metadata={"subscription_id": request.subscription_id, "amount": request.amount}
+        )
+        
+        return {
+            "message": "Payment recorded successfully",
+            "payment": {k: v for k, v in payment_doc.items() if k != "_id"}
+        }
+    finally:
+        admin_client.close()
+
+@api_router.get("/super/payments/{subscription_id}")
+async def get_payment_history(
+    subscription_id: str,
+    current_user: dict = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    Get payment history for a subscription.
+    """
+    admin_client = AsyncIOMotorClient(mongo_url)
+    admin_db = admin_client["admin_hub"]
+    
+    try:
+        payments = await admin_db.payment_ledger.find(
+            {"subscription_id": subscription_id},
+            {"_id": 0}
+        ).sort("payment_date", -1).to_list(100)
+        
+        return {"payments": payments}
+    finally:
+        admin_client.close()
 
 # ========== SETTINGS ROUTES ==========
 @api_router.get("/settings", response_model=Settings)
