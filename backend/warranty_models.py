@@ -93,7 +93,7 @@ class WarrantyEvent(BaseDBModel):
 class SupplierAction(BaseDBModel):
     tenant_id: str
     warranty_id: str
-    supplier_id: str
+    supplier_id: Optional[str] = None
     supplier_name: Optional[str] = None
     action_type: SupplierActionType
     action_details: Dict[str, Any] = {}
