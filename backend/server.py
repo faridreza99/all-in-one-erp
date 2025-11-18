@@ -2934,8 +2934,19 @@ async def upload_image_public(
     warranty_id = token_payload.get("warranty_id")
     tenant_id = token_payload.get("tenant_id")
     
+    # Resolve tenant database
+    tenant_record = await db.tenants.find_one({"tenant_id": tenant_id}, {"_id": 0})
+    if not tenant_record:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    tenant_slug = tenant_record.get("tenant_slug")
+    try:
+        target_db = await resolve_tenant_db(tenant_slug)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
     # Verify warranty still exists in database
-    warranty_record = await db.warranty_records.find_one(
+    warranty_record = await target_db.warranty_records.find_one(
         {"id": warranty_id, "tenant_id": tenant_id},
         {"_id": 0, "tenant_id": 1, "current_status": 1}
     )
@@ -2947,7 +2958,7 @@ async def upload_image_public(
         )
     
     # Check upload quota: max 5 images per warranty claim
-    existing_uploads_count = await db.warranty_uploads.count_documents(
+    existing_uploads_count = await target_db.warranty_uploads.count_documents(
         {"warranty_id": warranty_id}
     )
     
@@ -3023,7 +3034,7 @@ async def upload_image_public(
         "file_size": len(file_content),
         "uploaded_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.warranty_uploads.insert_one(upload_record)
+    await target_db.warranty_uploads.insert_one(upload_record)
     
     return {"url": file_url, "filename": filename}
 
