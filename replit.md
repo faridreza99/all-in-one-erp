@@ -41,6 +41,13 @@ The ERP system is a full-stack application with multi-database per tenant archit
         - **Security**: Token-based authentication with signature verification, fraud detection heuristics (invoice mismatch, duplicate claims, high-value refund dual approval), and anti-replay attack protection.
         - **Business Logic**: Eligibility checks with grace periods, SLA enforcement, status transition validation, and financial transaction tracking for refunds.
     -   **Product Serial Number Management**: Automatic generation of unique product serial numbers using timestamp-based identifiers (format: SN-{timestamp}-{random}). Serial numbers are auto-generated when creating new products or editing products without existing serial numbers. Users can also manually enter serial numbers or regenerate them via the "Generate" button in the product form.
+    -   **Purchase Management System**:
+        - **Frontend Features** (frontend/src/pages/PurchasesPage.js): Enhanced purchase management UI with expandable rows showing detailed purchase items, quantities, and prices. Chevron icons toggle row expansion for viewing complete purchase details.
+        - **Receipt Upload**: Complete receipt upload system with file selection, preview (image thumbnails for JPG/PNG/GIF/WEBP, PDF file indicator), and real-time upload progress tracking (0-100% progress bar). Integrates with Axios onUploadProgress for smooth UX. Supports up to 10MB files. Endpoint: POST /api/purchases/{id}/receipts.
+        - **Supplier Warranty Linking**: Modal form for adding supplier warranties to purchase items. Features product selection, serial number input, warranty terms, coverage details, and warranty period configuration. Enables tracking of supplier warranty obligations for customer claim linkage. Endpoint: POST /api/purchases/{id}/supplier-warranties.
+        - **Stock Application**: Apply Stock button with loading states, idempotency protection, and disabled states when stock already applied. Automatically adds purchased inventory to stock with proper status tracking (pending/queued/applied). Endpoint: POST /api/purchases/{id}/apply-stock.
+        - **Visual Status Indicators**: Color-coded stock status badges (applied=green, queued=blue, pending=gray), payment status display, receipt file count, and contextual action icons (CheckCircle, Clock, AlertCircle).
+        - **Backend Compatibility**: Purchase model date field made optional for backwards compatibility with existing purchases without date records.
     -   **Deployment**: `build.sh` script handles frontend builds using yarn.
 
 ## External Dependencies
