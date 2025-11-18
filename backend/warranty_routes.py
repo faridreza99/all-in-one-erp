@@ -291,9 +291,10 @@ async def register_claim(
         )
     
     # Resolve tenant database from validated token
-    from db_connection import resolve_tenant_db, db as admin_db
+    from db_connection import resolve_tenant_db, get_admin_db
     
     # Get tenant info from admin database
+    admin_db = get_admin_db()
     tenant_doc = await admin_db.tenants.find_one(
         {"tenant_id": token_tenant_id},
         {"_id": 0, "tenant_slug": 1}
