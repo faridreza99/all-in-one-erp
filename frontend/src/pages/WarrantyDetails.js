@@ -17,6 +17,7 @@ const WarrantyDetails = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [inspectionData, setInspectionData] = useState({
     inspection_result: '',
@@ -220,8 +221,13 @@ const WarrantyDetails = () => {
 
   return (
     <>
-      <WarrantySidebar isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <div className="lg:ml-80 p-6 space-y-6">
+      <WarrantySidebar 
+        isOpen={drawerOpen} 
+        onClose={() => setDrawerOpen(false)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+      <div className={`transition-all duration-300 p-6 space-y-6 ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'}`}>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
