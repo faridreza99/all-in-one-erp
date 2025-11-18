@@ -40,10 +40,11 @@ const NotificationBell = ({ user }) => {
       const response = await axios.get(`${API}/notifications`, {
         params: { limit: 20 }
       });
-      const notificationsList = response.data?.notifications || response.data || [];
+      const data = response.data || {};
+      const notificationsList = data.notifications || [];
       setNotifications(Array.isArray(notificationsList) ? notificationsList : []);
-      const unread = notificationsList.filter(n => !n.read).length;
-      setUnreadCount(unread);
+      // Use unread_count from API response instead of calculating client-side
+      setUnreadCount(data.unread_count || 0);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       setNotifications([]);

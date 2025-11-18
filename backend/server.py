@@ -4575,15 +4575,15 @@ async def get_notifications(
             logger.error(f"Error fetching announcements: {str(e)}")
             # Continue without announcements
     
+    # Calculate unread count BEFORE applying limit (for badge counter)
+    unread_count = sum(1 for n in all_notifications if not n.get('is_read', False))
+    
     # Sort all notifications by created_at (newest first)
     all_notifications.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
     
-    # Apply limit
+    # Apply limit AFTER counting unread
     if limit:
         all_notifications = all_notifications[:limit]
-    
-    # Calculate unread count
-    unread_count = sum(1 for n in all_notifications if not n.get('is_read', False))
     
     return {
         "success": True,
