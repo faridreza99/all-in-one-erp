@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import SectorLayout from '../components/SectorLayout';
 import BackButton from '../components/BackButton';
 import { formatDistanceToNow } from 'date-fns';
+import { API } from '../App';
 
 const NotificationsPage = ({ user, onLogout }) => {
   const [notifications, setNotifications] = useState([]);
@@ -19,8 +20,8 @@ const NotificationsPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem('token');
       const url = filter === 'unread' 
-        ? `${process.env.REACT_APP_BACKEND_URL}/api/notifications?unread_only=true`
-        : `${process.env.REACT_APP_BACKEND_URL}/api/notifications`;
+        ? `${API}/notifications?unread_only=true`
+        : `${API}/notifications`;
       
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -28,7 +29,8 @@ const NotificationsPage = ({ user, onLogout }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data);
+        // Extract notifications array from response
+        setNotifications(data.notifications || []);
       } else {
         toast.error('Failed to load notifications');
       }
@@ -44,7 +46,7 @@ const NotificationsPage = ({ user, onLogout }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/notifications/${notificationId}/read`,
+        `${API}/notifications/${notificationId}/read`,
         {
           method: 'PATCH',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -53,7 +55,7 @@ const NotificationsPage = ({ user, onLogout }) => {
 
       if (response.ok) {
         setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n)
+          prev.map(n => n.id === notificationId ? { ...n, is_read: true, read: true } : n)
         );
         toast.success('Marked as read');
       } else {
@@ -66,7 +68,7 @@ const NotificationsPage = ({ user, onLogout }) => {
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    const unreadIds = notifications.filter(n => !n.is_read && !n.read).map(n => n.id);
     
     if (unreadIds.length === 0) {
       toast.info('No unread notifications');
@@ -77,14 +79,14 @@ const NotificationsPage = ({ user, onLogout }) => {
       const token = localStorage.getItem('token');
       await Promise.all(
         unreadIds.map(id =>
-          fetch(`${process.env.REACT_APP_BACKEND_URL}/api/notifications/${id}/read`, {
+          fetch(`${API}/notifications/${id}/read`, {
             method: 'PATCH',
             headers: { 'Authorization': `Bearer ${token}` }
           })
         )
       );
 
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read: true })));
       toast.success(`Marked ${unreadIds.length} notifications as read`);
     } catch (error) {
       console.error('Error marking all as read:', error);
