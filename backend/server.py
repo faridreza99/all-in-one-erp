@@ -5355,11 +5355,27 @@ async def get_purchases(
     
     purchases = await target_db.purchases.find(query, {"_id": 0}).to_list(1000)
     
+    # Get all unique supplier IDs to fetch names in batch
+    supplier_ids = list(set(p.get("supplier_id") for p in purchases if p.get("supplier_id")))
+    suppliers_map = {}
+    
+    if supplier_ids:
+        suppliers = await target_db.suppliers.find(
+            {"id": {"$in": supplier_ids}, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0, "id": 1, "name": 1}
+        ).to_list(1000)
+        suppliers_map = {s["id"]: s["name"] for s in suppliers}
+    
     for purchase in purchases:
+        # Convert datetime strings
         if isinstance(purchase.get('created_at'), str):
             purchase['created_at'] = datetime.fromisoformat(purchase['created_at'])
         if isinstance(purchase.get('updated_at'), str):
             purchase['updated_at'] = datetime.fromisoformat(purchase['updated_at'])
+        
+        # Populate supplier_name if missing
+        if not purchase.get('supplier_name') and purchase.get('supplier_id'):
+            purchase['supplier_name'] = suppliers_map.get(purchase['supplier_id'], 'Unknown')
     
     return purchases
 
