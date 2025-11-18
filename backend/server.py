@@ -2577,29 +2577,30 @@ async def delete_announcement(
         logger.error(f"Error deleting announcement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/notifications")
-async def get_tenant_notifications(
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Get all active announcements for the current tenant.
-    """
-    tenant_id = current_user.get("tenant_id")
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="Tenant ID required")
-    
-    try:
-        notifications = await NotificationService.get_announcements_for_tenant(tenant_id)
-        unread_count = await NotificationService.get_unread_count(tenant_id)
-        
-        return {
-            "success": True,
-            "notifications": notifications,
-            "unread_count": unread_count
-        }
-    except Exception as e:
-        logger.error(f"Error fetching notifications: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# DEPRECATED: Merged with unified notifications endpoint below
+# @api_router.get("/notifications")
+# async def get_tenant_notifications(
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """
+#     Get all active announcements for the current tenant.
+#     """
+#     tenant_id = current_user.get("tenant_id")
+#     if not tenant_id:
+#         raise HTTPException(status_code=400, detail="Tenant ID required")
+#     
+#     try:
+#         notifications = await NotificationService.get_announcements_for_tenant(tenant_id)
+#         unread_count = await NotificationService.get_unread_count(tenant_id)
+#         
+#         return {
+#             "success": True,
+#             "notifications": notifications,
+#             "unread_count": unread_count
+#         }
+#     except Exception as e:
+#         logger.error(f"Error fetching notifications: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.patch("/notifications/{announcement_id}/read")
 async def mark_notification_as_read(
@@ -4465,88 +4466,178 @@ async def get_customer_due(
 async def get_notifications(
     type: Optional[NotificationType] = None,
     unread_only: bool = False,
+    limit: int = 20,
     current_user: dict = Depends(get_current_user)
 ):
+    """
+    Unified endpoint that returns BOTH tenant-specific notifications (sales, dues, stock) 
+    AND announcement notifications from super admin.
+    """
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    # Resolve tenant-specific database
+    tenant_id = current_user["tenant_id"]
+    all_notifications = []
+    
+    # 1. Fetch tenant-specific notifications (sales, customer dues, low stock, etc.)
     target_db = db
     if current_user.get("tenant_slug"):
         try:
             target_db = await resolve_tenant_db(current_user["tenant_slug"])
         except Exception as resolve_error:
             logger.error(f"❌ Failed to resolve tenant DB for notifications: {resolve_error}")
-            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+            # Continue to fetch announcements even if tenant DB fails
+            target_db = None
     
-    query = {"tenant_id": current_user["tenant_id"]}
-    
-    # Role-based filtering
-    user_role = current_user.get("role")
-    user_branch_id = current_user.get("branch_id")
-    user_id = current_user.get("id")
-    
-    # Tenant admins and super admins see all notifications
-    if user_role not in [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]:
-        # For other users, show notifications that match ANY of these criteria:
-        # 1. Notification is specifically for this user (user_id matches)
-        # 2. Notification is for their branch but not for a specific user (branch_id matches AND user_id is None)
-        # 3. Notification has no branch_id and no user_id (tenant-wide notification)
-        or_conditions = [
-            {"user_id": user_id},  # User-specific notification
-            {"branch_id": None, "user_id": None}  # Tenant-wide notification
-        ]
+    if target_db:
+        query = {"tenant_id": tenant_id}
         
-        # Add branch-wide notifications (branch_id matches but user_id is None)
-        if user_branch_id:
-            or_conditions.append({"branch_id": user_branch_id, "user_id": None})
+        # Role-based filtering
+        user_role = current_user.get("role")
+        user_branch_id = current_user.get("branch_id")
+        user_id = current_user.get("id")
         
-        query["$or"] = or_conditions
+        # Tenant admins and super admins see all notifications
+        if user_role not in [UserRole.TENANT_ADMIN.value, UserRole.SUPER_ADMIN.value]:
+            # For other users, show notifications that match ANY of these criteria:
+            # 1. Notification is specifically for this user (user_id matches)
+            # 2. Notification is for their branch but not for a specific user (branch_id matches AND user_id is None)
+            # 3. Notification has no branch_id and no user_id (tenant-wide notification)
+            or_conditions = [
+                {"user_id": user_id},  # User-specific notification
+                {"branch_id": None, "user_id": None}  # Tenant-wide notification
+            ]
+            
+            # Add branch-wide notifications (branch_id matches but user_id is None)
+            if user_branch_id:
+                or_conditions.append({"branch_id": user_branch_id, "user_id": None})
+            
+            query["$or"] = or_conditions
+        
+        if type:
+            query["type"] = type.value
+        
+        if unread_only:
+            query["is_read"] = False
+        
+        tenant_notifications = await target_db.notifications.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+        
+        # Normalize tenant notifications
+        for notif in tenant_notifications:
+            if isinstance(notif.get('created_at'), str):
+                try:
+                    notif['created_at'] = datetime.fromisoformat(notif['created_at'])
+                except:
+                    notif['created_at'] = datetime.utcnow()
+            if isinstance(notif.get('updated_at'), str):
+                try:
+                    notif['updated_at'] = datetime.fromisoformat(notif['updated_at'])
+                except:
+                    notif['updated_at'] = datetime.utcnow()
+            
+            # Add source field to distinguish notification type
+            notif['source'] = 'tenant'
+            # Ensure 'read' field for frontend compatibility
+            if 'is_read' in notif:
+                notif['read'] = notif['is_read']
+        
+        all_notifications.extend(tenant_notifications)
     
-    if type:
-        query["type"] = type.value
+    # 2. Fetch announcement notifications from super admin system (skip for super admins)
+    if current_user.get("role") != UserRole.SUPER_ADMIN.value:
+        try:
+            announcements = await NotificationService.get_announcements_for_tenant(tenant_id)
+            
+            # Normalize announcements to match notification format
+            for ann in announcements:
+                # Convert announcement to notification format
+                notification = {
+                    'id': ann.get('announcement_id', ann.get('id')),
+                    'type': ann.get('announcement_type', 'info'),
+                    'message': ann.get('message', ''),
+                    'title': ann.get('title', ''),
+                    'created_at': ann.get('created_at', datetime.utcnow()),
+                    'updated_at': ann.get('updated_at', datetime.utcnow()),
+                    'is_read': ann.get('is_read', False),
+                    'read': ann.get('is_read', False),
+                    'is_dismissed': ann.get('is_dismissed', False),
+                    'source': 'announcement',
+                    'priority': ann.get('priority', 0),
+                    'tenant_id': tenant_id
+                }
+                
+                # Apply unread filter
+                if unread_only and notification['is_read']:
+                    continue
+                
+                all_notifications.append(notification)
+        except Exception as e:
+            logger.error(f"Error fetching announcements: {str(e)}")
+            # Continue without announcements
     
-    if unread_only:
-        query["is_read"] = False
+    # Sort all notifications by created_at (newest first)
+    all_notifications.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
     
-    notifications = await target_db.notifications.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # Apply limit
+    if limit:
+        all_notifications = all_notifications[:limit]
     
-    for notif in notifications:
-        if isinstance(notif.get('created_at'), str):
-            notif['created_at'] = datetime.fromisoformat(notif['created_at'])
-        if isinstance(notif.get('updated_at'), str):
-            notif['updated_at'] = datetime.fromisoformat(notif['updated_at'])
+    # Calculate unread count
+    unread_count = sum(1 for n in all_notifications if not n.get('is_read', False))
     
-    return notifications
+    return {
+        "success": True,
+        "notifications": all_notifications,
+        "unread_count": unread_count
+    }
 
 @api_router.patch("/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    # Resolve tenant-specific database
+    """
+    Mark a notification as read. Handles both tenant notifications and announcements.
+    """
+    tenant_id = current_user["tenant_id"]
+    updated = False
+    
+    # Try to mark as read in tenant database first
     target_db = db
     if current_user.get("tenant_slug"):
         try:
             target_db = await resolve_tenant_db(current_user["tenant_slug"])
         except Exception as resolve_error:
             logger.error(f"❌ Failed to resolve tenant DB for notification read: {resolve_error}")
-            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+            target_db = None
     
-    result = await target_db.notifications.update_one(
-        {"id": notification_id, "tenant_id": current_user["tenant_id"]},
-        {
-            "$set": {
-                "is_read": True,
-                "updated_at": datetime.now(timezone.utc).isoformat()
+    if target_db:
+        result = await target_db.notifications.update_one(
+            {"id": notification_id, "tenant_id": tenant_id},
+            {
+                "$set": {
+                    "is_read": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
             }
-        }
-    )
+        )
+        
+        if result.matched_count > 0:
+            updated = True
     
-    if result.matched_count == 0:
+    # If not found in tenant DB, try announcement system
+    if not updated:
+        try:
+            announcement_updated = await NotificationService.mark_as_read(notification_id, tenant_id)
+            if announcement_updated:
+                updated = True
+        except Exception as e:
+            logger.error(f"Error marking announcement as read: {str(e)}")
+    
+    if not updated:
         raise HTTPException(status_code=404, detail="Notification not found")
     
-    return {"message": "Notification marked as read"}
+    return {"message": "Notification marked as read", "success": True}
 
 @api_router.post("/notifications/scheduled-check")
 async def scheduled_notification_check(
