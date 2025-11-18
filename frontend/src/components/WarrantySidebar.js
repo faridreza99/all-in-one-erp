@@ -1,114 +1,171 @@
 import React from 'react';
-import { Home, Shield, Mail, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sidebar, Menu, MenuItem } from 'react-pro-sidebar';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { 
+  Home, Shield, Settings, LogOut, ChevronLeft, ChevronRight,
+  LayoutDashboard, Package, Wrench, X
+} from 'lucide-react';
 
 const WarrantySidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const menuItems = [
+    { path: '/warranty/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/warranty/warranties', label: 'Warranties', icon: Shield },
+    { path: '/warranty/repairs', label: 'Repairs', icon: Wrench },
+    { path: '/warranty/products', label: 'Products', icon: Package },
+  ];
+
   return (
     <>
       {/* Mobile Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />
       )}
       
-      {/* Sidebar - Collapsible on desktop, drawer on mobile */}
+      {/* Sidebar Container */}
       <div 
-        className={`fixed left-0 top-0 bottom-0 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-800/95 backdrop-blur-md border-r border-purple-500/20 shadow-2xl shadow-purple-500/10 z-50 flex flex-col transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed left-0 top-0 bottom-0 z-50 transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } ${isCollapsed ? 'lg:w-20' : 'w-80'}`}
+        }`}
+        style={{ 
+          width: isCollapsed ? '80px' : '280px',
+          transition: 'width 0.3s ease-in-out'
+        }}
       >
-        {/* Close Button - Only on mobile */}
+        {/* Close Button - Mobile Only */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all lg:hidden"
+          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all lg:hidden z-50"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Desktop Toggle Button - Chevron */}
+        {/* Desktop Toggle Button */}
         <button
           onClick={onToggleCollapse}
-          className="hidden lg:flex absolute -right-4 top-8 w-8 h-8 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 items-center justify-center text-white shadow-lg border-2 border-slate-900 transition-all hover:scale-110 z-50"
+          className="hidden lg:flex absolute -right-3 top-8 w-7 h-7 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 items-center justify-center text-white shadow-lg border-2 border-slate-900 transition-all hover:scale-110 z-50"
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
 
-        <div className={`transition-all duration-300 ${isCollapsed ? 'p-3' : 'p-6'}`}>
-          {/* Header */}
-          <div className={`mb-8 ${isCollapsed ? 'hidden' : 'block'}`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-white font-bold text-lg">Warranty Portal</h2>
-                <p className="text-gray-400 text-xs">Customer Service</p>
-              </div>
+        <Sidebar
+          collapsed={isCollapsed}
+          backgroundColor="transparent"
+          width="100%"
+          collapsedWidth="80px"
+          className="h-full border-r border-slate-700/50"
+          style={{
+            background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+            boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)'
+          }}
+        >
+          <div className="flex flex-col h-full">
+            {/* Header/Logo */}
+            <div className="p-6 border-b border-slate-700/50">
+              {!isCollapsed ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Shield className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-white font-bold text-lg leading-tight">Smart Business</h2>
+                    <p className="text-slate-400 text-xs">ERP</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Shield className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Main Navigation */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide py-4">
+              <Menu
+                menuItemStyles={{
+                  button: ({ active }) => ({
+                    backgroundColor: active ? '#3b82f6' : 'transparent',
+                    color: active ? '#ffffff' : '#94a3b8',
+                    borderRadius: '8px',
+                    margin: '0 12px 8px 12px',
+                    padding: '12px 16px',
+                    fontWeight: active ? '600' : '400',
+                    fontSize: '14px',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      backgroundColor: active ? '#3b82f6' : '#1e293b',
+                      color: '#ffffff',
+                    },
+                  }),
+                }}
+              >
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path || 
+                    (item.path === '/warranty/dashboard' && location.pathname.includes('/warranty'));
+                  
+                  return (
+                    <MenuItem
+                      key={item.path}
+                      active={isActive}
+                      icon={<Icon className="w-5 h-5" />}
+                      onClick={() => navigate(item.path)}
+                    >
+                      {item.label}
+                    </MenuItem>
+                  );
+                })}
+              </Menu>
+            </div>
+
+            {/* Bottom Section */}
+            <div className="border-t border-slate-700/50 py-4">
+              <Menu
+                menuItemStyles={{
+                  button: {
+                    backgroundColor: 'transparent',
+                    color: '#94a3b8',
+                    borderRadius: '8px',
+                    margin: '0 12px 8px 12px',
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      backgroundColor: '#1e293b',
+                      color: '#ffffff',
+                    },
+                  },
+                }}
+              >
+                <MenuItem icon={<Settings className="w-5 h-5" />}>
+                  Settings
+                </MenuItem>
+                <MenuItem 
+                  icon={<Home className="w-5 h-5" />}
+                  onClick={() => navigate('/')}
+                >
+                  Back to Home
+                </MenuItem>
+                <MenuItem 
+                  icon={<LogOut className="w-5 h-5" />}
+                  onClick={() => {
+                    localStorage.clear();
+                    navigate('/login');
+                  }}
+                >
+                  Logout
+                </MenuItem>
+              </Menu>
             </div>
           </div>
-
-          {/* Collapsed Header Icon */}
-          {isCollapsed && (
-            <div className="mb-8 flex justify-center">
-              <div className="p-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg">
-                <Shield className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-2">
-            <a
-              href="/"
-              className={`flex items-center gap-3 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-indigo-600/20 hover:text-white transition-all duration-200 group border border-transparent hover:border-purple-500/30 ${
-                isCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'
-              }`}
-              title={isCollapsed ? 'Home' : ''}
-            >
-              <Home className="w-5 h-5 flex-shrink-0" />
-              {!isCollapsed && <span>Home</span>}
-            </a>
-          </nav>
-
-          {/* Support Section */}
-          {!isCollapsed && (
-            <div className="mt-auto border-t border-purple-500/20 pt-6 space-y-4">
-              <div>
-                <p className="text-gray-400 text-xs mb-2 font-semibold uppercase tracking-wide">Support</p>
-                <a
-                  href="mailto:support@myerp.com"
-                  className="flex items-center gap-2 text-gray-300 hover:text-white text-sm transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>support@myerp.com</span>
-                </a>
-              </div>
-              
-              <div>
-                <p className="text-gray-400 text-xs mb-2 font-semibold uppercase tracking-wide">Need Help?</p>
-                <p className="text-gray-300 text-xs leading-relaxed">
-                  Our team is available 24/7 to assist you with your warranty claims.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Security Badge */}
-          {!isCollapsed && (
-            <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-purple-600/20 via-indigo-600/20 to-blue-600/20 border border-purple-500/30 shadow-lg">
-              <div className="flex items-start gap-2">
-                <Shield className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-white text-xs font-semibold mb-1">Secure & Verified</p>
-                  <p className="text-gray-300 text-xs leading-relaxed">
-                    All warranty claims are protected with industry-standard encryption.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        </Sidebar>
       </div>
     </>
   );

@@ -17,6 +17,7 @@
     "jspdf": "^3.0.3",
     "jwt-decode": "^4.0.0",
     "qrcode": "^1.5.4",
+    "react-pro-sidebar": "^1.1.0",
     "sweetalert2": "^11.26.3"
   }
 }
