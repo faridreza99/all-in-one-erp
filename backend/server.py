@@ -4598,6 +4598,7 @@ async def mark_notification_read(
 ):
     """
     Mark a notification as read. Handles both tenant notifications and announcements.
+    Returns success even if notification doesn't exist (idempotent operation).
     """
     tenant_id = current_user["tenant_id"]
     updated = False
@@ -4634,8 +4635,10 @@ async def mark_notification_read(
         except Exception as e:
             logger.error(f"Error marking announcement as read: {str(e)}")
     
+    # Return success even if notification doesn't exist
+    # This makes the operation idempotent and prevents 404 errors for deleted/expired notifications
     if not updated:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        logger.warning(f"Notification {notification_id} not found for tenant {tenant_id}, but returning success (idempotent)")
     
     return {"message": "Notification marked as read", "success": True}
 

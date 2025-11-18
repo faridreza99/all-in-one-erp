@@ -165,7 +165,8 @@ class NotificationService:
     @staticmethod
     async def get_announcements_for_tenant(tenant_id: str) -> List[Dict[str, Any]]:
         """
-        Get all active announcements for a specific tenant (excluding dismissed ones)
+        Get all active announcements for a specific tenant (excluding dismissed ones).
+        Filters out orphaned receipts and opportunistically cleans them up.
         
         Args:
             tenant_id: Tenant ID
@@ -195,6 +196,26 @@ class NotificationService:
                 {"expires_at": {"$gt": now}}
             ]
         }).sort("priority", -1).sort("created_at", -1).to_list(None)
+        
+        # Identify valid announcement IDs
+        valid_announcement_ids = {ann["announcement_id"] for ann in announcements}
+        
+        # Find orphaned receipts (receipts without corresponding announcements)
+        orphaned_receipt_ids = [
+            r["announcement_id"] for r in receipts 
+            if r["announcement_id"] not in valid_announcement_ids
+        ]
+        
+        # Opportunistically delete orphaned receipts
+        if orphaned_receipt_ids:
+            delete_result = await admin_db.notification_receipts.delete_many({
+                "tenant_id": tenant_id,
+                "announcement_id": {"$in": orphaned_receipt_ids}
+            })
+            logger.warning(
+                f"🧹 Cleaned up {delete_result.deleted_count} orphaned notification receipts "
+                f"for tenant {tenant_id} (announcements: {orphaned_receipt_ids[:5]}{'...' if len(orphaned_receipt_ids) > 5 else ''})"
+            )
         
         # Merge read status
         receipt_map = {r["announcement_id"]: r for r in receipts}
@@ -331,7 +352,7 @@ class NotificationService:
     @staticmethod
     async def delete_announcement(announcement_id: str) -> bool:
         """
-        Delete an announcement (soft delete)
+        Delete an announcement (soft delete) and clean up associated receipts
         
         Args:
             announcement_id: Announcement ID
@@ -339,8 +360,20 @@ class NotificationService:
         Returns:
             True if deleted
         """
+        # Soft delete the announcement
         result = await admin_db.announcements.update_one(
             {"announcement_id": announcement_id},
             {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
         )
+        
+        # Cascade delete: remove all associated notification receipts
+        if result.modified_count > 0:
+            receipt_result = await admin_db.notification_receipts.delete_many({
+                "announcement_id": announcement_id
+            })
+            logger.info(
+                f"🧹 Deleted announcement {announcement_id} and cleaned up "
+                f"{receipt_result.deleted_count} associated notification receipts"
+            )
+        
         return result.modified_count > 0
