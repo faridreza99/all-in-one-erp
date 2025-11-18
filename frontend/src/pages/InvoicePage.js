@@ -478,11 +478,11 @@ const InvoicePage = ({ user, onLogout }) => {
           {/* warranty qr codes */}
           {warranties.length > 0 && (
             <div className="relative px-0 mt-8">
-              <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                <Shield size={18} className="text-blue-600" />
+              <h3 className="text-base font-semibold text-slate-800 mb-4 flex items-center justify-center gap-2">
+                <Shield size={20} className="text-blue-600" />
                 Product Warranties
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-6">
                 {warranties.map((warranty, idx) => {
                   const warrantyUrl = `${window.location.origin}/w/${warranty.warranty_token}`;
                   const expiryDate = warranty.warranty_expiry_date 
@@ -492,37 +492,43 @@ const InvoicePage = ({ user, onLogout }) => {
                   return (
                     <div 
                       key={warranty.warranty_id || idx}
-                      className="rounded-xl border border-slate-200 p-4 bg-slate-50 flex items-start gap-4"
+                      className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50 p-6"
                     >
-                      <div className="flex-shrink-0 bg-white p-2 rounded-lg border border-slate-200">
-                        <QRCodeDisplay value={warrantyUrl} size={80} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm truncate">
+                      <div className="flex flex-col items-center text-center">
+                        <p className="font-bold text-slate-900 text-base mb-2">
                           {warranty.product_name || 'Product'}
                         </p>
-                        <p className="text-xs text-slate-600 mt-1">
-                          Warranty: {warranty.warranty_months || 0} months
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          Valid until: {expiryDate}
-                        </p>
+                        
+                        <div className="bg-white p-4 rounded-xl border-2 border-slate-300 shadow-lg mb-4">
+                          <QRCodeDisplay value={warrantyUrl} size={180} />
+                        </div>
+                        
+                        <div className="space-y-1 mb-3">
+                          <p className="text-sm font-semibold text-blue-700">
+                            Warranty: {warranty.warranty_months || 0} months
+                          </p>
+                          <p className="text-sm text-slate-600">
+                            Valid until: {expiryDate}
+                          </p>
+                        </div>
+                        
                         <a 
                           href={warrantyUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-600 mt-2 font-medium hover:underline inline-block"
+                          className="text-sm text-blue-600 font-semibold hover:underline inline-flex items-center gap-1"
                         >
-                          Scan QR or click to test warranty claim →
+                          Scan QR or click to access warranty portal →
                         </a>
+                        
+                        <p className="text-xs text-slate-500 mt-4 max-w-md">
+                          📱 Scan this QR code with your phone camera to access warranty information and file claims online
+                        </p>
                       </div>
                     </div>
                   );
                 })}
               </div>
-              <p className="text-xs text-slate-500 mt-3 text-center">
-                Scan the QR code with your phone camera to access warranty information and file claims online.
-              </p>
             </div>
           )}
 
