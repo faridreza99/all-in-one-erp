@@ -165,7 +165,7 @@ class NotificationService:
     @staticmethod
     async def get_announcements_for_tenant(tenant_id: str) -> List[Dict[str, Any]]:
         """
-        Get all active announcements for a specific tenant
+        Get all active announcements for a specific tenant (excluding dismissed ones)
         
         Args:
             tenant_id: Tenant ID
@@ -173,9 +173,10 @@ class NotificationService:
         Returns:
             List of announcements with read status
         """
-        # Get all receipts for this tenant
+        # Get all non-dismissed receipts for this tenant
         receipts = await admin_db.notification_receipts.find({
-            "tenant_id": tenant_id
+            "tenant_id": tenant_id,
+            "is_dismissed": {"$ne": True}  # Exclude dismissed notifications
         }).to_list(None)
         
         if not receipts:
@@ -279,7 +280,7 @@ class NotificationService:
     @staticmethod
     async def get_unread_count(tenant_id: str) -> int:
         """
-        Get count of unread announcements for a tenant
+        Get count of unread AND non-dismissed announcements for a tenant
         
         Args:
             tenant_id: Tenant ID
@@ -287,11 +288,29 @@ class NotificationService:
         Returns:
             Count of unread notifications
         """
-        count = await admin_db.notification_receipts.count_documents({
+        # Get non-dismissed, unread receipt IDs
+        receipts = await admin_db.notification_receipts.find({
             "tenant_id": tenant_id,
             "is_read": False,
             "is_dismissed": False
+        }, {"announcement_id": 1}).to_list(None)
+        
+        if not receipts:
+            return 0
+        
+        announcement_ids = [r["announcement_id"] for r in receipts]
+        
+        # Count only active, non-expired announcements
+        now = datetime.utcnow()
+        count = await admin_db.announcements.count_documents({
+            "announcement_id": {"$in": announcement_ids},
+            "is_active": True,
+            "$or": [
+                {"expires_at": None},
+                {"expires_at": {"$gt": now}}
+            ]
         })
+        
         return count
     
     @staticmethod
