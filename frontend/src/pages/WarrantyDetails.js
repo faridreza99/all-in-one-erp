@@ -23,7 +23,7 @@ const WarrantyDetails = () => {
   });
   const [showSupplierActionForm, setShowSupplierActionForm] = useState(false);
   const [supplierActionData, setSupplierActionData] = useState({
-    action_type: 'replacement_requested',
+    action_type: 'replacement_sent',
     notes: '',
     replacement_serial: '',
     refund_amount: ''
@@ -125,7 +125,7 @@ const WarrantyDetails = () => {
       toast.success('Supplier action recorded successfully');
       setShowSupplierActionForm(false);
       setSupplierActionData({
-        action_type: 'replacement_requested',
+        action_type: 'replacement_sent',
         notes: '',
         replacement_serial: '',
         refund_amount: ''
@@ -428,11 +428,11 @@ const WarrantyDetails = () => {
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-orange-500"
                 required
               >
-                <option value="replacement_requested">Replacement Requested from Supplier</option>
                 <option value="replacement_sent">Replacement Sent by Supplier</option>
-                <option value="refund_requested">Refund Requested from Supplier</option>
-                <option value="refund_issued">Refund Issued by Supplier</option>
-                <option value="claim_declined">Supplier Declined Claim</option>
+                <option value="repair_sent">Repair Sent to Supplier</option>
+                <option value="cash_refund_offered">Cash Refund Offered</option>
+                <option value="partial_refund">Partial Refund Issued</option>
+                <option value="declined">Supplier Declined Claim</option>
               </select>
             </div>
 
@@ -451,7 +451,7 @@ const WarrantyDetails = () => {
               </div>
             )}
 
-            {supplierActionData.action_type === 'refund_issued' && (
+            {(supplierActionData.action_type === 'cash_refund_offered' || supplierActionData.action_type === 'partial_refund') && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Refund Amount (৳)
