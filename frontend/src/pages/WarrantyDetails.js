@@ -8,6 +8,7 @@ import {
   Clock, MessageSquare, XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import WarrantySidebar from '../components/WarrantySidebar';
 
 const WarrantyDetails = () => {
   const { warranty_id } = useParams();
@@ -217,17 +218,19 @@ const WarrantyDetails = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Back to Warranties
-        </button>
-      </div>
+    <>
+      <WarrantySidebar />
+      <div className="lg:ml-64 p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Warranties
+          </button>
+        </div>
 
       {/* Warranty Details Card */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
@@ -567,7 +570,8 @@ const WarrantyDetails = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
