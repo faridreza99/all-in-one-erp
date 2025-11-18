@@ -4600,6 +4600,8 @@ async def mark_notification_read(
     Mark a notification as read. Handles both tenant notifications and announcements.
     Returns success even if notification doesn't exist (idempotent operation).
     """
+    logger.info(f"🔵 MARK AS READ CALLED: notification_id={notification_id}, tenant={current_user.get('tenant_id')}")
+    
     tenant_id = current_user["tenant_id"]
     updated = False
     
@@ -4608,6 +4610,7 @@ async def mark_notification_read(
     if current_user.get("tenant_slug"):
         try:
             target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Resolved tenant DB for {current_user['tenant_slug']}")
         except Exception as resolve_error:
             logger.error(f"❌ Failed to resolve tenant DB for notification read: {resolve_error}")
             target_db = None
@@ -4623,13 +4626,17 @@ async def mark_notification_read(
             }
         )
         
+        logger.info(f"📊 Tenant DB update: matched={result.matched_count}, modified={result.modified_count}")
+        
         if result.matched_count > 0:
             updated = True
     
     # If not found in tenant DB, try announcement system
     if not updated:
         try:
+            logger.info(f"🔔 Trying announcement system for {notification_id}")
             announcement_updated = await NotificationService.mark_as_read(notification_id, tenant_id)
+            logger.info(f"🔔 Announcement result: {announcement_updated}")
             if announcement_updated:
                 updated = True
         except Exception as e:
@@ -4638,8 +4645,11 @@ async def mark_notification_read(
     # Return success even if notification doesn't exist
     # This makes the operation idempotent and prevents 404 errors for deleted/expired notifications
     if not updated:
-        logger.warning(f"Notification {notification_id} not found for tenant {tenant_id}, but returning success (idempotent)")
+        logger.warning(f"⚠️ Notification {notification_id} not found for tenant {tenant_id}, but returning success (idempotent)")
+    else:
+        logger.info(f"✅ Successfully marked notification {notification_id} as read")
     
+    logger.info(f"🔵 RETURNING SUCCESS FOR {notification_id}")
     return {"message": "Notification marked as read", "success": True}
 
 @api_router.post("/notifications/scheduled-check")
