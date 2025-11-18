@@ -5641,7 +5641,8 @@ async def create_supplier_warranty(
         "created_by": current_user.get("id")
     }
     
-    await target_db.supplier_warranty_records.insert_one(supplier_warranty)
+    # Insert warranty record
+    result = await target_db.supplier_warranty_records.insert_one(supplier_warranty)
     
     # Add reference to purchase
     await target_db.purchases.update_one(
@@ -5652,7 +5653,13 @@ async def create_supplier_warranty(
         }
     )
     
-    return {"success": True, "warranty": supplier_warranty}
+    # Fetch the inserted warranty without _id
+    created_warranty = await target_db.supplier_warranty_records.find_one(
+        {"id": supplier_warranty["id"], "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    return {"success": True, "warranty": created_warranty}
 
 @api_router.get("/purchases/{purchase_id}/supplier-warranties")
 async def get_supplier_warranties(

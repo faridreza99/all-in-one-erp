@@ -360,7 +360,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                     <select
                       value={currentItem.product_id}
                       onChange={(e) => {
-                        const selectedProduct = products.find(p => p.product_id === e.target.value);
+                        const selectedProduct = products.find(p => p.id === e.target.value);
                         setCurrentItem({
                           ...currentItem,
                           product_id: e.target.value,
@@ -372,7 +372,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                     >
                       <option value="">Select Product</option>
                       {products.map(product => (
-                        <option key={product.product_id} value={product.product_id}>
+                        <option key={product.id} value={product.id}>
                           {product.name} ({product.sku})
                         </option>
                       ))}
