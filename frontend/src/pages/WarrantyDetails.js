@@ -5,7 +5,7 @@ import { API } from '../App';
 import { 
   ArrowLeft, Shield, Package, User, Phone, Calendar, 
   AlertCircle, FileText, Image as ImageIcon, CheckCircle,
-  Clock, MessageSquare, XCircle
+  Clock, MessageSquare, XCircle, Menu
 } from 'lucide-react';
 import { toast } from 'sonner';
 import WarrantySidebar from '../components/WarrantySidebar';
@@ -16,6 +16,7 @@ const WarrantyDetails = () => {
   const [warranty, setWarranty] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showInspectionForm, setShowInspectionForm] = useState(false);
   const [inspectionData, setInspectionData] = useState({
     inspection_result: '',
@@ -219,17 +220,25 @@ const WarrantyDetails = () => {
 
   return (
     <>
-      <WarrantySidebar />
-      <div className="lg:ml-64 p-6 space-y-6">
+      <WarrantySidebar isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Warranties
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
+            >
+              <Menu className="w-6 h-6 text-white" />
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Warranties
+            </button>
+          </div>
         </div>
 
       {/* Warranty Details Card */}

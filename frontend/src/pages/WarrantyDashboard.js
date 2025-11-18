@@ -4,7 +4,7 @@ import axios from 'axios';
 import { API } from '../App';
 import { 
   Shield, Search, Filter, AlertCircle, Clock, 
-  CheckCircle, XCircle, Package, TrendingUp, ChevronRight 
+  CheckCircle, XCircle, Package, TrendingUp, ChevronRight, Menu 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import WarrantySidebar from '../components/WarrantySidebar';
@@ -14,6 +14,7 @@ const WarrantyDashboard = () => {
   const [stats, setStats] = useState(null);
   const [warranties, setWarranties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [filter, setFilter] = useState({
     status: '',
     search: '',
@@ -117,11 +118,17 @@ const WarrantyDashboard = () => {
 
   return (
     <>
-      <WarrantySidebar />
-      <div className="lg:ml-64 p-6 space-y-6">
+      <WarrantySidebar isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
+            >
+              <Menu className="w-6 h-6 text-white" />
+            </button>
             <div className="p-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600">
               <Shield className="w-8 h-8 text-white" />
             </div>
