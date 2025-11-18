@@ -291,13 +291,17 @@ async def register_claim(
         )
     
     # Resolve tenant database from validated token
-    from db_connection import resolve_tenant_db, get_tenant_by_id
+    from db_connection import resolve_tenant_db, db as admin_db
     
-    tenant_doc = await get_tenant_by_id(token_tenant_id)
+    # Get tenant info from admin database
+    tenant_doc = await admin_db.tenants.find_one(
+        {"tenant_id": token_tenant_id},
+        {"_id": 0, "tenant_slug": 1}
+    )
     if not tenant_doc:
         raise HTTPException(status_code=404, detail="Tenant not found")
     
-    tenant_db = await resolve_tenant_db(tenant_doc['slug'])
+    tenant_db = await resolve_tenant_db(tenant_doc['tenant_slug'])
     
     # Fetch warranty with validated tenant_id
     warranty = await tenant_db.warranty_records.find_one(
@@ -345,13 +349,13 @@ async def register_claim(
         tenant_db,
         warranty_id,
         new_status,
-        tenant_id,
+        token_tenant_id,
         ActorType.CUSTOMER,
         note="Claim registered by customer"
     )
     
     await tenant_db.warranty_records.update_one(
-        {"id": warranty_id, "tenant_id": tenant_id},
+        {"id": warranty_id, "tenant_id": token_tenant_id},
         {"$set": {"fraud_score": fraud_score}}
     )
     
@@ -360,7 +364,7 @@ async def register_claim(
         warranty_id,
         EventType.CLAIM_REGISTERED,
         ActorType.CUSTOMER,
-        tenant_id,
+        token_tenant_id,
         actor_name=claim_data.customer_name,
         note=claim_data.reported_issue,
         attachments=claim_data.images,
