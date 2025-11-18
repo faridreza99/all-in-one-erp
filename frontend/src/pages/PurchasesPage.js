@@ -526,7 +526,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                         <td className="py-4 px-4">
                           <span className="text-white font-mono font-semibold">{purchase.purchase_number}</span>
                         </td>
-                        <td className="py-4 px-4 text-gray-300">{getSupplierName(purchase.supplier_id)}</td>
+                        <td className="py-4 px-4 text-gray-300">{purchase.supplier_name || getSupplierName(purchase.supplier_id)}</td>
                         <td className="py-4 px-4 text-gray-400">{purchase.items?.length || 0} items</td>
                         <td className="py-4 px-4">
                           <span className="text-yellow-400 font-bold">${purchase.total_amount?.toFixed(2) || '0.00'}</span>
@@ -569,7 +569,9 @@ const PurchasesPage = ({ user, onLogout }) => {
                                   <div className="space-y-2">
                                     {purchase.items?.map((item, idx) => (
                                       <div key={idx} className="bg-gray-700/30 border border-gray-600/50 rounded-lg p-3">
-                                        <p className="text-white font-semibold">{item.product_name}</p>
+                                        <p className="text-white font-semibold">
+                                          {item.product_name || `Product #${item.product_id || idx + 1}`}
+                                        </p>
                                         <p className="text-gray-400 text-sm">
                                           Qty: {item.quantity} × ${item.price?.toFixed(2)} = ${((item.quantity || 0) * (item.price || 0)).toFixed(2)}
                                         </p>
@@ -626,10 +628,16 @@ const PurchasesPage = ({ user, onLogout }) => {
                                       <h4 className="text-sm font-bold text-gray-300 mb-2">Uploaded Receipts:</h4>
                                       <div className="space-y-1">
                                         {purchase.receipt_files.map((file, idx) => (
-                                          <div key={idx} className="flex items-center gap-2 text-xs text-gray-400">
+                                          <a
+                                            key={idx}
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 text-xs text-blue-400 hover:text-blue-300 transition-all hover:underline"
+                                          >
                                             <FileText className="w-3 h-3" />
                                             <span>{file.filename}</span>
-                                          </div>
+                                          </a>
                                         ))}
                                       </div>
                                     </div>
