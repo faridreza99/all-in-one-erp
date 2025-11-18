@@ -29,13 +29,18 @@ const QRCodeDisplay = ({ value, size = 80 }) => {
 
   useEffect(() => {
     if (canvasRef.current && value) {
-      QRCode.toCanvas(canvasRef.current, value, {
-        width: size,
-        margin: 1,
-        errorCorrectionLevel: 'M'
-      }, (error) => {
-        if (error) console.error('QR Code generation error:', error);
-      });
+      QRCode.toCanvas(
+        canvasRef.current,
+        value,
+        {
+          width: size,
+          margin: 1,
+          errorCorrectionLevel: "M",
+        },
+        (error) => {
+          if (error) console.error("QR Code generation error:", error);
+        },
+      );
     }
   }, [value, size]);
 
@@ -186,7 +191,7 @@ const InvoicePage = ({ user, onLogout }) => {
 
   // Create warranty lookup map by product_id
   const warrantyMap = {};
-  warranties.forEach(w => {
+  warranties.forEach((w) => {
     if (w.product_id && w.warranty_token) {
       warrantyMap[w.product_id] = w;
     }
@@ -485,44 +490,47 @@ const InvoicePage = ({ user, onLogout }) => {
               <div className="grid grid-cols-1 gap-6">
                 {warranties.map((warranty, idx) => {
                   const warrantyUrl = `${window.location.origin}/w/${warranty.warranty_token}`;
-                  const expiryDate = warranty.warranty_expiry_date 
-                    ? new Date(warranty.warranty_expiry_date).toLocaleDateString()
-                    : 'N/A';
-                  
+                  const expiryDate = warranty.warranty_expiry_date
+                    ? new Date(
+                        warranty.warranty_expiry_date,
+                      ).toLocaleDateString()
+                    : "N/A";
+
                   return (
-                    <div 
+                    <div
                       key={warranty.warranty_id || idx}
                       className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50 p-6"
                     >
                       <div className="flex flex-col items-center text-center">
                         <p className="font-bold text-slate-900 text-base mb-2">
-                          {warranty.product_name || 'Product'}
+                          {warranty.product_name || "Product"}
                         </p>
-                        
+
                         <div className="bg-white p-4 rounded-xl border-2 border-slate-300 shadow-lg mb-4">
                           <QRCodeDisplay value={warrantyUrl} size={180} />
                         </div>
-                        
+
                         <div className="space-y-1 mb-3">
-                          <p className="text-sm font-semibold text-blue-700">
+                          {/* <p className="text-sm font-semibold text-blue-700">
                             Warranty: {warranty.warranty_months || 0} months
-                          </p>
+                          </p> */}
                           <p className="text-sm text-slate-600">
                             Valid until: {expiryDate}
                           </p>
                         </div>
-                        
-                        <a 
-                          href={warrantyUrl} 
-                          target="_blank" 
+
+                        <a
+                          href={warrantyUrl}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-blue-600 font-semibold hover:underline inline-flex items-center gap-1"
                         >
                           Scan QR or click to access warranty portal →
                         </a>
-                        
+
                         <p className="text-xs text-slate-500 mt-4 max-w-md">
-                          📱 Scan this QR code with your phone camera to access warranty information and file claims online
+                          📱 Scan this QR code with your phone camera to access
+                          warranty information and file claims online
                         </p>
                       </div>
                     </div>
