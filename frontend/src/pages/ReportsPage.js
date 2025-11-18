@@ -5,6 +5,7 @@ import BackButton from '../components/BackButton';
 import SectorLayout from '../components/SectorLayout';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import Footer from '../components/Footer';
+import { API } from '../App';
 
 const ReportsPage = ({ user, onLogout }) => {
   const [reportType, setReportType] = useState('profit-loss');
@@ -27,7 +28,7 @@ const ReportsPage = ({ user, onLogout }) => {
       const token = localStorage.getItem('token');
 
       if (reportType === 'profit-loss') {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/profit-loss`, {
+        const response = await fetch(`${API}/reports/profit-loss`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -35,7 +36,7 @@ const ReportsPage = ({ user, onLogout }) => {
           setProfitLossData(data);
         }
       } else if (reportType === 'top-products') {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/top-products?limit=10`, {
+        const response = await fetch(`${API}/reports/top-products?limit=10`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -43,7 +44,7 @@ const ReportsPage = ({ user, onLogout }) => {
           setTopProducts(data);
         }
       } else if (reportType === 'sales') {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/sales`, {
+        const response = await fetch(`${API}/sales`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -51,7 +52,7 @@ const ReportsPage = ({ user, onLogout }) => {
           setSales(filterByDateRange(data));
         }
       } else if (reportType === 'purchases') {
-        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, {
+        const response = await fetch(`${API}/purchases`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {

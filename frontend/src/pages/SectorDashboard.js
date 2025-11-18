@@ -58,11 +58,11 @@ const SectorDashboard = ({ user, onLogout }) => {
 
       // Fetch all required data in parallel
       const [repairsRes, lowStockRes, productsRes, purchasesRes, topProductsRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/repairs`, { headers }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products/low-stock`, { headers }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/products`, { headers }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/purchases`, { headers }),
-        fetch(`${process.env.REACT_APP_BACKEND_URL}/api/reports/top-products?limit=5`, { headers })
+        fetch(`${API}/repairs`, { headers }),
+        fetch(`${API}/products/low-stock`, { headers }),
+        fetch(`${API}/products`, { headers }),
+        fetch(`${API}/purchases`, { headers }),
+        fetch(`${API}/reports/top-products?limit=5`, { headers })
       ]);
 
       if (repairsRes.ok && lowStockRes.ok && productsRes.ok && purchasesRes.ok && topProductsRes.ok) {
