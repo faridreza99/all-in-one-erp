@@ -2602,32 +2602,33 @@ async def delete_announcement(
 #         logger.error(f"Error fetching notifications: {str(e)}")
 #         raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.patch("/notifications/{announcement_id}/read")
-async def mark_notification_as_read(
-    announcement_id: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Mark a notification as read for the current tenant.
-    """
-    tenant_id = current_user.get("tenant_id")
-    if not tenant_id:
-        raise HTTPException(status_code=400, detail="Tenant ID required")
-    
-    try:
-        updated = await NotificationService.mark_as_read(announcement_id, tenant_id)
-        if not updated:
-            raise HTTPException(status_code=404, detail="Notification not found")
-        
-        return {
-            "success": True,
-            "message": "Notification marked as read"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error marking notification as read: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# DEPRECATED: Merged with unified notifications endpoint below (line 4597)
+# @api_router.patch("/notifications/{announcement_id}/read")
+# async def mark_notification_as_read(
+#     announcement_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """
+#     Mark a notification as read for the current tenant.
+#     """
+#     tenant_id = current_user.get("tenant_id")
+#     if not tenant_id:
+#         raise HTTPException(status_code=400, detail="Tenant ID required")
+#     
+#     try:
+#         updated = await NotificationService.mark_as_read(announcement_id, tenant_id)
+#         if not updated:
+#             raise HTTPException(status_code=404, detail="Notification not found")
+#         
+#         return {
+#             "success": True,
+#             "message": "Notification marked as read"
+#         }
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error marking notification as read: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.patch("/notifications/{announcement_id}/dismiss")
 async def dismiss_notification(
