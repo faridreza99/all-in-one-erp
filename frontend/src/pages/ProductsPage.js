@@ -57,9 +57,17 @@ const ProductsPage = ({ user, onLogout }) => {
     batch_number: "",
     expiry_date: "",
     imei: "",
+    serial_number: "",
     warranty_months: "",
     branch_id: "",
   });
+
+  // Generate unique serial number
+  const generateSerialNumber = () => {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `SN-${timestamp}-${random}`;
+  };
 
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -130,6 +138,7 @@ const ProductsPage = ({ user, onLogout }) => {
         batch_number: formData.batch_number,
         expiry_date: formData.expiry_date,
         imei: formData.imei,
+        serial_number: formData.serial_number,
         branch_id: formData.branch_id,
         // Convert numeric fields from strings to numbers
         price:
@@ -199,6 +208,8 @@ const ProductsPage = ({ user, onLogout }) => {
 
   const handleEdit = (product) => {
     setEditingProduct(product);
+    // Auto-generate serial number if product doesn't have one
+    const serialNumber = product.serial_number || generateSerialNumber();
     setFormData({
       name: product.name || "",
       sku: product.sku || "",
@@ -220,6 +231,7 @@ const ProductsPage = ({ user, onLogout }) => {
       batch_number: product.batch_number || "",
       expiry_date: product.expiry_date || "",
       imei: product.imei || "",
+      serial_number: serialNumber,
       warranty_months:
         product.warranty_months !== null &&
         product.warranty_months !== undefined
@@ -246,10 +258,18 @@ const ProductsPage = ({ user, onLogout }) => {
       batch_number: "",
       expiry_date: "",
       imei: "",
+      serial_number: "",
       warranty_months: "",
       branch_id: "",
     });
     setEditingProduct(null);
+  };
+
+  // Open modal for new product with auto-generated serial number
+  const handleAddNewProduct = () => {
+    resetForm();
+    setFormData(prev => ({ ...prev, serial_number: generateSerialNumber() }));
+    setShowModal(true);
   };
 
   const filteredProducts = products.filter((p) => {
@@ -427,8 +447,7 @@ const ProductsPage = ({ user, onLogout }) => {
           <button
             onClick={() => {
               if (activeTab === "products") {
-                resetForm();
-                setShowModal(true);
+                handleAddNewProduct();
               } else if (activeTab === "categories") {
                 resetCategoryForm();
                 setShowCategoryModal(true);
@@ -952,6 +971,33 @@ const ProductsPage = ({ user, onLogout }) => {
                     />
                     <p className="text-xs text-slate-400 mt-1">
                       Leave 0 or empty for no warranty
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Serial Number
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.serial_number}
+                        onChange={(e) =>
+                          setFormData({ ...formData, serial_number: e.target.value })
+                        }
+                        placeholder="Auto-generated or manual entry"
+                        className="flex-1 px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, serial_number: generateSerialNumber() })}
+                        className="px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium hover:from-blue-700 hover:to-cyan-700 transition-all whitespace-nowrap"
+                        title="Generate unique serial number"
+                      >
+                        Generate
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Click Generate to auto-create a unique serial number
                     </p>
                   </div>
                 </div>
