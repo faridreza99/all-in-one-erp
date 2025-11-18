@@ -293,16 +293,20 @@ async def register_claim(
     # Resolve tenant database from validated token
     from db_connection import resolve_tenant_db, get_admin_db
     
-    # Get tenant info from admin database
+    # Get tenant info from admin database registry
     admin_db = get_admin_db()
-    tenant_doc = await admin_db.tenants.find_one(
-        {"tenant_id": token_tenant_id},
-        {"_id": 0, "tenant_slug": 1}
+    tenant_doc = await admin_db.tenants_registry.find_one(
+        {"tenant_id": token_tenant_id, "status": "active"},
+        {"_id": 0}
     )
     if not tenant_doc:
         raise HTTPException(status_code=404, detail="Tenant not found")
     
-    tenant_db = await resolve_tenant_db(tenant_doc['tenant_slug'])
+    tenant_slug = tenant_doc.get('slug')
+    if not tenant_slug:
+        raise HTTPException(status_code=500, detail="Tenant slug not found")
+    
+    tenant_db = await resolve_tenant_db(tenant_slug)
     
     # Fetch warranty with validated tenant_id
     warranty = await tenant_db.warranty_records.find_one(
