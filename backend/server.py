@@ -4489,7 +4489,7 @@ async def get_notifications(
             # Continue to fetch announcements even if tenant DB fails
             target_db = None
     
-    if target_db:
+    if target_db is not None:
         query = {"tenant_id": tenant_id}
         
         # Role-based filtering
@@ -4611,7 +4611,7 @@ async def mark_notification_read(
             logger.error(f"❌ Failed to resolve tenant DB for notification read: {resolve_error}")
             target_db = None
     
-    if target_db:
+    if target_db is not None:
         result = await target_db.notifications.update_one(
             {"id": notification_id, "tenant_id": tenant_id},
             {
