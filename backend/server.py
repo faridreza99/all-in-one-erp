@@ -564,7 +564,7 @@ class Purchase(BaseDBModel):
     items: List[Dict[str, Any]]
     total_amount: float
     payment_status: str
-    date: str
+    date: Optional[str] = None
     notes: Optional[str] = None
     status: str = "completed"
     stock_status: str = "pending"
