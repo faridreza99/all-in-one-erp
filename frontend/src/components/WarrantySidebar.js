@@ -4,24 +4,24 @@ import { Home, Shield, Mail, X } from 'lucide-react';
 const WarrantySidebar = ({ isOpen, onClose }) => {
   return (
     <>
-      {/* Overlay */}
+      {/* Mobile Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 lg:hidden"
           onClick={onClose}
         />
       )}
       
-      {/* Drawer */}
+      {/* Sidebar - Always visible on desktop, drawer on mobile */}
       <div 
-        className={`fixed left-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-r border-white/20 p-6 z-50 flex flex-col transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed left-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-r border-white/20 p-6 z-50 flex flex-col transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Close Button */}
+        {/* Close Button - Only on mobile */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
+          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all lg:hidden"
         >
           <X className="w-5 h-5" />
         </button>

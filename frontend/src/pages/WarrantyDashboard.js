@@ -119,13 +119,13 @@ const WarrantyDashboard = () => {
   return (
     <>
       <WarrantySidebar isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <div className="p-6 space-y-6">
+      <div className="lg:ml-80 p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="p-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg"
+              className="p-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg lg:hidden"
             >
               <Menu className="w-6 h-6 text-white" />
             </button>
