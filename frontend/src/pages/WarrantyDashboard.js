@@ -7,6 +7,7 @@ import {
   CheckCircle, XCircle, Package, TrendingUp, ChevronRight 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import WarrantySidebar from '../components/WarrantySidebar';
 
 const WarrantyDashboard = () => {
   const navigate = useNavigate();
@@ -115,19 +116,21 @@ const WarrantyDashboard = () => {
   );
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600">
-            <Shield className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-white">Warranty Management</h1>
-            <p className="text-gray-400">Monitor and manage product warranties</p>
+    <>
+      <WarrantySidebar />
+      <div className="lg:ml-64 p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white">Warranty Management</h1>
+              <p className="text-gray-400">Monitor and manage product warranties</p>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Stats Grid */}
       {stats && (
@@ -340,7 +343,8 @@ const WarrantyDashboard = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
