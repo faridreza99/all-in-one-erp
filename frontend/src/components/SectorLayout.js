@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import axios from "axios";
 import {
   LayoutDashboard,
@@ -31,7 +30,7 @@ import {
 } from "lucide-react";
 import { getSectorModules, MODULE_ROUTES } from "../config/sectorModules";
 import NotificationBell from "./NotificationBell";
-import { API } from "../App"; // make sure this points to your API base
+import { API } from "../App";
 import { useSidebar } from "../contexts/SidebarContext";
 
 const ICON_MAP = {
@@ -75,7 +74,6 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(initialIsMobile);
 
-  // Branding pulled from `${API}/settings`
   const [branding, setBranding] = useState({
     name: "Smart Business ERP",
     logo: null,
@@ -85,13 +83,12 @@ const SectorLayout = ({ children, user, onLogout }) => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (mobile && isMobileMenuOpen) setIsMobileMenuOpen(false); // auto-close on mobile
+      if (mobile && isMobileMenuOpen) setIsMobileMenuOpen(false);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [isMobileMenuOpen]);
 
-  // Fetch branding: expects fields like { website_name, logo_url } (sample you sent)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -100,14 +97,12 @@ const SectorLayout = ({ children, user, onLogout }) => {
           withCredentials: true,
         });
         const raw = data?.data ?? data ?? {};
-        console.log("Branding data:", raw);
         const name =
           raw.website_name ||
           raw.app_name ||
           raw.site_name ||
           "Smart Business ERP";
 
-        // handle relative logo path
         const rawLogo = raw.logo_url || raw.app_logo || raw.logo || null;
         const logo =
           rawLogo && typeof rawLogo === "string"
@@ -129,7 +124,6 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const businessType = user?.business_type || "pharmacy";
   const sectorConfig = getSectorModules(businessType);
 
-  // Create all menu items
   const allMenuItems = sectorConfig.modules.map((module) => {
     const route = MODULE_ROUTES[module];
     const Icon = ICON_MAP[module] || Package;
@@ -141,66 +135,70 @@ const SectorLayout = ({ children, user, onLogout }) => {
     };
   });
 
-  // Filter menu items based on user's allowed_routes
   const menuItems = (() => {
-    // Super admin and tenant admin see everything
     if (user?.role === 'super_admin' || user?.role === 'tenant_admin') {
       return allMenuItems;
     }
 
-    // Other roles: filter by allowed_routes
     const allowedRoutes = user?.allowed_routes || [];
     return allMenuItems.filter((item) => {
-      // Always show dashboard
       if (item.module === 'dashboard') return true;
-      
-      // Check if module is in allowed_routes
       return allowedRoutes.includes(item.module);
     });
   })();
 
-  // Layout/scroll behavior
-  const sidebarWidth = isMobile
-    ? isMobileMenuOpen
-      ? 256
-      : 0
-    : isCollapsed
-      ? 80
-      : 256;
-  const sidebarX = isMobile && !isMobileMenuOpen ? -256 : 0;
-  const contentMarginLeft = isMobile ? 0 : isCollapsed ? 80 : 256;
-  const sidebarScrollClass = "overflow-y-auto scrollbar-hide";
+  const isActive = (path, module) => {
+    if (module === "dashboard") {
+      return location.pathname === path || location.pathname === `/${businessType}`;
+    }
+    return location.pathname === path;
+  };
+
+  const contentMarginLeft = isMobile ? 0 : isCollapsed ? 80 : 288;
 
   return (
     <div className="min-h-screen gradient-bg">
-      {/* Mobile backdrop */}
+      {/* Mobile Overlay */}
       {isMobile && isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <motion.div
-        initial={false}
-        animate={{ x: sidebarX, width: sidebarWidth }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
-        className={`fixed left-0 top-0 h-full sidebar z-50 ${sidebarScrollClass}`}
+      <div
+        className={`fixed left-0 top-0 bottom-0 z-50 transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        } ${isCollapsed ? 'lg:w-20' : 'w-72'}`}
+        style={{
+          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.3)'
+        }}
       >
-        <div
-          className={`h-full flex flex-col ${!isMobile && !isCollapsed ? "px-4 py-4" : "px-0 py-3"}`}
+        {/* Close Button - Mobile Only */}
+        <button
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="absolute top-4 right-4 p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all lg:hidden z-50"
         >
-          {/* Header */}
-          <div
-            className={`${
-              !isMobile && !isCollapsed
-                ? "flex items-center justify-between"
-                : "flex items-center justify-center"
-            } mb-6 flex-shrink-0`}
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Desktop Toggle Button */}
+        {!isMobile && (
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-8 w-7 h-7 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 flex items-center justify-center text-white shadow-lg border-2 border-slate-900 transition-all hover:scale-110 z-50"
           >
-            {!isMobile && !isCollapsed ? (
-              <div className="flex items-center gap-3 px-2">
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
+
+        <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
+          {/* Header/Logo */}
+          <div className={`border-b border-slate-700/50 ${isCollapsed ? 'p-4' : 'p-6'}`}>
+            {!isCollapsed ? (
+              <div className="flex items-center gap-3">
                 {branding.logo ? (
                   <img
                     src={branding.logo}
@@ -212,76 +210,43 @@ const SectorLayout = ({ children, user, onLogout }) => {
                     }}
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                     <Building2 className="w-7 h-7 text-white" />
                   </div>
                 )}
                 <div>
-                  <h2 className="font-bold text-white text-base leading-tight">
+                  <h2 className="text-white font-bold text-lg leading-tight">
                     {branding.name}
                   </h2>
+                  <p className="text-slate-400 text-xs">{businessType}</p>
                 </div>
-              </div>
-            ) : isMobile ? (
-              // Mobile: show logo and close button
-              <div className="flex items-center justify-between w-full px-4">
-                <div className="flex items-center gap-3">
-                  {branding.logo ? (
-                    <img
-                      src={branding.logo}
-                      alt={branding.name}
-                      crossOrigin="anonymous"
-                      className="w-10 h-10 rounded-lg object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <Building2 className="w-6 h-6 text-white" />
-                  )}
-                  <h2 className="font-bold text-white text-sm">
-                    {branding.name}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
             ) : (
-              // Desktop collapsed: compact logo
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex items-center justify-center border border-white/10 mx-auto">
+              <div className="flex justify-center">
                 {branding.logo ? (
                   <img
                     src={branding.logo}
                     alt="logo"
                     crossOrigin="anonymous"
-                    className="w-full h-full object-cover"
+                    className="w-12 h-12 rounded-xl object-cover shadow-lg border border-white/10 bg-white"
                     onError={(e) => {
-                      e.currentTarget.replaceWith(
-                        document.createElement("div"),
-                      );
+                      e.currentTarget.style.display = "none";
                     }}
                   />
                 ) : (
-                  <Building2 className="w-5 h-5 text-white opacity-90" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Building2 className="w-7 h-7 text-white" />
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Nav */}
-          <nav className="overflow-y-auto scrollbar-hide flex-1 space-y-2">
+          {/* Main Navigation */}
+          <div className="flex-1 py-4">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                location.pathname === item.path ||
-                (item.module === "dashboard" &&
-                  location.pathname === `/${businessType}`);
-              
-              const isDesktopCollapsed = !isMobile && isCollapsed;
+              const active = isActive(item.path, item.module);
 
               return (
                 <Link
@@ -289,58 +254,41 @@ const SectorLayout = ({ children, user, onLogout }) => {
                   to={item.path}
                   onClick={() => isMobile && setIsMobileMenuOpen(false)}
                 >
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    transition={{ duration: 0.2 }}
-                    className={`
-                      flex items-center w-full rounded-xl hover:bg-white/10
-                      ${isDesktopCollapsed ? "justify-center h-12" : "px-3 py-2 gap-3 justify-start"}
-                      sidebar-item ${isActive ? "active" : ""}
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60
-                    `}
-                    data-testid={`menu-${item.label.toLowerCase()}`}
-                    title={isDesktopCollapsed ? item.label : undefined}
+                  <button
+                    className={`w-full flex items-center gap-3 transition-all duration-200 ${
+                      isCollapsed ? 'px-4 py-3 justify-center' : 'px-6 py-3'
+                    } ${
+                      active
+                        ? 'bg-blue-600 text-white font-semibold mx-3 rounded-lg'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50 mx-3 rounded-lg'
+                    }`}
+                    title={isCollapsed ? item.label : ''}
                   >
-                    <motion.span className="grid place-items-center">
-                      <Icon className="w-5 h-5 mx-auto" />
-                    </motion.span>
-                    {!isDesktopCollapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -6 }}
-                        transition={{ duration: 0.15 }}
-                        className="truncate"
-                      >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </motion.div>
+                    <Icon className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                    {!isCollapsed && <span className="text-sm truncate">{item.label}</span>}
+                  </button>
                 </Link>
               );
             })}
-          </nav>
+          </div>
 
-          {/* Footer */}
-          <div className="mt-4 pt-4 border-t border-slate-700/50 flex-shrink-0 space-y-2">
+          {/* Bottom Section */}
+          <div className="border-t border-slate-700/50 py-4">
             <Link
               to={`/${businessType}/settings`}
               onClick={() => isMobile && setIsMobileMenuOpen(false)}
             >
-              <motion.div
-                whileHover={{ scale: 1.01 }}
-                transition={{ duration: 0.2 }}
-                className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
-                  !isMobile && isCollapsed
-                    ? "justify-center h-12"
-                    : "px-3 py-2 gap-3 justify-start"
-                } ${location.pathname === `/${businessType}/settings` ? "active" : ""}`}
-                data-testid="settings-button"
-                title={!isMobile && isCollapsed ? "Settings" : undefined}
+              <button
+                className={`w-full flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-200 ${
+                  isCollapsed ? 'px-4 py-3 justify-center' : 'px-6 py-3'
+                } mx-3 rounded-lg ${
+                  location.pathname === `/${businessType}/settings` ? 'bg-blue-600 text-white' : ''
+                }`}
+                title={isCollapsed ? 'Settings' : ''}
               >
-                <Settings className="w-5 h-5 mx-auto" />
-                {(!isMobile && !isCollapsed || isMobile) && <span>Settings</span>}
-              </motion.div>
+                <Settings className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                {!isCollapsed && <span className="text-sm">Settings</span>}
+              </button>
             </Link>
 
             {(user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
@@ -348,67 +296,40 @@ const SectorLayout = ({ children, user, onLogout }) => {
                 to={`/${businessType}/user-management`}
                 onClick={() => isMobile && setIsMobileMenuOpen(false)}
               >
-                <motion.div
-                  whileHover={{ scale: 1.01 }}
-                  transition={{ duration: 0.2 }}
-                  className={`sidebar-item w-full flex items-center rounded-xl hover:bg-white/10 ${
-                    !isMobile && isCollapsed
-                      ? "justify-center h-12"
-                      : "px-3 py-2 gap-3 justify-start"
-                  } ${location.pathname === `/${businessType}/user-management` ? "active" : ""}`}
-                  data-testid="user-management-button"
-                  title={!isMobile && isCollapsed ? "User Management" : undefined}
+                <button
+                  className={`w-full flex items-center gap-3 text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-200 ${
+                    isCollapsed ? 'px-4 py-3 justify-center' : 'px-6 py-3'
+                  } mx-3 rounded-lg ${
+                    location.pathname === `/${businessType}/user-management` ? 'bg-blue-600 text-white' : ''
+                  }`}
+                  title={isCollapsed ? 'User Management' : ''}
                 >
-                  <Users className="w-5 h-5 mx-auto" />
-                  {(!isMobile && !isCollapsed || isMobile) && <span>User Management</span>}
-                </motion.div>
+                  <Users className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                  {!isCollapsed && <span className="text-sm">User Management</span>}
+                </button>
               </Link>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
+            <button
               onClick={onLogout}
-              className={`sidebar-item w-full text-left flex items-center rounded-xl hover:bg-white/10 ${
-                !isMobile && isCollapsed
-                  ? "justify-center h-12"
-                  : "px-3 py-2 gap-3 justify-start"
-              }`}
-              data-testid="logout-button"
-              title={!isMobile && isCollapsed ? "Logout" : undefined}
+              className={`w-full flex items-center gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 ${
+                isCollapsed ? 'px-4 py-3 justify-center' : 'px-6 py-3'
+              } mx-3 rounded-lg`}
+              title={isCollapsed ? 'Logout' : ''}
             >
-              <LogOut className="w-5 h-5 mx-auto" />
-              {(!isMobile && !isCollapsed || isMobile) && <span>Logout</span>}
-            </motion.button>
+              <LogOut className={`flex-shrink-0 ${isCollapsed ? 'w-6 h-6' : 'w-5 h-5'}`} />
+              {!isCollapsed && <span className="text-sm">Logout</span>}
+            </button>
           </div>
         </div>
+      </div>
 
-      </motion.div>
-
-      {/* Desktop Toggle Button - Positioned on sidebar edge */}
-      {!isMobile && (
-        <motion.button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          animate={{ left: isCollapsed ? '68px' : '244px' }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="fixed top-20 z-[60] h-10 w-10 rounded-full border-2 border-white/30 bg-gradient-to-br from-indigo-600 to-purple-600 shadow-2xl hover:from-indigo-500 hover:to-purple-500 hover:scale-110 transition-all duration-200 flex items-center justify-center cursor-pointer"
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-6 w-6 text-white" />
-          ) : (
-            <ChevronLeft className="h-6 w-6 text-white" />
-          )}
-        </motion.button>
-      )}
-
-      {/* Main */}
-      <motion.div
-        initial={false}
-        animate={{ marginLeft: contentMarginLeft }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
-        className="min-h-screen"
+      {/* Main Content */}
+      <div
+        className="min-h-screen transition-all duration-300"
+        style={{ marginLeft: `${contentMarginLeft}px` }}
       >
+        {/* Mobile Header */}
         {isMobile && !isMobileMenuOpen && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 p-4">
             <div className="flex items-center justify-between">
@@ -423,6 +344,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
           </div>
         )}
 
+        {/* Desktop Header */}
         {!isMobile && (
           <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-lg border-b border-slate-700/50 px-6 py-3">
             <div className="flex items-center justify-end">
@@ -432,7 +354,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
         )}
 
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
-      </motion.div>
+      </div>
     </div>
   );
 };
