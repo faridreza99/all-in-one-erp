@@ -21,6 +21,13 @@ const WarrantyDetails = () => {
     notes: '',
     estimated_cost: ''
   });
+  const [showSupplierActionForm, setShowSupplierActionForm] = useState(false);
+  const [supplierActionData, setSupplierActionData] = useState({
+    action_type: 'replacement_requested',
+    notes: '',
+    replacement_serial: '',
+    refund_amount: ''
+  });
 
   useEffect(() => {
     fetchWarrantyDetails();
@@ -88,6 +95,45 @@ const WarrantyDetails = () => {
     } catch (error) {
       console.error('Failed to complete inspection:', error);
       toast.error(error.response?.data?.detail || 'Failed to complete inspection');
+    }
+  };
+
+  const handleSupplierAction = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      const actionDetails = {};
+      
+      if (supplierActionData.action_type === 'replacement_sent' && supplierActionData.replacement_serial) {
+        actionDetails.replacement_serial = supplierActionData.replacement_serial;
+      }
+      if (supplierActionData.action_type === 'refund_issued' && supplierActionData.refund_amount) {
+        actionDetails.refund_amount = parseFloat(supplierActionData.refund_amount);
+      }
+      
+      await axios.post(
+        `${API}/warranty/${warranty_id}/supplier-action`,
+        {
+          action_type: supplierActionData.action_type,
+          action_details: actionDetails,
+          notes: supplierActionData.notes || null
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success('Supplier action recorded successfully');
+      setShowSupplierActionForm(false);
+      setSupplierActionData({
+        action_type: 'replacement_requested',
+        notes: '',
+        replacement_serial: '',
+        refund_amount: ''
+      });
+      fetchWarrantyDetails();
+    } catch (error) {
+      console.error('Failed to record supplier action:', error);
+      toast.error(error.response?.data?.detail || 'Failed to record supplier action');
     }
   };
 
@@ -332,6 +378,118 @@ const WarrantyDetails = () => {
               <button
                 type="button"
                 onClick={() => setShowInspectionForm(false)}
+                className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg hover:bg-white/20 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Supplier Action Section */}
+      {warranty.current_status === 'declined' && !showSupplierActionForm && (
+        <div className="bg-orange-500/10 backdrop-blur-sm rounded-xl border border-orange-500/30 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                <Package className="w-5 h-5 text-orange-400" />
+                Supplier Action Required
+              </h3>
+              <p className="text-gray-400 text-sm">
+                Inspection found it's the supplier's fault. Record the action taken with the supplier.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSupplierActionForm(true)}
+              className="bg-gradient-to-r from-orange-600 to-amber-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-700 hover:to-amber-700 transition-all"
+            >
+              Record Supplier Action
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Action Form */}
+      {showSupplierActionForm && (
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-orange-400" />
+            Record Supplier Action
+          </h3>
+          <form onSubmit={handleSupplierAction} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Action Type *
+              </label>
+              <select
+                value={supplierActionData.action_type}
+                onChange={(e) => setSupplierActionData({ ...supplierActionData, action_type: e.target.value })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-orange-500"
+                required
+              >
+                <option value="replacement_requested">Replacement Requested from Supplier</option>
+                <option value="replacement_sent">Replacement Sent by Supplier</option>
+                <option value="refund_requested">Refund Requested from Supplier</option>
+                <option value="refund_issued">Refund Issued by Supplier</option>
+                <option value="claim_declined">Supplier Declined Claim</option>
+              </select>
+            </div>
+
+            {supplierActionData.action_type === 'replacement_sent' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Replacement Serial Number
+                </label>
+                <input
+                  type="text"
+                  value={supplierActionData.replacement_serial}
+                  onChange={(e) => setSupplierActionData({ ...supplierActionData, replacement_serial: e.target.value })}
+                  placeholder="Enter replacement product serial number..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+
+            {supplierActionData.action_type === 'refund_issued' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Refund Amount (৳)
+                </label>
+                <input
+                  type="number"
+                  value={supplierActionData.refund_amount}
+                  onChange={(e) => setSupplierActionData({ ...supplierActionData, refund_amount: e.target.value })}
+                  placeholder="0.00"
+                  step="0.01"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Notes
+              </label>
+              <textarea
+                value={supplierActionData.notes}
+                onChange={(e) => setSupplierActionData({ ...supplierActionData, notes: e.target.value })}
+                placeholder="Add any relevant notes about the supplier interaction..."
+                rows="3"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                className="bg-gradient-to-r from-orange-600 to-amber-600 text-white px-6 py-2 rounded-lg font-semibold hover:from-orange-700 hover:to-amber-700 transition-all"
+              >
+                Submit Supplier Action
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSupplierActionForm(false)}
                 className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg hover:bg-white/20 transition-all"
               >
                 Cancel
