@@ -69,7 +69,7 @@ class Announcement(BaseModel):
     custom_filter: Optional[Dict[str, Any]] = None  # MongoDB query for advanced filtering
     
     # Delivery settings
-    channels: List[NotificationChannel] = [NotificationChannel.IN_APP]
+    channels: List[NotificationChannel] = Field(default_factory=lambda: [NotificationChannel.IN_APP])
     priority: int = Field(default=0, ge=0, le=10)  # 0=low, 10=critical
     
     # Scheduling
@@ -204,7 +204,7 @@ class CreateAnnouncementRequest(BaseModel):
     audience_type: AudienceType = AudienceType.ALL_TENANTS
     target_sectors: Optional[List[str]] = None
     target_tenant_ids: Optional[List[str]] = None
-    channels: List[NotificationChannel] = [NotificationChannel.IN_APP]
+    channels: List[NotificationChannel] = Field(default_factory=lambda: [NotificationChannel.IN_APP])
     priority: int = Field(default=0, ge=0, le=10)
     expires_at: Optional[datetime] = None
 

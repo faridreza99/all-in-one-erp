@@ -252,7 +252,7 @@ class Tenant(BaseDBModel):
     name: str
     email: EmailStr
     business_type: BusinessType
-    modules_enabled: List[str] = []
+    modules_enabled: List[str] = Field(default_factory=list)
     is_active: bool = True
     tenant_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -553,14 +553,24 @@ class PurchaseCreate(BaseModel):
     items: List[Dict[str, Any]]
     total_amount: float
     payment_status: str = "pending"
+    date: Optional[str] = None
+    notes: Optional[str] = None
 
 class Purchase(BaseDBModel):
     tenant_id: str
     purchase_number: str
     supplier_id: str
+    supplier_name: Optional[str] = None
     items: List[Dict[str, Any]]
     total_amount: float
     payment_status: str
+    date: str
+    notes: Optional[str] = None
+    status: str = "completed"
+    stock_status: str = "pending"
+    receipt_files: List[Dict[str, Any]] = Field(default_factory=list)
+    supplier_warranty_refs: List[str] = Field(default_factory=list)
+    idempotency_key: Optional[str] = None
 
 class DoctorCreate(BaseModel):
     name: str
@@ -568,7 +578,7 @@ class DoctorCreate(BaseModel):
     phone: str
     email: Optional[str] = None
     consultation_fee: float
-    available_days: List[str] = []
+    available_days: List[str] = Field(default_factory=list)
 
 class Doctor(BaseDBModel):
     tenant_id: str
@@ -597,7 +607,7 @@ class Patient(BaseDBModel):
     email: Optional[str] = None
     address: Optional[str] = None
     blood_group: Optional[str] = None
-    medical_history: List[str] = []
+    medical_history: List[str] = Field(default_factory=list)
 
 class VehicleCreate(BaseModel):
     owner_name: str
@@ -613,7 +623,7 @@ class Vehicle(BaseDBModel):
     vehicle_number: str
     vehicle_model: str
     vehicle_type: str
-    service_history: List[str] = []
+    service_history: List[str] = Field(default_factory=list)
 
 class PropertyCreate(BaseModel):
     property_name: str
@@ -654,7 +664,7 @@ class OfferCreate(BaseModel):
     discount_percentage: float
     start_date: str
     end_date: str
-    applicable_categories: List[str] = []
+    applicable_categories: List[str] = Field(default_factory=list)
 
 class Offer(BaseDBModel):
     tenant_id: str
@@ -759,7 +769,7 @@ class CustomOrder(BaseDBModel):
     balance_amount: float
     delivery_date: str
     status: str = "pending"
-    installments: List[Dict[str, Any]] = []
+    installments: List[Dict[str, Any]] = Field(default_factory=list)
 
 # ========== WHOLESALE MODELS ==========
 class TierPricingCreate(BaseModel):
@@ -899,7 +909,7 @@ class Component(BaseDBModel):
     price: float
     stock: int
     supplier_id: Optional[str] = None
-    serial_numbers: List[str] = []
+    serial_numbers: List[str] = Field(default_factory=list)
 
 class ComputerProductCreate(BaseModel):
     name: str
@@ -914,7 +924,7 @@ class ComputerProductCreate(BaseModel):
     warranty_months: int
     warranty_expiry_date: str
     supplier_id: str
-    components: List[str] = []  # Component IDs if assembled
+    components: List[str] = Field(default_factory=list)  # Component IDs if assembled
 
 class ComputerProduct(BaseDBModel):
     tenant_id: str
@@ -930,7 +940,7 @@ class ComputerProduct(BaseDBModel):
     warranty_months: int
     warranty_expiry_date: str
     supplier_id: str
-    components: List[str] = []
+    components: List[str] = Field(default_factory=list)
     status: str = "in_stock"  # in_stock, sold, in_repair
 
 class JobCardCreate(BaseModel):
@@ -955,7 +965,7 @@ class JobCard(BaseDBModel):
     estimated_cost: float
     actual_cost: float = 0
     technician_id: Optional[str] = None
-    parts_used: List[Dict[str, Any]] = []
+    parts_used: List[Dict[str, Any]] = Field(default_factory=list)
     status: str = "pending"  # pending, in_progress, completed, delivered, cancelled
     received_date: str
     completion_date: Optional[str] = None
@@ -981,7 +991,7 @@ class DeviceHistory(BaseDBModel):
     purchase_date: str
     warranty_expiry: str
     sale_id: Optional[str] = None
-    repair_history: List[str] = []  # Job card IDs
+    repair_history: List[str] = Field(default_factory=list)  # Job card IDs
 
 class ShipmentCreate(BaseModel):
     shipment_number: str
@@ -5299,10 +5309,22 @@ async def create_purchase(
     count = await target_db.purchases.count_documents({"tenant_id": current_user["tenant_id"]})
     purchase_number = f"PO-{count + 1:06d}"
     
+    # Get supplier info
+    supplier = await target_db.suppliers.find_one(
+        {"id": purchase_data.supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    purchase_dict = purchase_data.model_dump()
+    # Set date to current date if not provided
+    if not purchase_dict.get("date"):
+        purchase_dict["date"] = datetime.now(timezone.utc).isoformat()
+    
     purchase = Purchase(
         tenant_id=current_user["tenant_id"],
         purchase_number=purchase_number,
-        **purchase_data.model_dump()
+        supplier_name=supplier.get("name") if supplier else "Unknown",
+        **purchase_dict
     )
     
     doc = purchase.model_dump()
@@ -5340,6 +5362,334 @@ async def get_purchases(
             purchase['updated_at'] = datetime.fromisoformat(purchase['updated_at'])
     
     return purchases
+
+@api_router.post("/purchases/{purchase_id}/receipts")
+async def upload_purchase_receipt(
+    purchase_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload a purchase receipt/invoice image"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Verify purchase exists
+    purchase = await target_db.purchases.find_one(
+        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    
+    # Validate file type
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (10MB max for receipts)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File size must be less than 10MB"
+        )
+    
+    # Upload to Cloudinary if configured
+    if cloudinary_url:
+        try:
+            resource_type = "image" if file_ext != ".pdf" else "raw"
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                folder=f"erp/{current_user['tenant_id']}/purchase_receipts",
+                public_id=f"receipt_{purchase_id}_{secrets.token_hex(8)}",
+                resource_type=resource_type,
+                type="authenticated"
+            )
+            
+            public_id = upload_result.get("public_id")
+            file_url = cloudinary.CloudinaryImage(public_id).build_url(
+                secure=True,
+                type="authenticated",
+                sign_url=True
+            )
+            filename = file.filename
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to Cloudinary: {str(e)}"
+            )
+    else:
+        # Fallback to local storage
+        secure_filename = f"receipt_{purchase_id}_{secrets.token_hex(8)}{file_ext}"
+        upload_dir = Path(__file__).parent / "static" / "uploads" / "purchase_receipts"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / secure_filename
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        file_url = f"/uploads/purchase_receipts/{secure_filename}"
+        filename = file.filename
+    
+    # Add receipt to purchase record
+    receipt_metadata = {
+        "url": file_url,
+        "filename": filename,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_by": current_user.get("id")
+    }
+    
+    await target_db.purchases.update_one(
+        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$push": {"receipt_files": receipt_metadata},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    return {"success": True, "receipt": receipt_metadata}
+
+@api_router.post("/purchases/{purchase_id}/apply-stock")
+async def apply_purchase_to_stock(
+    purchase_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Apply purchased items to inventory (idempotent)"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Get purchase with lock check
+    purchase = await target_db.purchases.find_one(
+        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    
+    # Idempotency check
+    if purchase.get("stock_status") == "applied":
+        return {
+            "success": True,
+            "message": "Stock already applied",
+            "stock_status": "applied"
+        }
+    
+    # Generate idempotency key
+    idempotency_key = str(uuid.uuid4())
+    
+    # Update stock for each item
+    items_updated = []
+    try:
+        for item in purchase.get("items", []):
+            product_id = item.get("product_id")
+            quantity = item.get("quantity", 0)
+            
+            if not product_id or quantity <= 0:
+                continue
+            
+            # Update product stock
+            result = await target_db.products.update_one(
+                {"id": product_id, "tenant_id": current_user["tenant_id"]},
+                {
+                    "$inc": {"stock": quantity},
+                    "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+            
+            if result.modified_count > 0:
+                items_updated.append({
+                    "product_id": product_id,
+                    "quantity_added": quantity
+                })
+        
+        # Mark purchase as stock applied
+        await target_db.purchases.update_one(
+            {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+            {
+                "$set": {
+                    "stock_status": "applied",
+                    "idempotency_key": idempotency_key,
+                    "stock_applied_at": datetime.now(timezone.utc).isoformat(),
+                    "stock_applied_by": current_user.get("id"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        return {
+            "success": True,
+            "message": f"Successfully added {len(items_updated)} items to stock",
+            "items_updated": items_updated,
+            "stock_status": "applied"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error applying stock: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to apply stock: {str(e)}"
+        )
+
+@api_router.post("/purchases/{purchase_id}/supplier-warranties")
+async def create_supplier_warranty(
+    purchase_id: str,
+    warranty_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a supplier warranty record for a purchase item"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Verify purchase exists
+    purchase = await target_db.purchases.find_one(
+        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    
+    # Generate warranty code
+    count = await target_db.supplier_warranty_records.count_documents({"tenant_id": current_user["tenant_id"]})
+    warranty_code = f"SW-{datetime.now().year}-{count + 1:07d}"
+    
+    # Parse coverage dates
+    coverage_start = warranty_data.get("coverage_start_date") or purchase.get("date") or datetime.now(timezone.utc).isoformat()
+    if isinstance(coverage_start, str):
+        coverage_start = datetime.fromisoformat(coverage_start.replace('Z', '+00:00'))
+    
+    warranty_months = warranty_data.get("warranty_period_months", 12)
+    coverage_expiry = coverage_start + timedelta(days=warranty_months * 30)
+    
+    # Get supplier info from purchase
+    supplier = await target_db.suppliers.find_one(
+        {"id": purchase.get("supplier_id"), "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    supplier_name = supplier.get("name") if supplier else purchase.get("supplier_name", "Unknown Supplier")
+    
+    # Create supplier warranty record
+    supplier_warranty = {
+        "id": str(uuid.uuid4()),
+        "tenant_id": current_user["tenant_id"],
+        "warranty_code": warranty_code,
+        "purchase_id": purchase_id,
+        "purchase_item_id": warranty_data.get("purchase_item_id"),
+        "supplier_id": purchase.get("supplier_id"),
+        "supplier_name": supplier_name,
+        "product_id": warranty_data.get("product_id"),
+        "product_name": warranty_data.get("product_name"),
+        "serial_number": warranty_data.get("serial_number"),
+        "warranty_terms": warranty_data.get("warranty_terms", ""),
+        "coverage_details": warranty_data.get("coverage_details"),
+        "warranty_period_months": warranty_months,
+        "coverage_start_date": coverage_start.isoformat(),
+        "coverage_expiry_date": coverage_expiry.isoformat(),
+        "current_status": "active",
+        "attachments": warranty_data.get("attachments", []),
+        "notes": warranty_data.get("notes"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current_user.get("id")
+    }
+    
+    await target_db.supplier_warranty_records.insert_one(supplier_warranty)
+    
+    # Add reference to purchase
+    await target_db.purchases.update_one(
+        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$push": {"supplier_warranty_refs": supplier_warranty["id"]},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    return {"success": True, "warranty": supplier_warranty}
+
+@api_router.get("/purchases/{purchase_id}/supplier-warranties")
+async def get_supplier_warranties(
+    purchase_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all supplier warranties for a purchase"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    warranties = await target_db.supplier_warranty_records.find(
+        {"purchase_id": purchase_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {"success": True, "warranties": warranties}
+
+@api_router.get("/supplier-warranties/{warranty_id}")
+async def get_supplier_warranty(
+    warranty_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get a single supplier warranty by ID"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    warranty = await target_db.supplier_warranty_records.find_one(
+        {"id": warranty_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Supplier warranty not found")
+    
+    return {"success": True, "warranty": warranty}
 
 # ========== REPORTS ==========
 @api_router.get("/reports/profit-loss")

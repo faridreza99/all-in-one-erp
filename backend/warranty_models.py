@@ -74,6 +74,7 @@ class WarrantyRecord(BaseDBModel):
     warranty_expiry_date: datetime
     current_status: WarrantyStatus = WarrantyStatus.ACTIVE
     replaced_by_warranty_id: Optional[str] = None
+    supplier_warranty_id: Optional[str] = None
     transferable: bool = False
     fraud_score: float = 0.0
     created_by: Optional[str] = None
@@ -87,8 +88,8 @@ class WarrantyEvent(BaseDBModel):
     actor_id: Optional[str] = None
     actor_name: Optional[str] = None
     note: Optional[str] = None
-    attachments: List[str] = []
-    meta: Dict[str, Any] = {}
+    attachments: List[str] = Field(default_factory=list)
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
 class SupplierAction(BaseDBModel):
     tenant_id: str
@@ -96,7 +97,7 @@ class SupplierAction(BaseDBModel):
     supplier_id: Optional[str] = None
     supplier_name: Optional[str] = None
     action_type: SupplierActionType
-    action_details: Dict[str, Any] = {}
+    action_details: Dict[str, Any] = Field(default_factory=dict)
     status: SupplierActionStatus = SupplierActionStatus.PENDING
     notes: Optional[str] = None
 
@@ -117,18 +118,18 @@ class ClaimCreate(BaseModel):
     customer_phone: Optional[str] = None
     customer_email: Optional[str] = None
     reported_issue: str
-    images: List[str] = []
+    images: List[str] = Field(default_factory=list)
     preferred_action: Optional[str] = None
 
 class InspectionCreate(BaseModel):
     inspection_result: str
     notes: Optional[str] = None
     estimated_cost: Optional[float] = None
-    attachments: List[str] = []
+    attachments: List[str] = Field(default_factory=list)
 
 class SupplierActionCreate(BaseModel):
     action_type: SupplierActionType
-    action_details: Dict[str, Any] = {}
+    action_details: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str] = None
 
 class WarrantyResolveResponse(BaseModel):
@@ -142,3 +143,58 @@ class WarrantyResolveResponse(BaseModel):
     allowed_actions: List[str]
     days_remaining: Optional[int] = None
     customer_name: Optional[str] = None
+
+class SupplierWarrantyStatus(str, Enum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    CLAIM_FILED = "claim_filed"
+    CLAIM_APPROVED = "claim_approved"
+    CLAIM_REJECTED = "claim_rejected"
+    SETTLED = "settled"
+    CLOSED = "closed"
+
+class SupplierWarrantyRecord(BaseDBModel):
+    tenant_id: str
+    warranty_code: str
+    purchase_id: str
+    purchase_item_id: str
+    supplier_id: str
+    supplier_name: str
+    product_id: str
+    product_name: str
+    serial_number: Optional[str] = None
+    warranty_terms: str
+    coverage_details: Optional[str] = None
+    warranty_period_months: int
+    coverage_start_date: datetime
+    coverage_expiry_date: datetime
+    current_status: SupplierWarrantyStatus = SupplierWarrantyStatus.ACTIVE
+    attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    claim_filed_at: Optional[datetime] = None
+    claim_resolved_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+
+class SupplierWarrantyEvent(BaseDBModel):
+    tenant_id: str
+    supplier_warranty_id: str
+    event_type: str
+    actor_type: ActorType
+    actor_id: Optional[str] = None
+    actor_name: Optional[str] = None
+    note: Optional[str] = None
+    attachments: List[str] = Field(default_factory=list)
+    meta: Dict[str, Any] = Field(default_factory=dict)
+
+class SupplierWarrantyCreate(BaseModel):
+    purchase_item_id: str
+    product_id: str
+    product_name: str
+    serial_number: Optional[str] = None
+    warranty_terms: str
+    coverage_details: Optional[str] = None
+    warranty_period_months: int
+    coverage_start_date: Optional[str] = None
+    attachments: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: Optional[str] = None
