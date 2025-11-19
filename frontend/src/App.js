@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import Swal from "sweetalert2";
 import "@/App.css";
 
 import AuthPage from "./pages/AuthPage";
@@ -133,6 +134,64 @@ const App = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Check subscription status for tenant admins
+  useEffect(() => {
+    if (!user) return;
+    
+    // Only check for tenant admins
+    if (user.role !== "tenant_admin") return;
+    
+    const subscriptionStatus = user.subscription_status;
+    
+    // Allowed statuses: active, trial, grace (or null/undefined for legacy users)
+    const allowedStatuses = ["active", "trial", "grace"];
+    
+    // If subscription status exists and is not in allowed statuses, show alert
+    if (subscriptionStatus && !allowedStatuses.includes(subscriptionStatus)) {
+      const statusMessages = {
+        suspended: "Your subscription has been suspended due to non-payment.",
+        expired: "Your subscription has expired.",
+        cancelled: "Your subscription has been cancelled.",
+      };
+      
+      const message = statusMessages[subscriptionStatus] || "Your subscription is not active.";
+      const expiryDate = user.subscription_expires_at 
+        ? new Date(user.subscription_expires_at).toLocaleDateString()
+        : "N/A";
+      
+      Swal.fire({
+        title: "⚠️ Subscription Required",
+        html: `
+          <div class="text-left space-y-3">
+            <p class="text-gray-700"><strong>Status:</strong> <span class="text-red-600 font-semibold">${subscriptionStatus.toUpperCase()}</span></p>
+            <p class="text-gray-700">${message}</p>
+            <p class="text-gray-700"><strong>Expiry Date:</strong> ${expiryDate}</p>
+            <hr class="my-4" />
+            <p class="text-gray-600">Please contact support to renew your subscription and restore access to your account.</p>
+            <p class="text-gray-600 font-semibold">Support: support@smartbusiness.com</p>
+          </div>
+        `,
+        icon: "warning",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: true,
+        confirmButtonText: "I Understand",
+        confirmButtonColor: "#dc2626",
+        customClass: {
+          popup: "subscription-alert",
+          confirmButton: "px-6 py-2 rounded-lg font-semibold"
+        },
+        didOpen: () => {
+          // Remove the close button if it exists
+          const closeButton = document.querySelector('.swal2-close');
+          if (closeButton) {
+            closeButton.style.display = 'none';
+          }
+        }
+      });
+    }
+  }, [user]);
 
   const checkAuth = async () => {
     const token = localStorage.getItem("token");

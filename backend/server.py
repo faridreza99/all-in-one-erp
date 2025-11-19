@@ -1429,10 +1429,29 @@ async def login(credentials: LoginRequest):
             tenant_slug = tenant_from_registry.get("slug")
             business_name = tenant_from_registry.get("business_name")
             business_type = tenant_from_registry.get("business_type")
+            tenant_id = tenant_from_registry.get("tenant_id")
+            
+            # Fetch subscription status for this tenant
+            subscription_status = None
+            subscription_plan = None
+            subscription_expires_at = None
+            if tenant_id:
+                from subscription_state_manager import SubscriptionStateManager
+                subscription = await SubscriptionStateManager.get_subscription_status(tenant_id)
+                if subscription:
+                    subscription_status = subscription.get("status")
+                    subscription_plan = subscription.get("plan_id")
+                    subscription_expires_at = subscription.get("expires_at")
+                    if isinstance(subscription_expires_at, datetime):
+                        subscription_expires_at = subscription_expires_at.isoformat()
+            
             user["business_type"] = business_type
             user["business_name"] = business_name
             user["tenant_slug"] = tenant_slug
-            logger.info(f"✅ Multi-tenant login: {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}")
+            user["subscription_status"] = subscription_status
+            user["subscription_plan"] = subscription_plan
+            user["subscription_expires_at"] = subscription_expires_at
+            logger.info(f"✅ Multi-tenant login: {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}, subscription: {subscription_status}")
         
         # 2. FALLBACK: Try legacy tenants collection if registry not found
         elif user.get("tenant_id"):
@@ -1454,15 +1473,51 @@ async def login(credentials: LoginRequest):
                     # Found in registry by business_type
                     tenant_slug = tenant_from_registry.get("slug")
                     business_name = tenant_from_registry.get("business_name")
+                    tenant_id = tenant_from_registry.get("tenant_id")
+                    
+                    # Fetch subscription status
+                    subscription_status = None
+                    subscription_plan = None
+                    subscription_expires_at = None
+                    if tenant_id:
+                        from subscription_state_manager import SubscriptionStateManager
+                        subscription = await SubscriptionStateManager.get_subscription_status(tenant_id)
+                        if subscription:
+                            subscription_status = subscription.get("status")
+                            subscription_plan = subscription.get("plan_id")
+                            subscription_expires_at = subscription.get("expires_at")
+                            if isinstance(subscription_expires_at, datetime):
+                                subscription_expires_at = subscription_expires_at.isoformat()
+                    
                     user["business_type"] = business_type
                     user["business_name"] = business_name
                     user["tenant_slug"] = tenant_slug
-                    logger.info(f"✅ Multi-tenant login (via business_type): {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}")
+                    user["subscription_status"] = subscription_status
+                    user["subscription_plan"] = subscription_plan
+                    user["subscription_expires_at"] = subscription_expires_at
+                    logger.info(f"✅ Multi-tenant login (via business_type): {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}, subscription: {subscription_status}")
                 else:
                     # Legacy mode: tenant exists but not in registry
+                    # Try to fetch subscription for legacy tenant_id
+                    subscription_status = None
+                    subscription_plan = None
+                    subscription_expires_at = None
+                    if user.get("tenant_id"):
+                        from subscription_state_manager import SubscriptionStateManager
+                        subscription = await SubscriptionStateManager.get_subscription_status(user.get("tenant_id"))
+                        if subscription:
+                            subscription_status = subscription.get("status")
+                            subscription_plan = subscription.get("plan_id")
+                            subscription_expires_at = subscription.get("expires_at")
+                            if isinstance(subscription_expires_at, datetime):
+                                subscription_expires_at = subscription_expires_at.isoformat()
+                    
                     user["business_type"] = business_type
                     user["business_name"] = business_name
-                    logger.info(f"⚠️  Legacy login: {user['email']} → tenant_id: {user.get('tenant_id')}, no tenant_slug (using shared DB)")
+                    user["subscription_status"] = subscription_status
+                    user["subscription_plan"] = subscription_plan
+                    user["subscription_expires_at"] = subscription_expires_at
+                    logger.info(f"⚠️  Legacy login: {user['email']} → tenant_id: {user.get('tenant_id')}, no tenant_slug (using shared DB), subscription: {subscription_status}")
         else:
             # No tenant_id and not in registry
             logger.warning(f"⚠️  User {user['email']} has no tenant association")
@@ -1476,7 +1531,9 @@ async def login(credentials: LoginRequest):
             "role": user["role"],
             "branch_id": user.get("branch_id"),
             "business_type": business_type,
-            "business_name": business_name
+            "business_name": business_name,
+            "subscription_status": user.get("subscription_status"),
+            "subscription_plan": user.get("subscription_plan")
         })
         
         user.pop("hashed_password")
@@ -1499,7 +1556,37 @@ async def login(credentials: LoginRequest):
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
+    from db_connection import get_admin_db
+    from subscription_state_manager import SubscriptionStateManager
+    
     current_user.pop("hashed_password", None)
+    
+    # Fetch fresh subscription data if user is tenant admin
+    if current_user.get("role") == "tenant_admin":
+        tenant_id = current_user.get("tenant_id")
+        tenant_slug = current_user.get("tenant_slug")
+        
+        # Try to get tenant_id from registry if not in JWT
+        if not tenant_id and current_user.get("email"):
+            admin_db = get_admin_db()
+            tenant_from_registry = await admin_db.tenants_registry.find_one(
+                {"admin_email": current_user["email"], "status": "active"},
+                {"_id": 0}
+            )
+            if tenant_from_registry:
+                tenant_id = tenant_from_registry.get("tenant_id")
+        
+        # Fetch latest subscription status
+        if tenant_id:
+            subscription = await SubscriptionStateManager.get_subscription_status(tenant_id)
+            if subscription:
+                current_user["subscription_status"] = subscription.get("status")
+                current_user["subscription_plan"] = subscription.get("plan_id")
+                subscription_expires_at = subscription.get("expires_at")
+                if isinstance(subscription_expires_at, datetime):
+                    subscription_expires_at = subscription_expires_at.isoformat()
+                current_user["subscription_expires_at"] = subscription_expires_at
+    
     return current_user
 
 @api_router.post("/auth/signup", response_model=TokenResponse)
