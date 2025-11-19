@@ -136,6 +136,8 @@ const App = () => {
   }, []);
 
   // Check subscription status for tenant admins
+  // Temporarily disabled - will be re-enabled after testing
+  /*
   useEffect(() => {
     if (!user) return;
     
@@ -192,6 +194,7 @@ const App = () => {
       });
     }
   }, [user]);
+  */
 
   const checkAuth = async () => {
     const token = localStorage.getItem("token");
