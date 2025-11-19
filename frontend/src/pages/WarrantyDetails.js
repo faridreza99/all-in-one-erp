@@ -42,6 +42,10 @@ const WarrantyDetails = () => {
     replacement_serial: "",
     refund_amount: "",
   });
+  const [supplierWarranty, setSupplierWarranty] = useState(null);
+  const [showLinkSupplierModal, setShowLinkSupplierModal] = useState(false);
+  const [availableSupplierWarranties, setAvailableSupplierWarranties] = useState([]);
+  const [selectedSupplierWarrantyId, setSelectedSupplierWarrantyId] = useState("");
 
   useEffect(() => {
     fetchWarrantyDetails();
@@ -56,11 +60,76 @@ const WarrantyDetails = () => {
       });
       setWarranty(response.data.warranty);
       setEvents(response.data.events || []);
+      
+      if (response.data.warranty.supplier_warranty_id) {
+        fetchSupplierWarranty(response.data.warranty.supplier_warranty_id);
+      }
     } catch (error) {
       console.error("Failed to fetch warranty details:", error);
       toast.error("Failed to load warranty details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSupplierWarranty = async (supplierWarrantyId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API}/supplier-warranties/${supplierWarrantyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSupplierWarranty(response.data.warranty);
+    } catch (error) {
+      console.error("Failed to fetch supplier warranty:", error);
+    }
+  };
+
+  const handleLinkSupplierWarranty = async () => {
+    if (!selectedSupplierWarrantyId) {
+      toast.error("Please select a supplier warranty");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API}/warranty/${warranty_id}/link-supplier`,
+        null,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { supplier_warranty_id: selectedSupplierWarrantyId }
+        }
+      );
+      toast.success("Supplier warranty linked successfully!");
+      setShowLinkSupplierModal(false);
+      fetchWarrantyDetails();
+    } catch (error) {
+      console.error("Failed to link supplier warranty:", error);
+      toast.error(error.response?.data?.detail || "Failed to link supplier warranty");
+    }
+  };
+
+  const handleFileSupplierClaim = async () => {
+    if (!supplierWarranty) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(
+        `${API}/supplier-warranties/${supplierWarranty.id}/file-claim`,
+        {
+          customer_warranty_id: warranty_id,
+          customer_claim_details: warranty.current_status,
+          notes: "Customer warranty claim filed with supplier"
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      toast.success("Supplier claim filed successfully!");
+      fetchSupplierWarranty(supplierWarranty.id);
+    } catch (error) {
+      console.error("Failed to file supplier claim:", error);
+      toast.error(error.response?.data?.detail || "Failed to file supplier claim");
     }
   };
 
@@ -419,13 +488,96 @@ const WarrantyDetails = () => {
 
           {/* Actions */}
           {warranty.current_status === "claimed" && (
-            <div className="mt-6 pt-6 border-t border-white/10">
+            <div className="mt-6 pt-6 border-white/10">
               <button
                 onClick={handleStartInspection}
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all"
               >
                 Start Inspection
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Supplier Warranty Section */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-orange-400" />
+              Supplier Warranty Coverage
+            </h3>
+            {!supplierWarranty && (
+              <button
+                onClick={() => setShowLinkSupplierModal(true)}
+                className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-2 rounded-lg text-sm hover:from-orange-700 hover:to-red-700 transition-all"
+              >
+                Link Supplier Warranty
+              </button>
+            )}
+          </div>
+
+          {supplierWarranty ? (
+            <div className="bg-gradient-to-br from-orange-900/20 to-red-900/20 border border-orange-700/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-white font-bold">{supplierWarranty.product_name}</p>
+                  <p className="text-xs text-gray-400 font-mono">{supplierWarranty.warranty_code}</p>
+                </div>
+                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                  supplierWarranty.current_status === 'active' ? 'bg-green-600/30 text-green-400' :
+                  supplierWarranty.current_status === 'expired' ? 'bg-red-600/30 text-red-400' :
+                  supplierWarranty.current_status === 'claimed' ? 'bg-yellow-600/30 text-yellow-400' :
+                  'bg-gray-600/30 text-gray-400'
+                }`}>
+                  {supplierWarranty.current_status?.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-gray-400">Supplier:</span>
+                  <span className="text-white ml-2">{supplierWarranty.supplier_name}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Period:</span>
+                  <span className="text-white ml-2">{supplierWarranty.warranty_period_months} months</span>
+                </div>
+                {supplierWarranty.serial_number && (
+                  <div>
+                    <span className="text-gray-400">Serial:</span>
+                    <span className="text-white ml-2 font-mono">{supplierWarranty.serial_number}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-gray-400">Expires:</span>
+                  <span className="text-white ml-2">{formatDate(supplierWarranty.coverage_expiry_date)}</span>
+                </div>
+              </div>
+
+              {supplierWarranty.warranty_terms && (
+                <div className="pt-2 border-t border-orange-700/30">
+                  <p className="text-xs text-gray-400">Terms:</p>
+                  <p className="text-sm text-gray-300 mt-1">{supplierWarranty.warranty_terms}</p>
+                </div>
+              )}
+
+              {supplierWarranty.current_status === 'active' && warranty.current_status !== 'active' && (
+                <div className="pt-3">
+                  <button
+                    onClick={handleFileSupplierClaim}
+                    className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-lg text-sm hover:from-yellow-700 hover:to-orange-700 transition-all flex items-center gap-2 justify-center"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    File Claim with Supplier
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <Shield className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No supplier warranty linked to this customer warranty</p>
+              <p className="text-xs mt-1">Link a supplier warranty to file claims when needed</p>
             </div>
           )}
         </div>
@@ -723,6 +875,68 @@ const WarrantyDetails = () => {
             </div>
           )}
         </div>
+
+        {/* Link Supplier Warranty Modal */}
+        {showLinkSupplierModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Shield className="w-6 h-6 text-orange-400" />
+                  Link Supplier Warranty
+                </h2>
+                <button
+                  onClick={() => setShowLinkSupplierModal(false)}
+                  className="text-gray-400 hover:text-white transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <p className="text-gray-300 text-sm">
+                  Link a supplier warranty to this customer warranty for claim tracking and supplier recourse.
+                </p>
+                <div>
+                  <label className="block text-gray-300 mb-2">Select Supplier Warranty</label>
+                  <select
+                    value={selectedSupplierWarrantyId}
+                    onChange={(e) => setSelectedSupplierWarrantyId(e.target.value)}
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                  >
+                    <option value="">Select a supplier warranty</option>
+                    {availableSupplierWarranties.map((sw) => (
+                      <option key={sw.id} value={sw.id}>
+                        {sw.warranty_code} - {sw.product_name} ({sw.supplier_name})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Note: Only supplier warranties for the same product are available for linking.
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleLinkSupplierWarranty}
+                    disabled={!selectedSupplierWarrantyId}
+                    className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
+                      selectedSupplierWarrantyId
+                        ? "bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-700 hover:to-red-700"
+                        : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    Link Warranty
+                  </button>
+                  <button
+                    onClick={() => setShowLinkSupplierModal(false)}
+                    className="flex-1 bg-white/10 border border-white/20 text-white px-6 py-3 rounded-lg hover:bg-white/20 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

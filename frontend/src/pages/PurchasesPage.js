@@ -20,6 +20,7 @@ const PurchasesPage = ({ user, onLogout }) => {
   const [selectedReceiptFile, setSelectedReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
   const [applyingStock, setApplyingStock] = useState(null);
+  const [supplierWarranties, setSupplierWarranties] = useState({});
   const [formData, setFormData] = useState({
     supplier_id: '',
     items: [],
@@ -74,6 +75,18 @@ const PurchasesPage = ({ user, onLogout }) => {
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
+    }
+  };
+
+  const fetchSupplierWarranties = async (purchaseId) => {
+    try {
+      const response = await axios.get(`${API}/purchases/${purchaseId}/supplier-warranties`, { withCredentials: true });
+      setSupplierWarranties(prev => ({
+        ...prev,
+        [purchaseId]: response.data.warranties || []
+      }));
+    } catch (error) {
+      console.error('Error fetching supplier warranties:', error);
     }
   };
 
@@ -238,6 +251,7 @@ const PurchasesPage = ({ user, onLogout }) => {
         warranty_period_months: 12
       });
       fetchPurchases();
+      fetchSupplierWarranties(purchaseId);
     } catch (error) {
       console.error('Error creating warranty:', error);
       toast.error(error.response?.data?.detail || 'Failed to create warranty');
@@ -269,7 +283,11 @@ const PurchasesPage = ({ user, onLogout }) => {
   };
 
   const togglePurchaseExpand = (purchaseId) => {
-    setExpandedPurchase(expandedPurchase === purchaseId ? null : purchaseId);
+    const newExpanded = expandedPurchase === purchaseId ? null : purchaseId;
+    setExpandedPurchase(newExpanded);
+    if (newExpanded && !supplierWarranties[purchaseId]) {
+      fetchSupplierWarranties(purchaseId);
+    }
   };
 
   return (
@@ -644,6 +662,72 @@ const PurchasesPage = ({ user, onLogout }) => {
                                   )}
                                 </div>
                               </div>
+                              
+                              {/* Supplier Warranties Section */}
+                              {supplierWarranties[purchase.id] && supplierWarranties[purchase.id].length > 0 && (
+                                <div className="mt-6 border-t border-gray-700/50 pt-6">
+                                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                    <Shield className="w-5 h-5 text-orange-400" />
+                                    Supplier Warranties ({supplierWarranties[purchase.id].length})
+                                  </h3>
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {supplierWarranties[purchase.id].map((warranty, idx) => (
+                                      <div key={idx} className="bg-gradient-to-br from-orange-900/20 to-red-900/20 border border-orange-700/50 rounded-lg p-4">
+                                        <div className="flex items-start justify-between mb-3">
+                                          <div>
+                                            <p className="text-white font-bold">{warranty.product_name}</p>
+                                            <p className="text-xs text-gray-400 font-mono">{warranty.warranty_code}</p>
+                                          </div>
+                                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                            warranty.current_status === 'active' ? 'bg-green-600/30 text-green-400' :
+                                            warranty.current_status === 'expired' ? 'bg-red-600/30 text-red-400' :
+                                            warranty.current_status === 'claimed' ? 'bg-yellow-600/30 text-yellow-400' :
+                                            'bg-gray-600/30 text-gray-400'
+                                          }`}>
+                                            {warranty.current_status?.toUpperCase()}
+                                          </span>
+                                        </div>
+                                        
+                                        {warranty.serial_number && (
+                                          <p className="text-sm text-gray-300 mb-2">
+                                            <span className="text-gray-500">Serial:</span> {warranty.serial_number}
+                                          </p>
+                                        )}
+                                        
+                                        {warranty.warranty_terms && (
+                                          <p className="text-sm text-gray-300 mb-2">
+                                            <span className="text-gray-500">Terms:</span> {warranty.warranty_terms}
+                                          </p>
+                                        )}
+                                        
+                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-400 mb-2">
+                                          <div>
+                                            <span className="text-gray-500">Period:</span> {warranty.warranty_period_months} months
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Supplier:</span> {warranty.supplier_name}
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="text-xs text-gray-400 space-y-1">
+                                          <div>
+                                            <span className="text-gray-500">Start:</span> {new Date(warranty.coverage_start_date).toLocaleDateString()}
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Expires:</span> {new Date(warranty.coverage_expiry_date).toLocaleDateString()}
+                                          </div>
+                                        </div>
+                                        
+                                        {warranty.coverage_details && (
+                                          <p className="text-xs text-gray-400 mt-2 italic">
+                                            {warranty.coverage_details}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>

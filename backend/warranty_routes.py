@@ -755,3 +755,126 @@ async def get_warranty_stats(
     stats['new_claims_last_7_days'] = recent_claims
     
     return stats
+
+@warranty_router.post("/warranty/{warranty_id}/link-supplier")
+async def link_supplier_warranty(
+    warranty_id: str,
+    supplier_warranty_id: str,
+    tenant_ctx: TenantContext = Depends(get_tenant_context)
+):
+    """Link a customer warranty to a supplier warranty for claim tracking"""
+    tenant_db = tenant_ctx.db
+    tenant_id = tenant_ctx.user.get("tenant_id")
+    current_user = tenant_ctx.user
+    
+    # Verify customer warranty exists
+    warranty = await tenant_db.warranty_records.find_one(
+        {"id": warranty_id, "tenant_id": tenant_id},
+        {"_id": 0}
+    )
+    if not warranty:
+        raise HTTPException(status_code=404, detail="Customer warranty not found")
+    
+    # Verify supplier warranty exists
+    supplier_warranty = await tenant_db.supplier_warranty_records.find_one(
+        {"id": supplier_warranty_id, "tenant_id": tenant_id},
+        {"_id": 0}
+    )
+    if not supplier_warranty:
+        raise HTTPException(status_code=404, detail="Supplier warranty not found")
+    
+    # Verify product match
+    if warranty.get('product_id') != supplier_warranty.get('product_id'):
+        raise HTTPException(
+            status_code=400,
+            detail="Product mismatch: warranties are for different products"
+        )
+    
+    # Update customer warranty with supplier warranty link
+    result = await tenant_db.warranty_records.update_one(
+        {"id": warranty_id, "tenant_id": tenant_id},
+        {
+            "$set": {
+                "supplier_warranty_id": supplier_warranty_id,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": current_user.get('id')
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to link warranties")
+    
+    # Create event for audit trail
+    await create_warranty_event(
+        tenant_db,
+        warranty_id,
+        EventType.SUPPLIER_ACTION_RECORDED,
+        ActorType.STAFF,
+        tenant_id,
+        actor_id=current_user.get('id'),
+        actor_name=current_user.get('full_name'),
+        note=f"Linked to supplier warranty {supplier_warranty.get('warranty_code')}",
+        meta={
+            "supplier_warranty_id": supplier_warranty_id,
+            "supplier_warranty_code": supplier_warranty.get('warranty_code'),
+            "supplier_name": supplier_warranty.get('supplier_name')
+        }
+    )
+    
+    return {
+        "success": True,
+        "warranty_id": warranty_id,
+        "supplier_warranty_id": supplier_warranty_id,
+        "message": "Warranties linked successfully"
+    }
+
+@warranty_router.post("/supplier-warranties/{supplier_warranty_id}/file-claim")
+async def file_supplier_claim(
+    supplier_warranty_id: str,
+    claim_details: dict,
+    tenant_ctx: TenantContext = Depends(get_tenant_context)
+):
+    """File a claim with the supplier for a customer warranty claim"""
+    tenant_db = tenant_ctx.db
+    tenant_id = tenant_ctx.user.get("tenant_id")
+    current_user = tenant_ctx.user
+    
+    # Verify supplier warranty exists
+    supplier_warranty = await tenant_db.supplier_warranty_records.find_one(
+        {"id": supplier_warranty_id, "tenant_id": tenant_id},
+        {"_id": 0}
+    )
+    if not supplier_warranty:
+        raise HTTPException(status_code=404, detail="Supplier warranty not found")
+    
+    # Check if warranty is active
+    if supplier_warranty.get('current_status') not in ['active', 'expired']:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot file claim: warranty status is {supplier_warranty.get('current_status')}"
+        )
+    
+    # Update supplier warranty status to claimed
+    result = await tenant_db.supplier_warranty_records.update_one(
+        {"id": supplier_warranty_id, "tenant_id": tenant_id},
+        {
+            "$set": {
+                "current_status": "claimed",
+                "claim_details": claim_details,
+                "claim_filed_at": datetime.now(timezone.utc).isoformat(),
+                "claim_filed_by": current_user.get('id'),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to file supplier claim")
+    
+    return {
+        "success": True,
+        "supplier_warranty_id": supplier_warranty_id,
+        "status": "claimed",
+        "message": "Supplier claim filed successfully"
+    }
