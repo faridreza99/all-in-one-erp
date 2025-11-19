@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { DollarSign, ShoppingCart, Package, AlertTriangle, Calendar, Wrench, Users, Home, TrendingUp, ShoppingBag } from 'lucide-react';
+import { DollarSign, ShoppingCart, Package, AlertTriangle, Calendar, Wrench, Users, Home, TrendingUp, ShoppingBag, LogOut, XCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import SectorLayout from '../components/SectorLayout';
 import { API } from '../App';
@@ -138,8 +138,57 @@ const SectorDashboard = ({ user, onLogout }) => {
     return [];
   };
 
+  // Check subscription status for tenant admins
+  const subscriptionStatus = user?.subscription_status;
+  const isSubscriptionInactive = user?.role === 'tenant_admin' && 
+    subscriptionStatus && 
+    !['active', 'trial', 'grace'].includes(subscriptionStatus);
+
+  const getSubscriptionMessage = () => {
+    const messages = {
+      suspended: 'Your subscription has been suspended due to non-payment.',
+      expired: 'Your subscription has expired.',
+      cancelled: 'Your subscription has been cancelled.'
+    };
+    return messages[subscriptionStatus] || 'Your subscription is not active.';
+  };
+
   return (
     <SectorLayout user={user} onLogout={onLogout}>
+      {/* Subscription Warning Banner */}
+      {isSubscriptionInactive && (
+        <div className="mb-6 bg-gradient-to-r from-red-600 to-orange-600 border border-red-500 rounded-xl p-6 shadow-2xl">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-white/10 rounded-lg">
+              <XCircle className="w-8 h-8 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                ⚠️ Subscription Required
+              </h3>
+              <div className="space-y-2 text-white/90">
+                <p><strong>Status:</strong> <span className="font-bold uppercase">{subscriptionStatus}</span></p>
+                <p>{getSubscriptionMessage()}</p>
+                {user?.subscription_expires_at && (
+                  <p><strong>Expiry Date:</strong> {new Date(user.subscription_expires_at).toLocaleDateString()}</p>
+                )}
+                <div className="mt-4 pt-4 border-t border-white/20">
+                  <p className="text-sm">Please contact support to renew your subscription and restore full access to your account.</p>
+                  <p className="text-sm font-semibold mt-2">Support: support@smartbusiness.com</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all border border-white/30"
+            >
+              <LogOut className="w-5 h-5" />
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
