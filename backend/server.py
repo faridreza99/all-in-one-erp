@@ -5741,7 +5741,7 @@ async def apply_purchase_to_stock(
     items_updated = []
     products_created = []
     try:
-        for item in purchase.get("items", []):
+        for item_index, item in enumerate(purchase.get("items", [])):
             product_id = item.get("product_id")
             product_name = item.get("product_name", "").strip()
             quantity = item.get("quantity", 0)
@@ -5760,10 +5760,10 @@ async def apply_purchase_to_stock(
                 
                 if existing_product:
                     product_id = existing_product.get("id")
-                    # Update purchase item with found product_id
+                    # Update purchase item with found product_id using array index
                     await target_db.purchases.update_one(
-                        {"id": purchase_id, "tenant_id": current_user["tenant_id"], "items.product_name": product_name},
-                        {"$set": {"items.$.product_id": product_id}}
+                        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+                        {"$set": {f"items.{item_index}.product_id": product_id}}
                     )
                 else:
                     # Create new product with initial stock
@@ -5805,10 +5805,10 @@ async def apply_purchase_to_stock(
                     await target_db.products.insert_one(new_product)
                     product_id = new_product["id"]
                     
-                    # Update the purchase item with the new product_id
+                    # Update the purchase item with the new product_id using array index
                     await target_db.purchases.update_one(
-                        {"id": purchase_id, "tenant_id": current_user["tenant_id"], "items.product_name": product_name},
-                        {"$set": {"items.$.product_id": product_id}}
+                        {"id": purchase_id, "tenant_id": current_user["tenant_id"]},
+                        {"$set": {f"items.{item_index}.product_id": product_id}}
                     )
                     
                     products_created.append({
