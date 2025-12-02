@@ -802,13 +802,24 @@ const App = () => {
                   {/* Redirect root to sector dashboard */}
                   <Route
                     path="/"
-                    element={<Navigate to={`/${user.business_type}`} />}
+                    element={<Navigate to={`/${user.business_type}`} replace />}
+                  />
+
+                  {/* Catch-all for sector users - redirect unknown paths to dashboard */}
+                  <Route
+                    path="*"
+                    element={<Navigate to={`/${user.business_type}`} replace />}
                   />
                 </>
               )}
+
+              {/* Fallback for authenticated users without business_type */}
+              {!user.business_type && user.role !== "super_admin" && (
+                <Route path="*" element={<Navigate to="/auth" replace />} />
+              )}
             </>
           ) : (
-            <Route path="*" element={<Navigate to="/auth" />} />
+            <Route path="*" element={<Navigate to="/auth" replace />} />
           )}
         </Routes>
         </BrowserRouter>
