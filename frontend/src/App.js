@@ -208,9 +208,11 @@ const App = () => {
               !user ? (
                 <AuthPage onLogin={handleLogin} />
               ) : user.role === "super_admin" ? (
-                <Navigate to="/" />
+                <Navigate to="/" replace />
+              ) : user.business_type ? (
+                <Navigate to={`/${user.business_type}`} replace />
               ) : (
-                <Navigate to={`/${user.business_type}`} />
+                <AuthPage onLogin={handleLogin} />
               )
             }
           />
@@ -806,6 +808,14 @@ const App = () => {
                     element={<Navigate to={`/${user.business_type}`} replace />}
                   />
                 </>
+              )}
+
+              {/* Fallback root route for authenticated users without business_type */}
+              {!user.business_type && user.role !== "super_admin" && (
+                <Route
+                  path="/"
+                  element={<Navigate to="/auth" replace />}
+                />
               )}
 
             </>

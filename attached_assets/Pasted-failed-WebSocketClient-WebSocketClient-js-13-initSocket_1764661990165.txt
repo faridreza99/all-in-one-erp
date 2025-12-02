@@ -1,0 +1,137 @@
+failed: 
+WebSocketClient @ WebSocketClient.js:13
+initSocket @ socket.js:27
+./node_modules/webpack-dev-server/client/index.js?protocol=ws%3A&hostname=0.0.0.0&port=5000&pathname=%2Fws&logging=none&overlay=%7B%22errors%22%3Atrue%2C%22warnings%22%3Afalse%7D&reconnect=10&hot=true&live-reload=true @ index.js:320
+(anonymous) @ react refresh:37
+__webpack_require__ @ bootstrap:22
+(anonymous) @ startup:5
+(anonymous) @ startup:7Understand this error
+emergent-main.js:39 No routes matched location "/" 
+(anonymous) @ emergent-main.js:39
+(anonymous) @ rrweb-recorder-20250919-1.js:96
+(anonymous) @ rrweb-plugin-console-record.js:2447
+warning @ chunk-UIGDSWPH.mjs:193
+useRoutesImpl @ chunk-UIGDSWPH.mjs:5486
+useRoutes @ chunk-UIGDSWPH.mjs:5439
+Routes @ chunk-UIGDSWPH.mjs:6464
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooks @ react-dom-client.development.js:7662
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<Routes>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+App @ App.js:203
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooksAgain @ react-dom-client.development.js:7762
+renderWithHooks @ react-dom-client.development.js:7674
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<App>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+./src/index.js @ index.js:8
+(anonymous) @ react refresh:37
+__webpack_require__ @ bootstrap:22
+(anonymous) @ startup:7
+(anonymous) @ startup:7Understand this warning
+emergent-main.js:39 No routes matched location "/" 
+(anonymous) @ emergent-main.js:39
+(anonymous) @ rrweb-recorder-20250919-1.js:96
+(anonymous) @ rrweb-plugin-console-record.js:2447
+warning @ chunk-UIGDSWPH.mjs:193
+useRoutesImpl @ chunk-UIGDSWPH.mjs:5486
+useRoutes @ chunk-UIGDSWPH.mjs:5439
+Routes @ chunk-UIGDSWPH.mjs:6464
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooksAgain @ react-dom-client.development.js:7762
+renderWithHooks @ react-dom-client.development.js:7674
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<Routes>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+App @ App.js:203
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooksAgain @ react-dom-client.development.js:7762
+renderWithHooks @ react-dom-client.development.js:7674
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<App>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+./src/index.js @ index.js:8
+(anonymous) @ react refresh:37
+__webpack_require__ @ bootstrap:22
+(anonymous) @ startup:7
+(anonymous) @ startup:7Understand this warning
+WebSocketClient.js:13 WebSocket connection to 'wss://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev:5000/ws' failed: 
+WebSocketClient @ WebSocketClient.js:13
+initSocket @ socket.js:27
+(anonymous) @ socket.js:51Understand this error
+emergent-main.js:39 No routes matched location "/" 
+(anonymous) @ emergent-main.js:39
+(anonymous) @ rrweb-recorder-20250919-1.js:96
+(anonymous) @ rrweb-plugin-console-record.js:2447
+warning @ chunk-UIGDSWPH.mjs:193
+useRoutesImpl @ chunk-UIGDSWPH.mjs:5486
+useRoutes @ chunk-UIGDSWPH.mjs:5439
+Routes @ chunk-UIGDSWPH.mjs:6464
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooks @ react-dom-client.development.js:7662
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<Routes>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+App @ App.js:203
+react_stack_bottom_frame @ react-dom-client.development.js:25904
+renderWithHooksAgain @ react-dom-client.development.js:7762
+renderWithHooks @ react-dom-client.development.js:7674
+updateFunctionComponent @ react-dom-client.development.js:10166
+beginWork @ react-dom-client.development.js:11778
+runWithFiberInDEV @ react-dom-client.development.js:870
+performUnitOfWork @ react-dom-client.development.js:17639
+workLoopSync @ react-dom-client.development.js:17469
+renderRootSync @ react-dom-client.development.js:17450
+performWorkOnRoot @ react-dom-client.development.js:16498
+performWorkOnRootViaSchedulerTask @ react-dom-client.development.js:18957
+performWorkUntilDeadline @ scheduler.development.js:45
+<App>
+(anonymous) @ react-jsx-dev-runtime.development.js:327
+./src/index.js @ index.js:8
+(anonymous) @ react refresh:37
+__webpack_require__ @ bootstrap:22
+(anonymous) @ startup:7
+(anonymous) @ startup:7Understand this warning
+emergent-main.js:39 No routes matched location "/" 
