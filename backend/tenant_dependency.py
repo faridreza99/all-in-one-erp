@@ -12,8 +12,8 @@ from db_connection import resolve_tenant_db, get_cached_tenant, get_default_db
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
-# Use JWT_SECRET (same as server.py) for compatibility
-SECRET_KEY = os.environ.get('JWT_SECRET', os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production'))
+# Use JWT_SECRET_KEY (same as server.py) for compatibility
+SECRET_KEY = os.environ.get('JWT_SECRET_KEY', os.environ.get('JWT_SECRET', os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')))
 ALGORITHM = "HS256"
 
 

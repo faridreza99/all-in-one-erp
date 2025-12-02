@@ -63,7 +63,7 @@ db = client[os.environ.get('DB_NAME', 'erp_database')]
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
-SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+SECRET_KEY = os.environ.get('JWT_SECRET_KEY', os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production'))
 ALGORITHM = "HS256"
 
 app = FastAPI()
