@@ -1,0 +1,30 @@
+emergent-main.js:39 Failed to fetch warranty stats: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+
+list:1 
+ Failed to load resource: the server responded with a status of 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranties: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+dashboard:1 
+ Failed to load resource: the server responded with a status of 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranty stats: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+emergent-main.js:336 
+ GET https://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev/api/warranty/stats/dashboard 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranty stats: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+emergent-main.js:336 
+ GET https://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev/api/warranty/list?limit=20&skip=0 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranties: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+emergent-main.js:336 
+ GET https://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev/api/warranty/stats/dashboard 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranty stats: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+emergent-main.js:336 
+ GET https://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev/api/warranty/list?limit=20&skip=0 401 (Unauthorized)
+emergent-main.js:39 Failed to fetch warranties: 
+AxiosError {message: 'Request failed with status code 401', name: 'AxiosError', code: 'ERR_BAD_REQUEST', config: {…}, request: XMLHttpRequest, …}
+emergent-main.js:336 
+ GET https://9e00481a-82e1-4bc1-97f7-c7becf2fc840-00-1artlk0rjh2vt.picard.replit.dev/api/warranty/stats/dashboard 401 (Unauthorized)
+emerg

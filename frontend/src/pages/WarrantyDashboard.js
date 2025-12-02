@@ -32,12 +32,21 @@ const WarrantyDashboard = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
       const response = await axios.get(`${API}/warranty/stats/dashboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStats(response.data);
     } catch (error) {
       console.error('Failed to fetch warranty stats:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
       toast.error('Failed to load warranty statistics');
     }
   };
@@ -46,6 +55,10 @@ const WarrantyDashboard = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
       const params = new URLSearchParams();
       if (filter.status) params.append('status', filter.status);
       if (filter.search) params.append('customer_phone', filter.search);
@@ -60,10 +73,13 @@ const WarrantyDashboard = () => {
       setTotal(response.data.total || 0);
     } catch (error) {
       console.error('Failed to fetch warranties:', error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
       toast.error('Failed to load warranties');
       setWarranties([]);
-      // Reset pagination on error
-      setFilter({ ...filter, skip: 0 });
     } finally {
       setLoading(false);
     }
