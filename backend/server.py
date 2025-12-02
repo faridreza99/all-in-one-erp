@@ -5428,27 +5428,33 @@ async def create_purchase(
         if receipt.content_type not in allowed_types:
             raise HTTPException(status_code=400, detail="Invalid file type. Allowed: JPG, PNG, WEBP, PDF")
         
-        # Create uploads directory if it doesn't exist
-        uploads_dir = Path("uploads/receipts")
-        uploads_dir.mkdir(parents=True, exist_ok=True)
+        file_ext = Path(receipt.filename).suffix.lower()
         
-        # Generate unique filename
-        file_ext = Path(receipt.filename).suffix
-        unique_filename = f"{uuid.uuid4()}{file_ext}"
-        file_path = uploads_dir / unique_filename
-        
-        # Save file
-        with open(file_path, "wb") as f:
-            f.write(content)
-        
-        receipt_files.append({
-            "filename": receipt.filename,
-            "stored_filename": unique_filename,
-            "path": str(file_path),
-            "url": f"/api/uploads/receipts/{unique_filename}",
-            "content_type": receipt.content_type,
-            "uploaded_at": datetime.now(timezone.utc).isoformat()
-        })
+        # Upload to Cloudinary
+        if cloudinary_url:
+            try:
+                resource_type = "image" if file_ext != ".pdf" else "raw"
+                upload_result = cloudinary.uploader.upload(
+                    content,
+                    folder=f"erp/{current_user['tenant_id']}/purchase_receipts",
+                    public_id=f"receipt_{uuid.uuid4().hex[:16]}",
+                    resource_type=resource_type
+                )
+                
+                file_url = upload_result.get("secure_url")
+                
+                receipt_files.append({
+                    "filename": receipt.filename,
+                    "url": file_url,
+                    "public_id": upload_result.get("public_id"),
+                    "content_type": receipt.content_type,
+                    "uploaded_at": datetime.now(timezone.utc).isoformat()
+                })
+            except Exception as e:
+                logger.error(f"Failed to upload receipt to Cloudinary: {e}")
+                raise HTTPException(status_code=500, detail="Failed to upload receipt file")
+        else:
+            raise HTTPException(status_code=500, detail="Cloudinary is not configured for file uploads")
     
     # Auto-create products that don't exist in the database
     for item in items_list:
@@ -5584,13 +5590,12 @@ async def get_purchases(
     return purchases
 
 @api_router.get("/uploads/receipts/{filename}")
-async def serve_receipt_file(filename: str):
-    """Serve locally stored receipt files"""
+async def serve_legacy_receipt_file(filename: str):
+    """Serve legacy receipt files stored locally (before Cloudinary was configured)"""
     file_path = Path("uploads/receipts") / filename
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Receipt file not found")
+        raise HTTPException(status_code=404, detail="Receipt file not found. This file may have been uploaded before cloud storage was configured.")
     
-    # Determine content type
     suffix = file_path.suffix.lower()
     content_types = {
         ".jpg": "image/jpeg",
@@ -5649,42 +5654,27 @@ async def upload_purchase_receipt(
             detail="File size must be less than 10MB"
         )
     
-    # Upload to Cloudinary if configured
-    if cloudinary_url:
-        try:
-            resource_type = "image" if file_ext != ".pdf" else "raw"
-            upload_result = cloudinary.uploader.upload(
-                file_content,
-                folder=f"erp/{current_user['tenant_id']}/purchase_receipts",
-                public_id=f"receipt_{purchase_id}_{secrets.token_hex(8)}",
-                resource_type=resource_type,
-                type="authenticated"
-            )
-            
-            public_id = upload_result.get("public_id")
-            file_url = cloudinary.CloudinaryImage(public_id).build_url(
-                secure=True,
-                type="authenticated",
-                sign_url=True
-            )
-            filename = file.filename
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to upload to Cloudinary: {str(e)}"
-            )
-    else:
-        # Fallback to local storage
-        secure_filename = f"receipt_{purchase_id}_{secrets.token_hex(8)}{file_ext}"
-        upload_dir = Path(__file__).parent / "static" / "uploads" / "purchase_receipts"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = upload_dir / secure_filename
+    # Upload to Cloudinary (required)
+    if not cloudinary_url:
+        raise HTTPException(status_code=500, detail="Cloudinary is not configured for file uploads")
+    
+    try:
+        resource_type = "image" if file_ext != ".pdf" else "raw"
+        upload_result = cloudinary.uploader.upload(
+            file_content,
+            folder=f"erp/{current_user['tenant_id']}/purchase_receipts",
+            public_id=f"receipt_{purchase_id}_{secrets.token_hex(8)}",
+            resource_type=resource_type
+        )
         
-        with open(file_path, "wb") as buffer:
-            buffer.write(file_content)
-        
-        file_url = f"/uploads/purchase_receipts/{secure_filename}"
+        file_url = upload_result.get("secure_url")
         filename = file.filename
+    except Exception as e:
+        logger.error(f"Failed to upload receipt to Cloudinary: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload to Cloudinary: {str(e)}"
+        )
     
     # Add receipt to purchase record
     receipt_metadata = {
@@ -5741,17 +5731,103 @@ async def apply_purchase_to_stock(
     # Generate idempotency key
     idempotency_key = str(uuid.uuid4())
     
-    # Update stock for each item
+    # Get supplier info for auto-created products
+    supplier = await target_db.suppliers.find_one(
+        {"id": purchase.get("supplier_id"), "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    # Update stock for each item (create product if doesn't exist)
     items_updated = []
+    products_created = []
     try:
         for item in purchase.get("items", []):
             product_id = item.get("product_id")
+            product_name = item.get("product_name", "").strip()
             quantity = item.get("quantity", 0)
             
-            if not product_id or quantity <= 0:
+            if quantity <= 0:
                 continue
             
-            # Update product stock
+            # If no product_id, try to find by name or create new product
+            if not product_id and product_name:
+                # Check if product exists by name
+                escaped_name = re.escape(product_name)
+                existing_product = await target_db.products.find_one({
+                    "tenant_id": current_user["tenant_id"],
+                    "name": {"$regex": f"^{escaped_name}$", "$options": "i"}
+                })
+                
+                if existing_product:
+                    product_id = existing_product.get("id")
+                    # Update purchase item with found product_id
+                    await target_db.purchases.update_one(
+                        {"id": purchase_id, "tenant_id": current_user["tenant_id"], "items.product_name": product_name},
+                        {"$set": {"items.$.product_id": product_id}}
+                    )
+                else:
+                    # Create new product with initial stock
+                    timestamp = hex(int(time.time() * 1000))[2:].upper()
+                    random_str = uuid.uuid4().hex[:6].upper()
+                    serial_number = f"SN-{timestamp}-{random_str}"
+                    
+                    new_product = {
+                        "id": str(uuid.uuid4()),
+                        "tenant_id": current_user["tenant_id"],
+                        "name": product_name,
+                        "sku": "",
+                        "category": "",
+                        "category_id": "",
+                        "price": float(item.get("price", 0)),
+                        "cost": float(item.get("price", 0)),
+                        "stock": quantity,  # Set initial stock directly
+                        "stock_alert_threshold": 5,
+                        "description": f"Auto-created from purchase {purchase.get('purchase_number', '')}",
+                        "supplier_name": supplier.get("name") if supplier else purchase.get("supplier_name", ""),
+                        "generic_name": "",
+                        "brand": "",
+                        "brand_id": "",
+                        "batch_number": "",
+                        "expiry_date": "",
+                        "imei": "",
+                        "serial_number": serial_number,
+                        "branch_id": current_user.get("branch_id", ""),
+                        "warranty_months": int(item.get("warranty_months", 0)) if item.get("has_warranty") else 0,
+                        "warranty_serial_number": item.get("warranty_serial", "") if item.get("has_warranty") else "",
+                        "unit": "piece",
+                        "unit_cost": float(item.get("price", 0)),
+                        "tax_rate": 0.0,
+                        "tax_type": "none",
+                        "is_active": True,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await target_db.products.insert_one(new_product)
+                    product_id = new_product["id"]
+                    
+                    # Update the purchase item with the new product_id
+                    await target_db.purchases.update_one(
+                        {"id": purchase_id, "tenant_id": current_user["tenant_id"], "items.product_name": product_name},
+                        {"$set": {"items.$.product_id": product_id}}
+                    )
+                    
+                    products_created.append({
+                        "product_id": product_id,
+                        "product_name": product_name,
+                        "quantity": quantity
+                    })
+                    
+                    items_updated.append({
+                        "product_id": product_id,
+                        "quantity_added": quantity,
+                        "created": True
+                    })
+                    continue  # Skip the stock update below since stock was set during creation
+            
+            if not product_id:
+                continue
+            
+            # Update product stock for existing products (including products found by name)
             result = await target_db.products.update_one(
                 {"id": product_id, "tenant_id": current_user["tenant_id"]},
                 {
@@ -5780,10 +5856,17 @@ async def apply_purchase_to_stock(
             }
         )
         
+        message_parts = []
+        if products_created:
+            message_parts.append(f"Created {len(products_created)} new product(s)")
+        if items_updated:
+            message_parts.append(f"Updated stock for {len(items_updated)} item(s)")
+        
         return {
             "success": True,
-            "message": f"Successfully added {len(items_updated)} items to stock",
+            "message": " and ".join(message_parts) if message_parts else "No items to process",
             "items_updated": items_updated,
+            "products_created": products_created,
             "stock_status": "applied"
         }
     
