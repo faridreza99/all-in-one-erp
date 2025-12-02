@@ -59,8 +59,10 @@ const ProductsPage = ({ user, onLogout }) => {
     imei: "",
     serial_number: "",
     warranty_months: "",
+    warranty_serial_number: "",
     branch_id: "",
   });
+  const [hasWarranty, setHasWarranty] = useState(false);
 
   // Generate unique serial number
   const generateSerialNumber = () => {
@@ -159,13 +161,21 @@ const ProductsPage = ({ user, onLogout }) => {
         submitData.brand_id = formData.brand_id;
       }
 
-      // Only add warranty_months if it has a value (including 0)
-      if (
-        formData.warranty_months !== "" &&
-        formData.warranty_months !== null &&
-        formData.warranty_months !== undefined
-      ) {
-        submitData.warranty_months = parseInt(formData.warranty_months, 10);
+      // Only add warranty fields if hasWarranty is checked
+      if (hasWarranty) {
+        if (
+          formData.warranty_months !== "" &&
+          formData.warranty_months !== null &&
+          formData.warranty_months !== undefined
+        ) {
+          submitData.warranty_months = parseInt(formData.warranty_months, 10);
+        }
+        if (formData.warranty_serial_number) {
+          submitData.warranty_serial_number = formData.warranty_serial_number;
+        }
+      } else {
+        submitData.warranty_months = 0;
+        submitData.warranty_serial_number = "";
       }
 
       if (editingProduct) {
@@ -210,6 +220,9 @@ const ProductsPage = ({ user, onLogout }) => {
     setEditingProduct(product);
     // Auto-generate serial number if product doesn't have one
     const serialNumber = product.serial_number || generateSerialNumber();
+    // Set hasWarranty based on existing warranty data
+    const productHasWarranty = product.warranty_months > 0 || product.warranty_serial_number;
+    setHasWarranty(!!productHasWarranty);
     setFormData({
       name: product.name || "",
       sku: product.sku || "",
@@ -237,6 +250,7 @@ const ProductsPage = ({ user, onLogout }) => {
         product.warranty_months !== undefined
           ? product.warranty_months
           : "",
+      warranty_serial_number: product.warranty_serial_number || "",
       branch_id: product.branch_id || "",
     });
     setShowModal(true);
@@ -260,9 +274,11 @@ const ProductsPage = ({ user, onLogout }) => {
       imei: "",
       serial_number: "",
       warranty_months: "",
+      warranty_serial_number: "",
       branch_id: "",
     });
     setEditingProduct(null);
+    setHasWarranty(false);
   };
 
   // Open modal for new product with auto-generated serial number
@@ -936,43 +952,80 @@ const ProductsPage = ({ user, onLogout }) => {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Warranty (Months)
+                  <div className="col-span-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hasWarranty}
+                        onChange={(e) => {
+                          setHasWarranty(e.target.checked);
+                          if (!e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              warranty_months: "",
+                              warranty_serial_number: "",
+                            });
+                          }
+                        }}
+                        className="w-5 h-5 rounded bg-slate-800 border-slate-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+                      />
+                      <span className="text-sm font-medium text-slate-300">
+                        This product has warranty
+                      </span>
                     </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={
-                        formData.warranty_months === "" || formData.warranty_months === null
-                          ? ""
-                          : formData.warranty_months
-                      }
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "" || v === null) {
-                          setFormData({ ...formData, warranty_months: "" });
-                        } else {
-                          const n = Math.max(0, Math.floor(Number(v)));
-                          setFormData({
-                            ...formData,
-                            warranty_months: Number.isNaN(n) ? "" : n,
-                          });
-                        }
-                      }}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onKeyDown={(e) => {
-                        if (e.key === "ArrowUp" || e.key === "ArrowDown")
-                          e.preventDefault();
-                      }}
-                      placeholder="0 = No warranty"
-                      className="w-full"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">
-                      Leave 0 or empty for no warranty
-                    </p>
                   </div>
+                  {hasWarranty && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Warranty (Months)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={
+                            formData.warranty_months === "" || formData.warranty_months === null
+                              ? ""
+                              : formData.warranty_months
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || v === null) {
+                              setFormData({ ...formData, warranty_months: "" });
+                            } else {
+                              const n = Math.max(1, Math.floor(Number(v)));
+                              setFormData({
+                                ...formData,
+                                warranty_months: Number.isNaN(n) ? "" : n,
+                              });
+                            }
+                          }}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowUp" || e.key === "ArrowDown")
+                              e.preventDefault();
+                          }}
+                          placeholder="Enter warranty duration"
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Warranty Serial Number
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.warranty_serial_number}
+                          onChange={(e) =>
+                            setFormData({ ...formData, warranty_serial_number: e.target.value })
+                          }
+                          placeholder="Enter warranty serial number"
+                          className="w-full px-4 py-3 rounded-xl bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
                       Serial Number
