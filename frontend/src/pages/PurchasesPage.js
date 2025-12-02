@@ -30,8 +30,13 @@ const PurchasesPage = ({ user, onLogout }) => {
     product_id: '',
     product_name: '',
     quantity: 1,
-    price: 0
+    price: 0,
+    has_warranty: false,
+    warranty_months: '',
+    warranty_serial: ''
   });
+  const [newPurchaseReceipt, setNewPurchaseReceipt] = useState(null);
+  const [newPurchaseReceiptPreview, setNewPurchaseReceiptPreview] = useState(null);
   const [warrantyForm, setWarrantyForm] = useState({
     purchase_item_id: '',
     product_id: '',
@@ -91,17 +96,24 @@ const PurchasesPage = ({ user, onLogout }) => {
   };
 
   const addItemToPurchase = () => {
-    if (!currentItem.product_id || currentItem.quantity <= 0 || currentItem.price <= 0) {
-      toast.error('Please fill in all item details');
+    if (!currentItem.product_name || currentItem.quantity <= 0 || currentItem.price <= 0) {
+      toast.error('Please fill in product name, quantity and price');
       return;
     }
 
-    const selectedProduct = products.find(p => p.product_id === currentItem.product_id);
+    if (currentItem.has_warranty && (!currentItem.warranty_months || !currentItem.warranty_serial)) {
+      toast.error('Please fill in warranty details');
+      return;
+    }
+
     const newItem = {
-      product_id: currentItem.product_id,
-      product_name: selectedProduct?.name || currentItem.product_name,
+      product_id: currentItem.product_id || null,
+      product_name: currentItem.product_name,
       quantity: parseInt(currentItem.quantity),
-      price: parseFloat(currentItem.price)
+      price: parseFloat(currentItem.price),
+      has_warranty: currentItem.has_warranty,
+      warranty_months: currentItem.has_warranty ? parseInt(currentItem.warranty_months) : null,
+      warranty_serial: currentItem.has_warranty ? currentItem.warranty_serial : null
     };
 
     setFormData({
@@ -113,7 +125,10 @@ const PurchasesPage = ({ user, onLogout }) => {
       product_id: '',
       product_name: '',
       quantity: 1,
-      price: 0
+      price: 0,
+      has_warranty: false,
+      warranty_months: '',
+      warranty_serial: ''
     });
 
     toast.success('Item added to purchase');
@@ -140,12 +155,20 @@ const PurchasesPage = ({ user, onLogout }) => {
     const total = calculateTotal();
 
     try {
-      await axios.post(`${API}/purchases`, {
-        supplier_id: formData.supplier_id,
-        items: formData.items,
-        total_amount: total,
-        payment_status: formData.payment_status
-      }, { withCredentials: true });
+      const submitData = new FormData();
+      submitData.append('supplier_id', formData.supplier_id);
+      submitData.append('items', JSON.stringify(formData.items));
+      submitData.append('total_amount', total);
+      submitData.append('payment_status', formData.payment_status);
+      
+      if (newPurchaseReceipt) {
+        submitData.append('receipt', newPurchaseReceipt);
+      }
+
+      await axios.post(`${API}/purchases`, submitData, { 
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
       toast.success('Purchase created successfully!');
       setShowForm(false);
@@ -158,8 +181,13 @@ const PurchasesPage = ({ user, onLogout }) => {
         product_id: '',
         product_name: '',
         quantity: 1,
-        price: 0
+        price: 0,
+        has_warranty: false,
+        warranty_months: '',
+        warranty_serial: ''
       });
+      setNewPurchaseReceipt(null);
+      setNewPurchaseReceiptPreview(null);
       fetchPurchases();
     } catch (error) {
       console.error('Error creating purchase:', error);
@@ -315,8 +343,13 @@ const PurchasesPage = ({ user, onLogout }) => {
                 product_id: '',
                 product_name: '',
                 quantity: 1,
-                price: 0
+                price: 0,
+                has_warranty: false,
+                warranty_months: '',
+                warranty_serial: ''
               });
+              setNewPurchaseReceipt(null);
+              setNewPurchaseReceiptPreview(null);
             }}
             className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
           >
@@ -372,32 +405,19 @@ const PurchasesPage = ({ user, onLogout }) => {
                   <Package className="w-5 h-5 text-blue-400" />
                   Add Items
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-gray-300 mb-2">Product</label>
-                    <select
-                      value={currentItem.product_id}
-                      onChange={(e) => {
-                        const selectedProduct = products.find(p => p.id === e.target.value);
-                        setCurrentItem({
-                          ...currentItem,
-                          product_id: e.target.value,
-                          product_name: selectedProduct?.name || '',
-                          price: selectedProduct?.price || 0
-                        });
-                      }}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-gray-300 mb-2">Product Name <span className="text-red-400">*</span></label>
+                    <input
+                      type="text"
+                      value={currentItem.product_name}
+                      onChange={(e) => setCurrentItem({ ...currentItem, product_name: e.target.value })}
+                      placeholder="Enter product name"
                       className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                      <option value="">Select Product</option>
-                      {products.map(product => (
-                        <option key={product.id} value={product.id}>
-                          {product.name} ({product.sku})
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div>
-                    <label className="block text-gray-300 mb-2">Quantity</label>
+                    <label className="block text-gray-300 mb-2">Quantity <span className="text-red-400">*</span></label>
                     <input
                       type="number"
                       value={currentItem.quantity}
@@ -407,7 +427,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-300 mb-2">Unit Price</label>
+                    <label className="block text-gray-300 mb-2">Unit Price <span className="text-red-400">*</span></label>
                     <input
                       type="number"
                       step="0.01"
@@ -418,6 +438,61 @@ const PurchasesPage = ({ user, onLogout }) => {
                     />
                   </div>
                 </div>
+                
+                <div className="mb-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={currentItem.has_warranty}
+                      onChange={(e) => {
+                        setCurrentItem({
+                          ...currentItem,
+                          has_warranty: e.target.checked,
+                          warranty_months: e.target.checked ? currentItem.warranty_months : '',
+                          warranty_serial: e.target.checked ? currentItem.warranty_serial : ''
+                        });
+                      }}
+                      className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+                    />
+                    <span className="text-gray-300 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-orange-400" />
+                      This item has warranty
+                    </span>
+                  </label>
+                </div>
+
+                {currentItem.has_warranty && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-orange-600/10 border border-orange-500/30 rounded-lg">
+                    <div>
+                      <label className="block text-gray-300 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-orange-400" />
+                        Warranty Duration (Months) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={currentItem.warranty_months}
+                        onChange={(e) => setCurrentItem({ ...currentItem, warranty_months: e.target.value })}
+                        placeholder="e.g., 12"
+                        className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                        min="1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2 flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-orange-400" />
+                        Warranty Serial Number <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={currentItem.warranty_serial}
+                        onChange={(e) => setCurrentItem({ ...currentItem, warranty_serial: e.target.value })}
+                        placeholder="Enter warranty serial number"
+                        className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={addItemToPurchase}
@@ -439,6 +514,12 @@ const PurchasesPage = ({ user, onLogout }) => {
                           <p className="text-gray-400 text-sm">
                             Quantity: {item.quantity} × ${item.price.toFixed(2)} = ${(item.quantity * item.price).toFixed(2)}
                           </p>
+                          {item.has_warranty && (
+                            <p className="text-orange-400 text-sm flex items-center gap-1 mt-1">
+                              <Shield className="w-3 h-3" />
+                              Warranty: {item.warranty_months} months | Serial: {item.warranty_serial}
+                            </p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -458,6 +539,73 @@ const PurchasesPage = ({ user, onLogout }) => {
                   </div>
                 </div>
               )}
+
+              <div className="border-t border-gray-600/50 pt-6">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-purple-400" />
+                  Receipt Upload (Optional)
+                </h3>
+                <div className="p-4 bg-purple-600/10 border border-purple-500/30 rounded-lg">
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error('File size must be less than 10MB');
+                          return;
+                        }
+                        setNewPurchaseReceipt(file);
+                        if (file.type.startsWith('image/')) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setNewPurchaseReceiptPreview(reader.result);
+                          reader.readAsDataURL(file);
+                        } else {
+                          setNewPurchaseReceiptPreview('pdf');
+                        }
+                      }
+                    }}
+                    className="hidden"
+                    id="receipt-upload-input"
+                  />
+                  <label
+                    htmlFor="receipt-upload-input"
+                    className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-purple-500/50 rounded-lg cursor-pointer hover:border-purple-400 transition-all"
+                  >
+                    <Upload className="w-6 h-6 text-purple-400" />
+                    <span className="text-gray-300">
+                      {newPurchaseReceipt ? newPurchaseReceipt.name : 'Click to upload receipt (JPG, PNG, WEBP, PDF - Max 10MB)'}
+                    </span>
+                  </label>
+                  {newPurchaseReceiptPreview && (
+                    <div className="mt-4 relative">
+                      {newPurchaseReceiptPreview === 'pdf' ? (
+                        <div className="flex items-center gap-2 p-3 bg-gray-700/50 rounded-lg">
+                          <FileText className="w-8 h-8 text-red-400" />
+                          <span className="text-white">{newPurchaseReceipt?.name}</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={newPurchaseReceiptPreview}
+                          alt="Receipt preview"
+                          className="max-h-48 rounded-lg mx-auto"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPurchaseReceipt(null);
+                          setNewPurchaseReceiptPreview(null);
+                        }}
+                        className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1 rounded-full"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <button
                 type="submit"

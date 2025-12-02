@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import json
 from pathlib import Path
 import shutil
 import secrets
@@ -5377,11 +5378,21 @@ async def get_expenses(
 # ========== PURCHASE ROUTES ==========
 @api_router.post("/purchases", response_model=Purchase)
 async def create_purchase(
-    purchase_data: PurchaseCreate,
+    supplier_id: str = Form(...),
+    items: str = Form(...),
+    total_amount: float = Form(...),
+    payment_status: str = Form("pending"),
+    receipt: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Parse items JSON string
+    try:
+        items_list = json.loads(items)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid items format")
     
     # Resolve tenant-specific database
     target_db = db
@@ -5398,20 +5409,54 @@ async def create_purchase(
     
     # Get supplier info
     supplier = await target_db.suppliers.find_one(
-        {"id": purchase_data.supplier_id, "tenant_id": current_user["tenant_id"]},
+        {"id": supplier_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
     
-    purchase_dict = purchase_data.model_dump()
-    # Set date to current date if not provided
-    if not purchase_dict.get("date"):
-        purchase_dict["date"] = datetime.now(timezone.utc).isoformat()
+    # Handle receipt file upload
+    receipt_files = []
+    if receipt:
+        # Validate file size (10MB max)
+        content = await receipt.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File size must be less than 10MB")
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+        if receipt.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Invalid file type. Allowed: JPG, PNG, WEBP, PDF")
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = Path("uploads/receipts")
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate unique filename
+        file_ext = Path(receipt.filename).suffix
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        file_path = uploads_dir / unique_filename
+        
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        receipt_files.append({
+            "filename": receipt.filename,
+            "stored_filename": unique_filename,
+            "path": str(file_path),
+            "content_type": receipt.content_type,
+            "uploaded_at": datetime.now(timezone.utc).isoformat()
+        })
     
     purchase = Purchase(
         tenant_id=current_user["tenant_id"],
         purchase_number=purchase_number,
+        supplier_id=supplier_id,
         supplier_name=supplier.get("name") if supplier else "Unknown",
-        **purchase_dict
+        items=items_list,
+        total_amount=total_amount,
+        payment_status=payment_status,
+        date=datetime.now(timezone.utc).isoformat(),
+        receipt_files=receipt_files
     )
     
     doc = purchase.model_dump()
