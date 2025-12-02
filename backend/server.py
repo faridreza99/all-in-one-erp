@@ -8,6 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import json
+import time
+import re
 from pathlib import Path
 import shutil
 import secrets
@@ -5443,9 +5445,73 @@ async def create_purchase(
             "filename": receipt.filename,
             "stored_filename": unique_filename,
             "path": str(file_path),
+            "url": f"/api/uploads/receipts/{unique_filename}",
             "content_type": receipt.content_type,
             "uploaded_at": datetime.now(timezone.utc).isoformat()
         })
+    
+    # Auto-create products that don't exist in the database
+    for item in items_list:
+        # Skip if product_id is already provided
+        if item.get("product_id"):
+            continue
+            
+        product_name = item.get("product_name", "").strip()
+        if product_name:
+            # Escape special regex characters in product name for safe search
+            escaped_name = re.escape(product_name)
+            
+            # Check if product already exists (case-insensitive exact match)
+            existing_product = await target_db.products.find_one({
+                "tenant_id": current_user["tenant_id"],
+                "name": {"$regex": f"^{escaped_name}$", "$options": "i"}
+            })
+            
+            if existing_product:
+                # Link existing product to this purchase item
+                item["product_id"] = existing_product.get("id")
+            else:
+                # Generate unique serial number
+                timestamp = hex(int(time.time() * 1000))[2:].upper()
+                random_str = uuid.uuid4().hex[:6].upper()
+                serial_number = f"SN-{timestamp}-{random_str}"
+                
+                # Create new product with all required fields matching Product model
+                new_product = {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": current_user["tenant_id"],
+                    "name": product_name,
+                    "sku": "",
+                    "category": "",
+                    "category_id": "",
+                    "price": float(item.get("price", 0)),
+                    "cost": float(item.get("price", 0)),
+                    "stock": 0,
+                    "stock_alert_threshold": 5,
+                    "description": f"Auto-created from purchase {purchase_number}",
+                    "supplier_name": supplier.get("name") if supplier else "",
+                    "generic_name": "",
+                    "brand": "",
+                    "brand_id": "",
+                    "batch_number": "",
+                    "expiry_date": "",
+                    "imei": "",
+                    "serial_number": serial_number,
+                    "branch_id": current_user.get("branch_id", ""),
+                    "warranty_months": int(item.get("warranty_months", 0)) if item.get("has_warranty") else 0,
+                    "warranty_serial_number": item.get("warranty_serial", "") if item.get("has_warranty") else "",
+                    "unit": "piece",
+                    "unit_cost": float(item.get("price", 0)),
+                    "tax_rate": 0.0,
+                    "tax_type": "none",
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await target_db.products.insert_one(new_product)
+                
+                # Update item with the new product_id
+                item["product_id"] = new_product["id"]
     
     purchase = Purchase(
         tenant_id=current_user["tenant_id"],
@@ -5508,8 +5574,35 @@ async def get_purchases(
         # Populate supplier_name if missing
         if not purchase.get('supplier_name') and purchase.get('supplier_id'):
             purchase['supplier_name'] = suppliers_map.get(purchase['supplier_id'], 'Unknown')
+        
+        # Backfill URL for legacy receipt files that don't have it
+        if purchase.get('receipt_files'):
+            for receipt in purchase['receipt_files']:
+                if not receipt.get('url') and receipt.get('stored_filename'):
+                    receipt['url'] = f"/api/uploads/receipts/{receipt['stored_filename']}"
     
     return purchases
+
+@api_router.get("/uploads/receipts/{filename}")
+async def serve_receipt_file(filename: str):
+    """Serve locally stored receipt files"""
+    file_path = Path("uploads/receipts") / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Receipt file not found")
+    
+    # Determine content type
+    suffix = file_path.suffix.lower()
+    content_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".pdf": "application/pdf"
+    }
+    content_type = content_types.get(suffix, "application/octet-stream")
+    
+    return FileResponse(file_path, media_type=content_type)
 
 @api_router.post("/purchases/{purchase_id}/receipts")
 async def upload_purchase_receipt(

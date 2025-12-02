@@ -749,20 +749,6 @@ const PurchasesPage = ({ user, onLogout }) => {
                                   <h3 className="text-lg font-bold text-white mb-4">Actions</h3>
                                   <div className="space-y-3">
                                     <button
-                                      onClick={() => setShowReceiptUpload(purchase.id)}
-                                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center gap-2 justify-center"
-                                    >
-                                      <Upload className="w-4 h-4" />
-                                      Upload Receipt ({purchase.receipt_files?.length || 0} uploaded)
-                                    </button>
-                                    <button
-                                      onClick={() => setShowWarrantyForm(purchase.id)}
-                                      className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 rounded-lg hover:from-orange-700 hover:to-red-700 transition-all flex items-center gap-2 justify-center"
-                                    >
-                                      <Shield className="w-4 h-4" />
-                                      Add Supplier Warranty
-                                    </button>
-                                    <button
                                       onClick={() => handleApplyStock(purchase.id)}
                                       disabled={purchase.stock_status === 'applied' || applyingStock === purchase.id}
                                       className={`w-full px-4 py-3 rounded-lg transition-all flex items-center gap-2 justify-center ${
