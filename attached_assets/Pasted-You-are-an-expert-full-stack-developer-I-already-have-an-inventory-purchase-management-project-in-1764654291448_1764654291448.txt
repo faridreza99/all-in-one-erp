@@ -1,0 +1,467 @@
+You are an expert full-stack developer. I already have an inventory / purchase management project in this Replit. Your job is to MODIFY the existing codebase (do not start a new project) and implement the following features end-to-end (DB, backend, and frontend):
+1. Purchase Route – Add Items Logic (NO dynamic select)
+Context:
+There is already a “New Purchase Order” (or similar) route/page where I add items to a purchase.
+Goal:
+Change the “Add Item” UI so that it uses INPUT FIELDS instead of a dynamic select dropdown for products, and add a warranty checkbox that reveals extra fields when checked.
+Requirements:
+
+
+Replace dynamic select with inputs:
+
+
+Wherever I currently choose a product via a dynamic <select> (e.g., product dropdown), replace that with:
+
+
+A text input for Product Name (or Product Code as currently used)
+
+
+A text input or number input for Quantity
+
+
+A number input for Unit Price
+
+
+
+
+Preserve any existing logic that calculates line totals and overall total, just adapt it to work with the input fields instead of a select.
+
+
+
+
+Warranty checkbox per item:
+
+
+For each line item in the purchase form, add:
+
+
+A checkbox: Has Warranty?
+
+
+
+
+When the checkbox is checked, dynamically show two extra inputs for that specific item only:
+
+
+Warranty Duration (in months) – number input
+
+
+Warranty Serial Number – text input
+
+
+
+
+When unchecked, hide these inputs and ensure the backend treats warranty as “off” for that item.
+
+
+
+
+Backend & DB:
+
+
+Update the backend models/schema/tables so that each purchased item can store:
+
+
+has_warranty (boolean)
+
+
+warranty_months (integer / nullable)
+
+
+warranty_serial (string / nullable)
+
+
+
+
+Make sure these fields are correctly saved when a new purchase order is submitted.
+
+
+Make sure existing data is not broken. If needed, use default values or nullable columns.
+
+
+
+
+Validation & UX:
+
+
+If Has Warranty is checked:
+
+
+warranty_months and warranty_serial should be required for that item.
+
+
+
+
+If not checked, those fields should not be required.
+
+
+
+
+2. New Purchase Order – Receipt File Upload
+Goal:
+When creating a new purchase order, I want to upload a receipt file (image/PDF) and store it with the purchase.
+Requirements:
+
+
+Frontend:
+
+
+On the “New Purchase Order” page, add a file upload input for a receipt:
+
+
+Accept typical formats: images (.jpg, .png, .webp) and PDF.
+
+
+Name: receipt or similar.
+
+
+
+
+The purchase form should submit as multipart/form-data so files can be uploaded.
+
+
+
+
+Backend:
+
+
+Implement file upload handling on the server:
+
+
+Store the uploaded file in a sensible folder (e.g., /uploads/receipts).
+
+
+Save the file path/URL in the purchase order record in the database, in a new field like receipt_path or receipt_url.
+
+
+
+
+Ensure security basics:
+
+
+Limit file size (reasonable limit, e.g., 5–10 MB).
+
+
+Validate MIME types / extensions.
+
+
+
+
+
+
+Display:
+
+
+On the purchase details page, show a link or button to view/download the receipt.
+
+
+
+
+3. “Link to Product” – Button to Dynamically Add Product to Product Page (With Warranty)
+Goal:
+From the purchase order or purchase item view, I want a button that, when clicked, will automatically add that item as a product in the product catalog, including its warranty info.
+Requirements:
+
+
+UI:
+
+
+For each purchased item (either in the New Purchase Order confirmation view or purchase details page), add a button labeled something like:
+
+
+Add to Products or Create Product
+
+
+
+
+This should appear only if the item is not yet linked to an existing product (if that logic exists; otherwise, always show for now).
+
+
+
+
+Behavior:
+
+
+Clicking the button should:
+
+
+Send a request to the backend to create a new Product using data from that purchase item:
+
+
+Product name
+
+
+Price
+
+
+Any SKU / code if available
+
+
+Warranty fields (has_warranty, warranty_months, warranty_serial)
+
+
+Optionally link back to the original purchase record.
+
+
+
+
+
+
+After success:
+
+
+Show a success message.
+
+
+Optionally update UI so the button is disabled or changed to “Product Created” / “View Product”.
+
+
+
+
+
+
+Backend:
+
+
+Create an endpoint like POST /products/from-purchase-item/:purchaseItemId (or similar), which:
+
+
+Finds the purchase item by ID.
+
+
+Creates a new Product record with the relevant fields.
+
+
+Stores the warranty data in the product record or associated warranty table.
+
+
+
+
+Make sure warranties are consistent:
+
+
+Product should have fields or relation to hold warranty details: months, serial number(s), etc.
+
+
+If the same warranty serial exists, handle it appropriately (either allow or enforce uniqueness if that’s how the system works).
+
+
+
+
+
+
+4. Page-wide Advanced Search System
+Goal:
+Add a global, advanced search bar (or page-wide search system) that can locate products and their related data using various fields, especially serial numbers and warranty data.
+Requirements:
+
+
+Search UI:
+
+
+Add a search bar in a common layout (e.g., header or a dedicated “Advanced Search” page).
+
+
+It should allow searching by:
+
+
+Serial number
+
+
+Warranty serial number
+
+
+Product name
+
+
+Supplier name
+
+
+Other identifiers already stored (e.g., invoice number, SKU) – use whatever fields exist in the current DB.
+
+
+
+
+
+
+Search Behavior:
+
+
+When I enter a search term and press Enter:
+
+
+The frontend sends a request to the backend search endpoint with the query string.
+
+
+
+
+The search should be fuzzy or partial match where appropriate using LIKE or equivalent.
+
+
+It should search across:
+
+
+Product table
+
+
+Purchase orders and purchase items
+
+
+Supplier table (for supplier name, email, etc.)
+
+
+Warranty-related fields: warranty_serial, warranty_months, etc.
+
+
+
+
+
+
+Search Results:
+
+
+For each matching record, show a unified result card that includes at least:
+
+
+Product details:
+
+
+Product name
+
+
+SKU/code (if any)
+
+
+Warranty info (yes/no, months, serial number)
+
+
+
+
+Purchase details:
+
+
+Purchase date/time
+
+
+Purchase order ID or number
+
+
+
+
+Supplier details:
+
+
+Supplier name
+
+
+Supplier contact (if available, e.g., phone, email)
+
+
+
+
+
+
+If the query matches multiple types (e.g., supplier name and product name), show grouped sections:
+
+
+“Products”
+
+
+“Purchase Orders / Items”
+
+
+“Suppliers”
+
+
+
+
+Each result should link to its detailed view page (Product details, Purchase details, Supplier details).
+
+
+
+
+Backend Search Endpoint:
+
+
+Implement an endpoint like GET /search?q=... (or similar).
+
+
+Inside the backend:
+
+
+Search the DB across relevant tables and fields:
+
+
+Products (name, code/SKU, serial fields, etc.)
+
+
+Purchases and purchase items (serial, warranty serial, invoice number)
+
+
+Suppliers (name, email, phone)
+
+
+
+
+Return a structured JSON grouped by type:
+{
+  "products": [...],
+  "purchaseItems": [...],
+  "suppliers": [...]
+}
+
+
+
+
+
+Make sure query is safe against SQL injection; use parameterized queries or ORM methods.
+
+
+
+
+5. General Implementation Notes
+
+
+Use the existing tech stack and project structure in this Replit. Don’t rewrite the whole project, only extend it.
+
+
+Update:
+
+
+Database schema (migrations or model updates),
+
+
+Backend routes/controllers,
+
+
+Frontend components/pages.
+
+
+
+
+Keep the code clean and well-structured:
+
+
+Use reusable components for inputs where possible.
+
+
+Add comments where the logic is non-obvious.
+
+
+
+
+After implementing, show me:
+
+
+A summary of all files changed.
+
+
+Short code snippets of key parts (purchase form, warranty checkbox logic, file upload handler, search endpoint, search results UI).
+
+
+Instructions on how to test each new feature manually through the UI.
+
+
+
+
+Implement all of this now in the existing project.
