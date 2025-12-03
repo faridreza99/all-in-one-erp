@@ -5340,6 +5340,7 @@ async def create_customer(
 
 @api_router.get("/customers", response_model=List[Customer])
 async def get_customers(
+    search: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     if not current_user.get("tenant_id"):
@@ -5356,6 +5357,16 @@ async def get_customers(
     
     # Apply branch filtering based on user role
     query = apply_branch_filter(current_user)
+    
+    # Add search filter for phone number or name
+    if search:
+        search_query = {
+            "$or": [
+                {"phone": {"$regex": search, "$options": "i"}},
+                {"name": {"$regex": search, "$options": "i"}}
+            ]
+        }
+        query = {**query, **search_query} if query else search_query
     
     customers = await target_db.customers.find(query, {"_id": 0}).to_list(1000)
     
