@@ -286,6 +286,9 @@ class User(BaseDBModel):
     full_name: str
     role: UserRole
     tenant_id: Optional[str] = None
+    tenant_slug: Optional[str] = None
+    business_type: Optional[str] = None
+    business_name: Optional[str] = None
     branch_id: Optional[str] = None
     hashed_password: str
     is_active: bool = True
@@ -1749,10 +1752,17 @@ async def create_user(
         if existing_username:
             raise HTTPException(status_code=400, detail="Username already taken")
     
-    # Create user under same tenant as super admin
+    # Create user under same tenant as the admin creating them
     user_dict = user_data.model_dump()
     user_dict["tenant_id"] = current_user["tenant_id"]
-    user_dict["hashed_password"] = hash_password(user_dict.pop("password"))
+    user_dict["tenant_slug"] = current_user.get("tenant_slug")
+    user_dict["business_type"] = current_user.get("business_type")
+    user_dict["business_name"] = current_user.get("business_name")
+    
+    # Hash the password
+    password = user_dict.pop("password")
+    user_dict["hashed_password"] = hash_password(password)
+    
     user = User(**user_dict)
     
     doc = user.model_dump()
