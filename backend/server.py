@@ -5355,8 +5355,9 @@ async def get_customers(
             logger.error(f"❌ Failed to resolve tenant DB for customers: {resolve_error}")
             raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
     
-    # Apply branch filtering based on user role
-    query = apply_branch_filter(current_user)
+    # Customers are tenant-wide, NOT branch-specific
+    # All users in the tenant can see all customers
+    query = {}
     
     # Add search filter for phone number or name
     if search:
@@ -5369,7 +5370,7 @@ async def get_customers(
                 {"name": {"$regex": escaped_search, "$options": "i"}}
             ]
         }
-        query = {**query, **search_query} if query else search_query
+        query = search_query
     
     customers = await target_db.customers.find(query, {"_id": 0}).to_list(1000)
     
