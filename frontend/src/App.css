@@ -67,6 +67,10 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
 }
 
+.custom-bg {
+  position: relative;
+}
+
 /* Global tech wallpaper background for all pages */
 .gradient-bg::before {
   content: '';

@@ -167,9 +167,9 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
   return (
     <div 
-      className="min-h-screen gradient-bg"
+      className={`min-h-screen ${branding.backgroundImage ? 'custom-bg' : 'gradient-bg'}`}
       style={branding.backgroundImage ? {
-        backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.9)), url(${branding.backgroundImage})`,
+        background: `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${branding.backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
