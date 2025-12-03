@@ -5,6 +5,8 @@ import {
   Route,
   Navigate,
   useNavigate,
+  useParams,
+  Outlet,
 } from "react-router-dom";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
@@ -67,6 +69,41 @@ import SectorLayout from "./components/SectorLayout";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 import { SidebarProvider } from "./contexts/SidebarContext";
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-400"></div>
+  </div>
+);
+
+// Sector Layout Wrapper - validates sector access and renders child routes
+const SectorLayoutWrapper = ({ user, loading, onLogout }) => {
+  const { sector } = useParams();
+  
+  // Show loading while checking auth
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  
+  // Redirect to auth if not logged in
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // Redirect to correct sector if URL doesn't match user's business type
+  if (user.business_type && sector !== user.business_type) {
+    return <Navigate to={`/${user.business_type}`} replace />;
+  }
+  
+  // User doesn't have a business type - redirect to auth
+  if (!user.business_type) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // Render child routes
+  return <Outlet context={{ user, onLogout }} />;
+};
 
 
 // Auto-detect backend URL based on environment
@@ -219,23 +256,40 @@ const App = () => {
     setUser(null);
   };
 
-  if (loading) {
+  // Helper component to handle sector route with access control
+  const ProtectedSectorRoute = ({ module, element }) => {
+    if (loading) return <LoadingSpinner />;
+    if (!user) return <Navigate to="/auth" replace />;
+    if (!user.business_type) return <Navigate to="/auth" replace />;
+    
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-400"></div>
-      </div>
+      <SectorRoute user={user} module={module} element={element} />
     );
-  }
+  };
+
+  // Helper component for sector dashboard
+  const SectorDashboardRoute = () => {
+    if (loading) return <LoadingSpinner />;
+    if (!user) return <Navigate to="/auth" replace />;
+    if (!user.business_type) return <Navigate to="/auth" replace />;
+    
+    return user.business_type === "cnf" 
+      ? <CNFDashboard user={user} onLogout={handleLogout} />
+      : <SectorDashboard user={user} onLogout={handleLogout} />;
+  };
 
   return (
     <SidebarProvider>
       <div className="App">
         <BrowserRouter>
         <Routes>
+          {/* Auth Route */}
           <Route
             path="/auth"
             element={
-              !user ? (
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
                 <AuthPage onLogin={handleLogin} />
               ) : user.role === "super_admin" ? (
                 <Navigate to="/" replace />
@@ -265,608 +319,462 @@ const App = () => {
             element={<WarrantyClaimSuccess />}
           />
 
-          {user ? (
-            <>
-              {/* Super Admin Route */}
-              {user.role === "super_admin" && (
-                <Route
-                  path="/"
-                  element={
-                    <SuperAdminDashboard user={user} onLogout={handleLogout} />
-                  }
-                />
-              )}
+          {/* Super Admin Route */}
+          <Route
+            path="/"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : user.role === "super_admin" ? (
+                <SuperAdminDashboard user={user} onLogout={handleLogout} />
+              ) : user.business_type ? (
+                <Navigate to={`/${user.business_type}`} replace />
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            }
+          />
 
-              {/* Sector-Specific Routes */}
-              {user.business_type && (
-                <>
-                  {/* Dashboard - CNF gets special dashboard */}
-                  <Route
-                    path={`/${user.business_type}`}
-                    element={
-                      user.business_type === "cnf" ? (
-                        <CNFDashboard user={user} onLogout={handleLogout} />
-                      ) : (
-                        <SectorDashboard user={user} onLogout={handleLogout} />
-                      )
-                    }
-                  />
+          {/* Static Sector Routes - Always registered, handle auth inside */}
+          <Route
+            path="/:sector"
+            element={<SectorDashboardRoute />}
+          />
 
-                  {/* Module Routes with access control */}
-                  <Route
-                    path={`/${user.business_type}/products`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="products"
-                        element={
-                          <ProductsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/pos`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="pos"
-                        element={
-                          <POSPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/services`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="services"
-                        element={
-                          <ServicesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/appointments`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="appointments"
-                        element={
-                          <AppointmentsPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/repairs`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="repairs"
-                        element={
-                          <RepairsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/tables`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="tables"
-                        element={
-                          <TablesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/customers`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="customers"
-                        element={
-                          <CustomersPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/customer-dues`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="customer-dues"
-                        element={
-                          <CustomerDuesPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/suppliers`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="suppliers"
-                        element={
-                          <SuppliersPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/purchases`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="purchases"
-                        element={
-                          <PurchasesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/low-stock`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="low-stock"
-                        element={
-                          <LowStockPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/expenses`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="expenses"
-                        element={
-                          <ExpensesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/doctors`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="doctors"
-                        element={
-                          <DoctorsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/patients`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="patients"
-                        element={
-                          <PatientsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/vehicles`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="vehicles"
-                        element={
-                          <VehiclesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/properties`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="properties"
-                        element={
-                          <PropertiesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/offers`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="offers"
-                        element={
-                          <OffersPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/variants`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="variants"
-                        element={
-                          <ProductVariantsPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/branches`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="branches"
-                        element={
-                          <BranchesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/product-assignment`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="product-assignment"
-                        element={
-                          <ProductBranchAssignmentPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/stock-transfer`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="stock-transfer"
-                        element={
-                          <StockTransferPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/components`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="components"
-                        element={
-                          <ComponentsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/job-cards`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="job-cards"
-                        element={
-                          <JobCardsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/device-history`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="device-history"
-                        element={
-                          <DeviceHistoryPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/warranties`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="warranties"
-                        element={
-                          <WarrantiesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path="/warranty/:warranty_id/details"
-                    element={
-                      <SectorLayout user={user} onLogout={handleLogout}>
-                        <WarrantyDetails />
-                      </SectorLayout>
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/returns`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="returns"
-                        element={
-                          <ReturnsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/books`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="books"
-                        element={
-                          <BooksPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/custom-orders`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="custom-orders"
-                        element={
-                          <CustomOrdersPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/purchase-orders`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="purchase-orders"
-                        element={
-                          <PurchaseOrdersPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/goods-receipts`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="goods-receipts"
-                        element={
-                          <GoodsReceiptsPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/online-orders`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="online-orders"
-                        element={
-                          <OnlineOrdersPage
-                            user={user}
-                            onLogout={handleLogout}
-                          />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/sales`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="sales"
-                        element={
-                          <SalesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/invoice/:saleId`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="sales"
-                        element={
-                          <InvoicePage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/reports`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="reports"
-                        element={
-                          <ReportsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/notifications`}
-                    element={
-                      <NotificationsPage user={user} onLogout={handleLogout} />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/settings`}
-                    element={
-                      <SettingsPage user={user} onLogout={handleLogout} />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/user-management`}
-                    element={
-                      <UserManagementPage user={user} onLogout={handleLogout} />
-                    }
-                  />
-
-                  {/* CNF Routes */}
-                  <Route
-                    path={`/${user.business_type}/shipments`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="shipments"
-                        element={
-                          <ShipmentsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/jobs`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="jobs"
-                        element={
-                          <JobFilesPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/billing`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="billing"
-                        element={
-                          <BillingPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/documents`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="documents"
-                        element={
-                          <DocumentsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/transport`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="transport"
-                        element={
-                          <TransportPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-                  <Route
-                    path={`/${user.business_type}/cnf-reports`}
-                    element={
-                      <SectorRoute
-                        user={user}
-                        module="cnf-reports"
-                        element={
-                          <CNFReportsPage user={user} onLogout={handleLogout} />
-                        }
-                      />
-                    }
-                  />
-
-                  {/* Redirect root to sector dashboard */}
-                  <Route
-                    path="/"
-                    element={<Navigate to={`/${user.business_type}`} replace />}
-                  />
-                </>
-              )}
-
-              {/* Fallback root route for authenticated users without business_type */}
-              {!user.business_type && user.role !== "super_admin" && (
-                <Route
-                  path="/"
-                  element={<Navigate to="/auth" replace />}
-                />
-              )}
-
-            </>
-          ) : (
-            <>
-              {/* Static catch-all for sector routes - handles page reload before auth completes */}
-              <Route
-                path="/:sector/*"
+          <Route
+            path="/:sector/products"
+            element={
+              <ProtectedSectorRoute
+                module="products"
+                element={<ProductsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/pos"
+            element={
+              <ProtectedSectorRoute
+                module="pos"
+                element={<POSPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/services"
+            element={
+              <ProtectedSectorRoute
+                module="services"
+                element={<ServicesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/appointments"
+            element={
+              <ProtectedSectorRoute
+                module="appointments"
                 element={
-                  loading ? (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-                      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-400"></div>
-                    </div>
-                  ) : (
-                    <Navigate to="/auth" replace />
-                  )
+                  <AppointmentsPage user={user} onLogout={handleLogout} />
                 }
               />
-              <Route path="*" element={<Navigate to="/auth" replace />} />
-            </>
-          )}
+            }
+          />
+          <Route
+            path="/:sector/repairs"
+            element={
+              <ProtectedSectorRoute
+                module="repairs"
+                element={<RepairsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/tables"
+            element={
+              <ProtectedSectorRoute
+                module="tables"
+                element={<TablesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/customers"
+            element={
+              <ProtectedSectorRoute
+                module="customers"
+                element={<CustomersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/customer-dues"
+            element={
+              <ProtectedSectorRoute
+                module="customer-dues"
+                element={<CustomerDuesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/suppliers"
+            element={
+              <ProtectedSectorRoute
+                module="suppliers"
+                element={<SuppliersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/purchases"
+            element={
+              <ProtectedSectorRoute
+                module="purchases"
+                element={<PurchasesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/low-stock"
+            element={
+              <ProtectedSectorRoute
+                module="low-stock"
+                element={<LowStockPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/expenses"
+            element={
+              <ProtectedSectorRoute
+                module="expenses"
+                element={<ExpensesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/doctors"
+            element={
+              <ProtectedSectorRoute
+                module="doctors"
+                element={<DoctorsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/patients"
+            element={
+              <ProtectedSectorRoute
+                module="patients"
+                element={<PatientsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/vehicles"
+            element={
+              <ProtectedSectorRoute
+                module="vehicles"
+                element={<VehiclesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/properties"
+            element={
+              <ProtectedSectorRoute
+                module="properties"
+                element={<PropertiesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/offers"
+            element={
+              <ProtectedSectorRoute
+                module="offers"
+                element={<OffersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/variants"
+            element={
+              <ProtectedSectorRoute
+                module="variants"
+                element={<ProductVariantsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/branches"
+            element={
+              <ProtectedSectorRoute
+                module="branches"
+                element={<BranchesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/product-assignment"
+            element={
+              <ProtectedSectorRoute
+                module="product-assignment"
+                element={<ProductBranchAssignmentPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/stock-transfer"
+            element={
+              <ProtectedSectorRoute
+                module="stock-transfer"
+                element={<StockTransferPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/components"
+            element={
+              <ProtectedSectorRoute
+                module="components"
+                element={<ComponentsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/job-cards"
+            element={
+              <ProtectedSectorRoute
+                module="job-cards"
+                element={<JobCardsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/device-history"
+            element={
+              <ProtectedSectorRoute
+                module="device-history"
+                element={<DeviceHistoryPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/warranties"
+            element={
+              <ProtectedSectorRoute
+                module="warranties"
+                element={<WarrantiesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/warranty/:warranty_id/details"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : (
+                <SectorLayout user={user} onLogout={handleLogout}>
+                  <WarrantyDetails />
+                </SectorLayout>
+              )
+            }
+          />
+          <Route
+            path="/:sector/returns"
+            element={
+              <ProtectedSectorRoute
+                module="returns"
+                element={<ReturnsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/books"
+            element={
+              <ProtectedSectorRoute
+                module="books"
+                element={<BooksPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/custom-orders"
+            element={
+              <ProtectedSectorRoute
+                module="custom-orders"
+                element={<CustomOrdersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/purchase-orders"
+            element={
+              <ProtectedSectorRoute
+                module="purchase-orders"
+                element={<PurchaseOrdersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/goods-receipts"
+            element={
+              <ProtectedSectorRoute
+                module="goods-receipts"
+                element={<GoodsReceiptsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/online-orders"
+            element={
+              <ProtectedSectorRoute
+                module="online-orders"
+                element={<OnlineOrdersPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/sales"
+            element={
+              <ProtectedSectorRoute
+                module="sales"
+                element={<SalesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/invoice/:saleId"
+            element={
+              <ProtectedSectorRoute
+                module="sales"
+                element={<InvoicePage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/reports"
+            element={
+              <ProtectedSectorRoute
+                module="reports"
+                element={<ReportsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/notifications"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : (
+                <NotificationsPage user={user} onLogout={handleLogout} />
+              )
+            }
+          />
+          <Route
+            path="/:sector/settings"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : (
+                <SettingsPage user={user} onLogout={handleLogout} />
+              )
+            }
+          />
+          <Route
+            path="/:sector/user-management"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : (
+                <UserManagementPage user={user} onLogout={handleLogout} />
+              )
+            }
+          />
+
+          {/* CNF Routes */}
+          <Route
+            path="/:sector/shipments"
+            element={
+              <ProtectedSectorRoute
+                module="shipments"
+                element={<ShipmentsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/jobs"
+            element={
+              <ProtectedSectorRoute
+                module="jobs"
+                element={<JobFilesPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/billing"
+            element={
+              <ProtectedSectorRoute
+                module="billing"
+                element={<BillingPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/documents"
+            element={
+              <ProtectedSectorRoute
+                module="documents"
+                element={<DocumentsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/transport"
+            element={
+              <ProtectedSectorRoute
+                module="transport"
+                element={<TransportPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+          <Route
+            path="/:sector/cnf-reports"
+            element={
+              <ProtectedSectorRoute
+                module="cnf-reports"
+                element={<CNFReportsPage user={user} onLogout={handleLogout} />}
+              />
+            }
+          />
+
+          {/* Catch-all route for unmatched paths */}
+          <Route
+            path="*"
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : user.role === "super_admin" ? (
+                <Navigate to="/" replace />
+              ) : user.business_type ? (
+                <Navigate to={`/${user.business_type}`} replace />
+              ) : (
+                <Navigate to="/auth" replace />
+              )
+            }
+          />
         </Routes>
         </BrowserRouter>
         <Toaster position="top-right" richColors />

@@ -25,7 +25,8 @@ The ERP system is a full-stack application with a multi-database per tenant arch
     -   **Warranty Management System**: Comprehensive tracking with QR token generation, state machine for lifecycle, automatic creation during sales, public resolution, and staff workflows.
     -   **Product Serial Number Management**: Automatic generation and manual entry of unique serial numbers.
     -   **Purchase Management System**: Enhanced UI, per-item warranty support, receipt upload (Cloudinary), supplier warranty linking, and stock application with auto-creation of products.
--   **Technical Implementations**: Secure file uploads with Cloudinary signed URLs. Pydantic models strictly use `Field(default_factory=list/dict)` to prevent data leakage. React Router fix for static parameterized catch-all routes ensures robust navigation on reload.
+-   **Technical Implementations**: Secure file uploads with Cloudinary signed URLs. Pydantic models strictly use `Field(default_factory=list/dict)` to prevent data leakage.
+    -   **React Router Fix (Dec 2025)**: Complete refactoring from conditional routes (`{user.business_type && <Route path={/${user.business_type}/module} />}`) to static parameterized routes (`<Route path="/:sector/module" />`). Routes are always registered and use `ProtectedSectorRoute` wrapper component to handle loading states, auth checks, and access control. This eliminates "No routes matched location" errors on page reload.
 
 ## External Dependencies
 -   **Database**: MongoDB Atlas
