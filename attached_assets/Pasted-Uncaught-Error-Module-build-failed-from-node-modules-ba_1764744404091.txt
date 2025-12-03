@@ -1,0 +1,88 @@
+Uncaught Error: Module build failed (from ./node_modules/babel-loader/lib/index.js):
+SyntaxError: /home/runner/workspace/frontend/src/pages/CustomerDuesPage.js: Unexpected token, expected "," (1:24)
+
+[0m[31m[1m>[22m[39m[90m 1 |[39m [36mimport[39m [33mReact[39m[33m,[39m { [33mPayment[39m [33mMethoduseState[39m[33m,[39m useEffect } [36mfrom[39m [32m'react'[39m[33m;[39m
+ [90m   |[39m                         [31m[1m^[22m[39m
+ [90m 2 |[39m [36mimport[39m { motion[33m,[39m [33mAnimatePresence[39m } [36mfrom[39m [32m'framer-motion'[39m[33m;[39m
+ [90m 3 |[39m [36mimport[39m { toast } [36mfrom[39m [32m'sonner'[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { [33mDollarSign[39m[33m,[39m [33mUsers[39m[33m,[39m [33mAlertCircle[39m[33m,[39m [33mCalendar[39m[33m,[39m [33mSearch[39m[33m,[39m [33mCreditCard[39m[33m,[39m [33mX[39m } [36mfrom[39m [32m'lucide-react'[39m[33m;[39m[0m
+    at constructor (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:367:19)
+    at FlowParserMixin.raise (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6624:19)
+    at FlowParserMixin.unexpected (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6644:16)
+    at FlowParserMixin.expect (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6924:12)
+    at FlowParserMixin.parseNamedImportSpecifiers (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14471:14)
+    at FlowParserMixin.parseImportSpecifiersAndAfter (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14318:37)
+    at FlowParserMixin.parseImport (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14311:17)
+    at FlowParserMixin.parseStatementContent (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12952:27)
+    at FlowParserMixin.parseStatementLike (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12843:17)
+    at FlowParserMixin.parseStatementLike (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:2945:24)
+    at FlowParserMixin.parseModuleItem (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12820:17)
+    at FlowParserMixin.parseBlockOrModuleBlockBody (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:13392:36)
+    at FlowParserMixin.parseBlockBody (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:13385:10)
+    at FlowParserMixin.parseProgram (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12698:10)
+    at FlowParserMixin.parseTopLevel (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12688:25)
+    at FlowParserMixin.parseTopLevel (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:3714:28)
+    at FlowParserMixin.parse (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14568:25)
+    at parse (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14602:38)
+    at parser (/home/runner/workspace/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+    at parser.next (<anonymous>)
+    at normalizeFile (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+    at normalizeFile.next (<anonymous>)
+    at run (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+    at run.next (<anonymous>)
+    at transform (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+    at transform.next (<anonymous>)
+    at step (/home/runner/workspace/frontend/node_modules/gensync/index.js:261:32)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:273:13
+    at async.call.result.err.err (/home/runner/workspace/frontend/node_modules/gensync/index.js:223:11)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:189:28
+    at /home/runner/workspace/frontend/node_modules/@babel/core/lib/gensync-utils/async.js:67:7
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:113:33
+    at step (/home/runner/workspace/frontend/node_modules/gensync/index.js:287:14)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:273:13
+    at async.call.result.err.err (/home/runner/workspace/frontend/node_modules/gensync/index.js:223:11)
+    at constructor (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:367:19)
+    at FlowParserMixin.raise (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6624:19)
+    at FlowParserMixin.unexpected (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6644:16)
+    at FlowParserMixin.expect (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:6924:12)
+    at FlowParserMixin.parseNamedImportSpecifiers (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14471:14)
+    at FlowParserMixin.parseImportSpecifiersAndAfter (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14318:37)
+    at FlowParserMixin.parseImport (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14311:17)
+    at FlowParserMixin.parseStatementContent (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12952:27)
+    at FlowParserMixin.parseStatementLike (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12843:17)
+    at FlowParserMixin.parseStatementLike (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:2945:24)
+    at FlowParserMixin.parseModuleItem (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12820:17)
+    at FlowParserMixin.parseBlockOrModuleBlockBody (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:13392:36)
+    at FlowParserMixin.parseBlockBody (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:13385:10)
+    at FlowParserMixin.parseProgram (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12698:10)
+    at FlowParserMixin.parseTopLevel (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:12688:25)
+    at FlowParserMixin.parseTopLevel (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:3714:28)
+    at FlowParserMixin.parse (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14568:25)
+    at parse (/home/runner/workspace/frontend/node_modules/@babel/parser/lib/index.js:14602:38)
+    at parser (/home/runner/workspace/frontend/node_modules/@babel/core/lib/parser/index.js:41:34)
+    at parser.next (<anonymous>)
+    at normalizeFile (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transformation/normalize-file.js:64:37)
+    at normalizeFile.next (<anonymous>)
+    at run (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transformation/index.js:22:50)
+    at run.next (<anonymous>)
+    at transform (/home/runner/workspace/frontend/node_modules/@babel/core/lib/transform.js:22:33)
+    at transform.next (<anonymous>)
+    at step (/home/runner/workspace/frontend/node_modules/gensync/index.js:261:32)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:273:13
+    at async.call.result.err.err (/home/runner/workspace/frontend/node_modules/gensync/index.js:223:11)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:189:28
+    at /home/runner/workspace/frontend/node_modules/@babel/core/lib/gensync-utils/async.js:67:7
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:113:33
+    at step (/home/runner/workspace/frontend/node_modules/gensync/index.js:287:14)
+    at /home/runner/workspace/frontend/node_modules/gensync/index.js:273:13
+    at async.call.result.err.err (/home/runner/workspace/frontend/node_modules/gensync/index.js:223:11)
+    at ./src/pages/CustomerDuesPage.js (CustomOrdersPage.js:168:1)
+    at options.factory (react refresh:37:1)
+    at __webpack_require__ (bootstrap:22:1)
+    at fn (hot module replacement:61:1)
+    at hotRequire (react refresh:20:1)
+    at ./src/App.js (App.css:78:1)
+    at options.factory (react refresh:37:1)
+    at __webpack_require__ (bootstrap:22:1)
+    at fn (hot module replacement:61:1)
+    at hotRequire (react refresh:20:1)

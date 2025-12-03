@@ -300,7 +300,7 @@ const CustomerDuesPage = ({ user, onLogout }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-2">
+                    <label className="block text-sm font-semibold text-black mb-2">
                       Payment Method
                     </label>
                     <select
