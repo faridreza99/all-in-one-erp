@@ -1428,19 +1428,46 @@ async def login(credentials: LoginRequest):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         # Get business_type, tenant_slug, and business_name from tenant
-        # Priority: admin_hub registry (source of truth) → legacy tenants collection
+        # Priority: user record (staff users) → admin_hub registry → legacy tenants collection
         business_type = None
         tenant_slug = None
         business_name = None
         
-        # 1. FIRST: Try admin_hub registry (multi-tenant mode - source of truth)
-        tenant_from_registry = await admin_db.tenants_registry.find_one(
-            {
-                "admin_email": user["email"], 
-                "status": "active"
-            },
-            {"_id": 0}
-        )
+        # 0. FIRST: Check if user already has tenant info stored (staff users created by tenant admin)
+        if user.get("tenant_slug") and user.get("business_type"):
+            tenant_slug = user.get("tenant_slug")
+            business_type = user.get("business_type")
+            business_name = user.get("business_name")
+            
+            # Fetch subscription status for this tenant
+            subscription_status = None
+            subscription_plan = None
+            subscription_expires_at = None
+            if user.get("tenant_id"):
+                from subscription_state_manager import SubscriptionStateManager
+                subscription = await SubscriptionStateManager.get_subscription_status(user.get("tenant_id"))
+                if subscription:
+                    subscription_status = subscription.get("status")
+                    subscription_plan = subscription.get("plan_id")
+                    subscription_expires_at = subscription.get("expires_at")
+                    if isinstance(subscription_expires_at, datetime):
+                        subscription_expires_at = subscription_expires_at.isoformat()
+            
+            user["subscription_status"] = subscription_status
+            user["subscription_plan"] = subscription_plan
+            user["subscription_expires_at"] = subscription_expires_at
+            logger.info(f"✅ Staff login: {user['email']} → tenant_slug: {tenant_slug}, business_type: {business_type}")
+        
+        # 1. NEXT: Try admin_hub registry (multi-tenant mode - source of truth for tenant admins)
+        tenant_from_registry = None
+        if not tenant_slug:
+            tenant_from_registry = await admin_db.tenants_registry.find_one(
+                {
+                    "admin_email": user["email"], 
+                    "status": "active"
+                },
+                {"_id": 0}
+            )
         
         # If found in registry, use it (multi-tenant mode)
         if tenant_from_registry:
@@ -1471,8 +1498,8 @@ async def login(credentials: LoginRequest):
             user["subscription_expires_at"] = subscription_expires_at
             logger.info(f"✅ Multi-tenant login: {user['email']} → tenant_slug: {tenant_slug}, db: {tenant_from_registry.get('db_name')}, subscription: {subscription_status}")
         
-        # 2. FALLBACK: Try legacy tenants collection if registry not found
-        elif user.get("tenant_id"):
+        # 2. FALLBACK: Try legacy tenants collection if no tenant info found yet
+        elif not tenant_slug and user.get("tenant_id"):
             tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
             if tenant:
                 business_type = tenant.get("business_type")
