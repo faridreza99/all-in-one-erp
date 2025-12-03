@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, Minus, X, ShoppingCart, Globe } from "lucide-react";
+import { Plus, Minus, X, ShoppingCart, Globe, User, Phone, MapPin, Search, Edit2, Check } from "lucide-react";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import { API } from "../App";
@@ -30,6 +30,12 @@ const POSPage = ({ user, onLogout }) => {
   const [branchId, setBranchId] = useState("");
   const [branches, setBranches] = useState([]);
   const [showCountry, setShowCountry] = useState(false);
+
+  // Customer lookup state
+  const [existingCustomer, setExistingCustomer] = useState(null);
+  const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [customerSearched, setCustomerSearched] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -82,6 +88,67 @@ const POSPage = ({ user, onLogout }) => {
     } catch (error) {
       console.error("Failed to fetch branches:", error);
     }
+  };
+
+  const searchCustomerByPhone = useCallback(async (phone) => {
+    if (!phone || phone.length < 14 || !phone.startsWith("+8801")) {
+      return;
+    }
+
+    setIsSearchingCustomer(true);
+    setCustomerSearched(true);
+
+    try {
+      const response = await axios.get(`${API}/customers`, {
+        params: { search: phone }
+      });
+
+      const customers = response.data?.data || response.data || [];
+      const matchedCustomer = customers.find(c => c.phone === phone);
+
+      if (matchedCustomer) {
+        setExistingCustomer(matchedCustomer);
+        setCustomerName(matchedCustomer.name || "");
+        setCustomerAddress(matchedCustomer.address || "");
+        setIsEditingCustomer(false);
+      } else {
+        setExistingCustomer(null);
+        setIsEditingCustomer(true);
+      }
+    } catch (error) {
+      console.error("Customer search failed:", error);
+      setExistingCustomer(null);
+      setIsEditingCustomer(true);
+    } finally {
+      setIsSearchingCustomer(false);
+    }
+  }, []);
+
+  const handlePhoneChange = (e) => {
+    let digits = e.target.value.replace(/\D/g, "");
+
+    if (digits.startsWith("880")) digits = digits.slice(3);
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    if (digits.length > 10) digits = digits.slice(0, 10);
+
+    const newPhone = "+880" + digits;
+    setCustomerPhone(newPhone);
+
+    if (newPhone.length === 14 && newPhone.startsWith("+8801")) {
+      searchCustomerByPhone(newPhone);
+    } else {
+      setExistingCustomer(null);
+      setCustomerSearched(false);
+    }
+  };
+
+  const clearCustomer = () => {
+    setCustomerPhone("+880");
+    setCustomerName("");
+    setCustomerAddress("");
+    setExistingCustomer(null);
+    setCustomerSearched(false);
+    setIsEditingCustomer(false);
   };
 
   const getBranchStock = (product, effectiveBranchId = null) => {
@@ -267,6 +334,9 @@ const POSPage = ({ user, onLogout }) => {
       setPaidAmount("");
       setDiscount(0);
       setTax(0);
+      setExistingCustomer(null);
+      setCustomerSearched(false);
+      setIsEditingCustomer(false);
 
       setTimeout(() => {
         navigate(`/${user.business_type}/invoice/${response.data.id}`);
@@ -416,19 +486,21 @@ const POSPage = ({ user, onLogout }) => {
 
               {/* CUSTOMER DETAILS */}
               <div className="border-b border-slate-700 pb-4 mb-4 space-y-3">
-                <h3 className="text-sm font-semibold text-slate-300">
-                  Customer Info
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-300">
+                    Customer Info
+                  </h3>
+                  {customerPhone.length > 4 && (
+                    <button
+                      onClick={clearCustomer}
+                      className="text-xs text-slate-400 hover:text-red-400 transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
 
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Customer Name"
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                />
-
-                {/* Country Dropdown + BD Number */}
+                {/* Phone Number Input - Always shown first */}
                 <div className="relative">
                   <button
                     onClick={() => setShowCountry(!showCountry)}
@@ -441,30 +513,107 @@ const POSPage = ({ user, onLogout }) => {
                     type="tel"
                     value={customerPhone}
                     placeholder="+8801XXXXXXXXX"
-                    onChange={(e) => {
-                      let digits = e.target.value.replace(/\D/g, "");
-
-                      if (digits.startsWith("880")) digits = digits.slice(3);
-                      if (digits.startsWith("0")) digits = digits.slice(1);
-                      if (digits.length > 10) digits = digits.slice(0, 10);
-
-                      setCustomerPhone("+880" + digits);
-                    }}
+                    onChange={handlePhoneChange}
                     onFocus={() => {
                       if (!customerPhone.startsWith("+880"))
                         setCustomerPhone("+880");
                     }}
-                    className="w-full pl-20 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    className="w-full pl-20 pr-10 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
                   />
+
+                  {isSearchingCustomer && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  {!isSearchingCustomer && customerPhone.length === 14 && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {existingCustomer ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <Search className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <input
-                  type="text"
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
-                  placeholder="Address"
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                />
+                {/* Existing Customer Display */}
+                {existingCustomer && !isEditingCustomer && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-green-400 font-medium">Existing Customer</span>
+                      <button
+                        onClick={() => setIsEditingCustomer(true)}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-400 transition"
+                      >
+                        <Edit2 className="w-3 h-3" /> Edit
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 text-white">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span className="font-medium">{existingCustomer.name || "N/A"}</span>
+                    </div>
+                    {existingCustomer.address && (
+                      <div className="flex items-center gap-2 text-slate-300 text-sm">
+                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <span>{existingCustomer.address}</span>
+                      </div>
+                    )}
+                    {existingCustomer.total_due > 0 && (
+                      <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t border-green-500/20">
+                        <span className="text-slate-400">Previous Due:</span>
+                        <span className="text-yellow-400 font-semibold">{formatCurrency(existingCustomer.total_due)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* New Customer / Edit Customer Form */}
+                {customerSearched && (!existingCustomer || isEditingCustomer) && (
+                  <>
+                    {!existingCustomer && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center">
+                        <span className="text-xs text-blue-400">New Customer - Enter Details</span>
+                      </div>
+                    )}
+
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Customer Name"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    />
+
+                    <input
+                      type="text"
+                      value={customerAddress}
+                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      placeholder="Address"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    />
+
+                    {isEditingCustomer && existingCustomer && (
+                      <button
+                        onClick={() => {
+                          setCustomerName(existingCustomer.name || "");
+                          setCustomerAddress(existingCustomer.address || "");
+                          setIsEditingCustomer(false);
+                        }}
+                        className="w-full text-xs text-slate-400 hover:text-white transition py-1"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Show minimal input when phone not fully entered */}
+                {!customerSearched && customerPhone.length < 14 && (
+                  <p className="text-xs text-slate-500 text-center py-2">
+                    Enter phone number to lookup or create customer
+                  </p>
+                )}
 
                 <input
                   type="text"
