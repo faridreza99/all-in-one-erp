@@ -5360,10 +5360,13 @@ async def get_customers(
     
     # Add search filter for phone number or name
     if search:
+        import re
+        # Escape special regex characters in search string
+        escaped_search = re.escape(search)
         search_query = {
             "$or": [
-                {"phone": {"$regex": search, "$options": "i"}},
-                {"name": {"$regex": search, "$options": "i"}}
+                {"phone": {"$regex": escaped_search, "$options": "i"}},
+                {"name": {"$regex": escaped_search, "$options": "i"}}
             ]
         }
         query = {**query, **search_query} if query else search_query
