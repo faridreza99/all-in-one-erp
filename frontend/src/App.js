@@ -93,6 +93,36 @@ const getBackendUrl = () => {
 const BACKEND_URL = getBackendUrl();
 export const API = `${BACKEND_URL}/api`;
 
+// Sector Guard component - validates URL sector matches user's business_type
+const SectorGuard = ({ user, loading, children }) => {
+  const location = window.location.pathname;
+  const sectorFromUrl = location.split('/')[1]; // Get sector from URL like /computer_shop/products
+  
+  // While loading, show nothing (the main loading spinner handles this)
+  if (loading) {
+    return null;
+  }
+  
+  // If not logged in, redirect to auth
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // If user doesn't have business_type, redirect to auth
+  if (!user.business_type) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // If sector in URL doesn't match user's business_type, redirect to correct sector
+  if (sectorFromUrl && sectorFromUrl !== user.business_type && 
+      sectorFromUrl !== 'auth' && sectorFromUrl !== 'w' && sectorFromUrl !== 'warranty' &&
+      sectorFromUrl !== 'notifications' && sectorFromUrl !== 'settings' && sectorFromUrl !== 'users') {
+    return <Navigate to={`/${user.business_type}`} replace />;
+  }
+  
+  return children;
+};
+
 // Protected route wrapper with route permission enforcement
 const SectorRoute = ({ user, element, module }) => {
   const businessType = user?.business_type;
@@ -820,7 +850,22 @@ const App = () => {
 
             </>
           ) : (
-            <Route path="*" element={<Navigate to="/auth" replace />} />
+            <>
+              {/* Static catch-all for sector routes - handles page reload before auth completes */}
+              <Route
+                path="/:sector/*"
+                element={
+                  loading ? (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+                      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-400"></div>
+                    </div>
+                  ) : (
+                    <Navigate to="/auth" replace />
+                  )
+                }
+              />
+              <Route path="*" element={<Navigate to="/auth" replace />} />
+            </>
           )}
         </Routes>
         </BrowserRouter>
