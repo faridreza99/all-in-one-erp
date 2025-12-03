@@ -77,6 +77,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const [branding, setBranding] = useState({
     name: "Smart Business ERP",
     logo: null,
+    backgroundImage: null,
   });
 
   useEffect(() => {
@@ -111,7 +112,15 @@ const SectorLayout = ({ children, user, onLogout }) => {
               : `${API}${rawLogo.startsWith("/") ? "" : "/"}${rawLogo}`
             : null;
 
-        if (mounted) setBranding({ name, logo });
+        const rawBg = raw.background_image_url || raw.background_image || null;
+        const backgroundImage =
+          rawBg && typeof rawBg === "string"
+            ? /^https?:\/\//i.test(rawBg)
+              ? rawBg
+              : `${API}${rawBg.startsWith("/") ? "" : "/"}${rawBg}`
+            : null;
+
+        if (mounted) setBranding({ name, logo, backgroundImage });
       } catch {
         // leave defaults
       }
@@ -157,7 +166,15 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const contentMarginLeft = isMobile ? 0 : isCollapsed ? 80 : 288;
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div 
+      className="min-h-screen gradient-bg"
+      style={branding.backgroundImage ? {
+        backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.9)), url(${branding.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      } : {}}
+    >
       {/* Mobile Overlay */}
       {isMobile && isMobileMenuOpen && (
         <div

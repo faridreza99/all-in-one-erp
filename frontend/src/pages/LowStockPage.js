@@ -40,7 +40,7 @@ const LowStockPage = ({ user, onLogout }) => {
 
   const getLowStockItems = () => {
     return productBranches.filter(pb => {
-      const stock = pb.stock || 0;
+      const stock = pb.stock_quantity || pb.stock || 0;
       const reorderLevel = pb.reorder_level || 0;
 
       if (stock > reorderLevel) return false;
@@ -77,10 +77,11 @@ const LowStockPage = ({ user, onLogout }) => {
 
   const lowStockItems = getLowStockItems();
 
-  const criticalCount = lowStockItems.filter(item => item.stock === 0).length;
+  const criticalCount = lowStockItems.filter(item => (item.stock_quantity || item.stock || 0) === 0).length;
   const dangerCount = lowStockItems.filter(item => {
+    const stock = item.stock_quantity || item.stock || 0;
     const reorderLevel = item.reorder_level || 0;
-    return item.stock > 0 && item.stock <= reorderLevel * 0.5;
+    return stock > 0 && stock <= reorderLevel * 0.5;
   }).length;
   const warningCount = lowStockItems.length - criticalCount - dangerCount;
 
@@ -200,8 +201,9 @@ const LowStockPage = ({ user, onLogout }) => {
                   {lowStockItems.map((item, index) => {
                     const product = getProduct(item.product_id);
                     const branch = getBranch(item.branch_id);
-                    const stockLevel = getStockLevel(item.stock, item.reorder_level);
-                    const shortage = Math.max(0, (item.reorder_level || 0) - (item.stock || 0));
+                    const currentStock = item.stock_quantity || item.stock || 0;
+                    const stockLevel = getStockLevel(currentStock, item.reorder_level);
+                    const shortage = Math.max(0, (item.reorder_level || 0) - currentStock);
 
                     return (
                       <tr key={index} className={`border-b border-gray-700/50 hover:bg-gray-700/20 transition-all ${
@@ -241,11 +243,11 @@ const LowStockPage = ({ user, onLogout }) => {
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className={`text-xl font-bold ${
-                            item.stock === 0 ? 'text-red-400' :
-                            item.stock <= (item.reorder_level * 0.5) ? 'text-orange-400' :
+                            currentStock === 0 ? 'text-red-400' :
+                            currentStock <= (item.reorder_level * 0.5) ? 'text-orange-400' :
                             'text-yellow-400'
                           }`}>
-                            {item.stock}
+                            {currentStock}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
