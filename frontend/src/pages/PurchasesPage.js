@@ -196,7 +196,7 @@ const PurchasesPage = ({ user, onLogout }) => {
   };
 
   const filteredPurchases = purchases.filter(purchase => {
-    const supplier = suppliers.find(s => s.supplier_id === purchase.supplier_id);
+    const supplier = suppliers.find(s => s.id === purchase.supplier_id);
     return (
       purchase.purchase_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -204,7 +204,7 @@ const PurchasesPage = ({ user, onLogout }) => {
   });
 
   const getSupplierName = (supplierId) => {
-    const supplier = suppliers.find(s => s.supplier_id === supplierId);
+    const supplier = suppliers.find(s => s.id === supplierId);
     return supplier?.name || 'Unknown';
   };
 
@@ -379,7 +379,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                   >
                     <option value="">Select Supplier</option>
                     {suppliers.map(supplier => (
-                      <option key={supplier.supplier_id} value={supplier.supplier_id}>
+                      <option key={supplier.id} value={supplier.id}>
                         {supplier.name} - {supplier.contact_person}
                       </option>
                     ))}
