@@ -41,7 +41,8 @@ const LowStockPage = ({ user, onLogout }) => {
   const getLowStockItems = () => {
     return productBranches.filter(pb => {
       const stock = pb.stock_quantity || pb.stock || 0;
-      const reorderLevel = pb.reorder_level || 0;
+      // Default reorder_level to 5 to match backend model default
+      const reorderLevel = pb.reorder_level ?? 5;
 
       if (stock > reorderLevel) return false;
 
@@ -80,7 +81,7 @@ const LowStockPage = ({ user, onLogout }) => {
   const criticalCount = lowStockItems.filter(item => (item.stock_quantity || item.stock || 0) === 0).length;
   const dangerCount = lowStockItems.filter(item => {
     const stock = item.stock_quantity || item.stock || 0;
-    const reorderLevel = item.reorder_level || 0;
+    const reorderLevel = item.reorder_level ?? 5;
     return stock > 0 && stock <= reorderLevel * 0.5;
   }).length;
   const warningCount = lowStockItems.length - criticalCount - dangerCount;

@@ -3990,10 +3990,10 @@ async def create_sale(
     # If branch_id is provided, use product_branches, otherwise use products
     for item in sale_data.items:
         if sale_data.branch_id:
-            # Update branch-specific stock
+            # Update branch-specific stock (use stock_quantity field)
             result = await target_db.product_branches.update_one(
                 {"product_id": item.product_id, "branch_id": sale_data.branch_id, "tenant_id": current_user["tenant_id"]},
-                {"$inc": {"stock": -item.quantity}}
+                {"$inc": {"stock_quantity": -item.quantity}}
             )
             if result.matched_count == 0:
                 raise HTTPException(status_code=400, detail=f"Product {item.product_id} not assigned to branch or insufficient stock")
@@ -4014,7 +4014,9 @@ async def create_sale(
                 "tenant_id": current_user["tenant_id"]
             }, {"_id": 0})
             
-            if product_branch and product_branch.get("stock", 0) <= 5:
+            # Use stock_quantity field (correct field name for product_branches)
+            branch_stock = product_branch.get("stock_quantity", product_branch.get("stock", 0)) if product_branch else 0
+            if product_branch and branch_stock <= 5:
                 # Get product name
                 product = await target_db.products.find_one(
                     {"id": item.product_id, "tenant_id": current_user["tenant_id"]},
@@ -4033,7 +4035,7 @@ async def create_sale(
                             tenant_id=current_user["tenant_id"],
                             type=NotificationType.LOW_STOCK,
                             reference_id=f"{item.product_id}_{sale_data.branch_id}",
-                            message=f"Low stock alert: {product['name']} (Branch) - Only {product_branch['stock']} units left!",
+                            message=f"Low stock alert: {product['name']} (Branch) - Only {branch_stock} units left!",
                             is_sticky=False
                         )
                         notif_doc = notification.model_dump()
