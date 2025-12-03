@@ -539,7 +539,6 @@ class CustomerCreate(BaseModel):
     phone: str
     email: Optional[str] = None
     address: Optional[str] = None
-    credit_limit: float = 0
 
 class Customer(BaseDBModel):
     tenant_id: Optional[str] = None
@@ -547,7 +546,6 @@ class Customer(BaseDBModel):
     phone: str
     email: Optional[str] = None
     address: Optional[str] = None
-    credit_limit: float = 0
     total_purchases: float = 0
     due_amount: float = 0
 
