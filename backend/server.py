@@ -46,10 +46,22 @@ from notification_service import NotificationService
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Cloudinary configuration
+# Cloudinary configuration - support both CLOUDINARY_URL and individual env vars
 cloudinary_url = os.environ.get('CLOUDINARY_URL')
+cloudinary_cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+cloudinary_api_key = os.environ.get('CLOUDINARY_API_KEY')
+cloudinary_api_secret = os.environ.get('CLOUDINARY_API_SECRET')
+
 if cloudinary_url:
     cloudinary.config(cloudinary_url=cloudinary_url)
+elif cloudinary_cloud_name and cloudinary_api_key and cloudinary_api_secret:
+    cloudinary.config(
+        cloud_name=cloudinary_cloud_name,
+        api_key=cloudinary_api_key,
+        api_secret=cloudinary_api_secret,
+        secure=True
+    )
+    cloudinary_url = f"cloudinary://{cloudinary_api_key}:{cloudinary_api_secret}@{cloudinary_cloud_name}"
 
 # MongoDB connection - handle both Mongo_URL and MONGO_URL
 mongo_url = os.environ.get('MONGO_URL') or os.environ.get('Mongo_URL')
