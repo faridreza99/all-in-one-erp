@@ -73,6 +73,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(initialIsMobile);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const [branding, setBranding] = useState({
     name: "Smart Business ERP",
@@ -120,9 +121,12 @@ const SectorLayout = ({ children, user, onLogout }) => {
               : `${API}${rawBg.startsWith("/") ? "" : "/"}${rawBg}`
             : null;
 
-        if (mounted) setBranding({ name, logo, backgroundImage });
+        if (mounted) {
+          setBranding({ name, logo, backgroundImage });
+          setSettingsLoaded(true);
+        }
       } catch {
-        // leave defaults
+        if (mounted) setSettingsLoaded(true);
       }
     })();
     return () => {
@@ -165,15 +169,31 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
   const contentMarginLeft = isMobile ? 0 : isCollapsed ? 80 : 288;
 
-  return (
-    <div 
-      className={`min-h-screen ${branding.backgroundImage ? 'custom-bg' : 'gradient-bg'}`}
-      style={branding.backgroundImage ? {
+  const getBackgroundClass = () => {
+    if (!settingsLoaded) return 'loading-bg';
+    if (branding.backgroundImage) return 'custom-bg';
+    return 'gradient-bg';
+  };
+
+  const getBackgroundStyle = () => {
+    if (!settingsLoaded) {
+      return { background: '#0f172a' };
+    }
+    if (branding.backgroundImage) {
+      return {
         background: `linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), url(${branding.backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
-      } : {}}
+      };
+    }
+    return {};
+  };
+
+  return (
+    <div 
+      className={`min-h-screen ${getBackgroundClass()} transition-all duration-300`}
+      style={getBackgroundStyle()}
     >
       {/* Mobile Overlay */}
       {isMobile && isMobileMenuOpen && (
