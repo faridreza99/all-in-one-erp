@@ -2799,7 +2799,16 @@ async def get_settings(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    settings = await db.settings.find_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Settings GET using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for settings: {resolve_error}")
+    
+    settings = await target_db.settings.find_one(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -2813,7 +2822,7 @@ async def get_settings(
         doc['created_at'] = doc['created_at'].isoformat()
         doc['updated_at'] = doc['updated_at'].isoformat()
         
-        await db.settings.insert_one(doc)
+        await target_db.settings.insert_one(doc)
         return default_settings
     
     if isinstance(settings.get('created_at'), str):
@@ -2831,7 +2840,16 @@ async def update_settings(
     if not current_user.get("tenant_id"):
         raise HTTPException(status_code=400, detail="Tenant ID required")
     
-    existing_settings = await db.settings.find_one(
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Settings PUT using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for settings update: {resolve_error}")
+    
+    existing_settings = await target_db.settings.find_one(
         {"tenant_id": current_user["tenant_id"]},
         {"_id": 0}
     )
@@ -2840,12 +2858,12 @@ async def update_settings(
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     if existing_settings:
-        await db.settings.update_one(
+        await target_db.settings.update_one(
             {"tenant_id": current_user["tenant_id"]},
             {"$set": update_data}
         )
         
-        updated_settings = await db.settings.find_one(
+        updated_settings = await target_db.settings.find_one(
             {"tenant_id": current_user["tenant_id"]},
             {"_id": 0}
         )
@@ -2869,7 +2887,7 @@ async def update_settings(
         doc['created_at'] = doc['created_at'].isoformat()
         doc['updated_at'] = doc['updated_at'].isoformat()
         
-        await db.settings.insert_one(doc)
+        await target_db.settings.insert_one(doc)
         return new_settings
 
 # ========== FILE UPLOAD ROUTES ==========
@@ -2937,8 +2955,17 @@ async def upload_logo(
         file_url = f"/uploads/settings/{secure_filename}"
         filename = secure_filename
     
+    # Resolve tenant-specific database for settings update
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Logo upload using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for logo upload: {resolve_error}")
+    
     # Update settings with new logo URL
-    await db.settings.update_one(
+    await target_db.settings.update_one(
         {"tenant_id": current_user["tenant_id"]},
         {"$set": {"logo_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
@@ -3010,8 +3037,17 @@ async def upload_background(
         file_url = f"/uploads/settings/{secure_filename}"
         filename = secure_filename
     
+    # Resolve tenant-specific database for settings update
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Background upload using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for background upload: {resolve_error}")
+    
     # Update settings with new background URL
-    await db.settings.update_one(
+    await target_db.settings.update_one(
         {"tenant_id": current_user["tenant_id"]},
         {"$set": {"background_image_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
