@@ -131,7 +131,7 @@ function ReturnsPage() {
                 <td className="p-3 font-mono text-sm">{returnReq.id.substring(0, 8)}</td>
                 <td className="p-3">{returnReq.sale_id}</td>
                 <td className="p-3">{returnReq.reason}</td>
-                <td className="p-3 font-semibold">${returnReq.refund_amount.toFixed(2)}</td>
+                <td className="p-3 font-semibold">৳{returnReq.refund_amount.toFixed(2)}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-sm ${
                     returnReq.status === 'approved' ? 'bg-green-100 text-green-800' :

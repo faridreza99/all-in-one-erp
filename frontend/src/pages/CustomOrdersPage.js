@@ -144,8 +144,8 @@ function CustomOrdersPage() {
                   <div className="text-sm text-gray-500">{order.customer_phone}</div>
                 </td>
                 <td className="p-3">{order.product_description}</td>
-                <td className="p-3 font-semibold">${order.total_amount.toFixed(2)}</td>
-                <td className="p-3 text-red-600 font-semibold">${order.balance_amount.toFixed(2)}</td>
+                <td className="p-3 font-semibold">৳{order.total_amount.toFixed(2)}</td>
+                <td className="p-3 text-red-600 font-semibold">৳{order.balance_amount.toFixed(2)}</td>
                 <td className="p-3">{new Date(order.delivery_date).toLocaleDateString()}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-sm ${

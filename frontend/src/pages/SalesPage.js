@@ -191,7 +191,7 @@ const SalesPage = ({ user, onLogout }) => {
                   className="text-3xl font-bold text-white"
                   data-testid="total-revenue"
                 >
-                  ${totalRevenue.toFixed(2)}
+                  ৳{totalRevenue.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -223,8 +223,8 @@ const SalesPage = ({ user, onLogout }) => {
                 <p className="text-slate-400 text-sm">Average Sale</p>
                 <p className="text-3xl font-bold text-white">
                   {sales.length > 0
-                    ? `$${(totalRevenue / sales.length).toFixed(2)}`
-                    : "$0.00"}
+                    ? `৳${(totalRevenue / sales.length).toFixed(2)}`
+                    : "৳0.00"}
                 </p>
               </div>
             </div>
@@ -361,16 +361,16 @@ const SalesPage = ({ user, onLogout }) => {
                           {sale.items?.length ?? 0}
                         </td>
                         <td className="text-slate-300">
-                          ${Number(sale.subtotal || 0).toFixed(2)}
+                          ৳{Number(sale.subtotal || 0).toFixed(2)}
                         </td>
                         <td className="text-orange-400">
-                          -${Number(sale.discount || 0).toFixed(2)}
+                          -৳{Number(sale.discount || 0).toFixed(2)}
                         </td>
                         <td className="text-slate-300">
-                          ${Number(sale.tax || 0).toFixed(2)}
+                          ৳{Number(sale.tax || 0).toFixed(2)}
                         </td>
                         <td className="text-green-400 font-bold">
-                          ${Number(sale.total || 0).toFixed(2)}
+                          ৳{Number(sale.total || 0).toFixed(2)}
                         </td>
                         <td>
                           <span

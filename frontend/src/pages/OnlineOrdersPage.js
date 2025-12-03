@@ -86,13 +86,13 @@ function OnlineOrdersPage() {
                 {order.items && order.items.map((item, idx) => (
                   <li key={idx} className="text-sm flex justify-between">
                     <span>{item.name} x {item.quantity}</span>
-                    <span className="font-semibold">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-semibold">৳{(item.price * item.quantity).toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
               <div className="flex justify-between items-center mt-4 pt-4 border-t">
                 <span className="font-bold">Total Amount:</span>
-                <span className="text-xl font-bold text-green-600">${order.total_amount.toFixed(2)}</span>
+                <span className="text-xl font-bold text-green-600">৳{order.total_amount.toFixed(2)}</span>
               </div>
               <div className="flex gap-2 mt-2">
                 <span className={`px-2 py-1 rounded text-sm ${

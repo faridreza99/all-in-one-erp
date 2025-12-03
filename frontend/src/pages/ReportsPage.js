@@ -369,7 +369,7 @@ const ReportsPage = ({ user, onLogout }) => {
                             </td>
                             <td className="py-4 px-4 text-white font-mono">{product.product_id}</td>
                             <td className="py-4 px-4 text-center text-white font-semibold">{product.quantity}</td>
-                            <td className="py-4 px-4 text-right text-green-400 font-bold">${product.revenue.toFixed(2)}</td>
+                            <td className="py-4 px-4 text-right text-green-400 font-bold">৳{product.revenue.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -394,11 +394,11 @@ const ReportsPage = ({ user, onLogout }) => {
                       </div>
                       <div>
                         <span className="text-gray-400">Total Revenue: </span>
-                        <span className="text-green-400 font-bold">${calculateSalesStats().total.toFixed(2)}</span>
+                        <span className="text-green-400 font-bold">৳{calculateSalesStats().total.toFixed(2)}</span>
                       </div>
                       <div>
                         <span className="text-gray-400">Avg Sale: </span>
-                        <span className="text-blue-400 font-bold">${calculateSalesStats().avg.toFixed(2)}</span>
+                        <span className="text-blue-400 font-bold">৳{calculateSalesStats().avg.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -432,7 +432,7 @@ const ReportsPage = ({ user, onLogout }) => {
                           <tr key={sale.sale_id} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
                             <td className="py-4 px-4 text-white font-mono">{sale.sale_id}</td>
                             <td className="py-4 px-4 text-center text-gray-300">{sale.items?.length || 0}</td>
-                            <td className="py-4 px-4 text-right text-green-400 font-bold">${sale.total?.toFixed(2) || '0.00'}</td>
+                            <td className="py-4 px-4 text-right text-green-400 font-bold">৳{sale.total?.toFixed(2) || '0.00'}</td>
                             <td className="py-4 px-4 text-center text-gray-400">{new Date(sale.created_at).toLocaleString()}</td>
                           </tr>
                         ))}
@@ -458,11 +458,11 @@ const ReportsPage = ({ user, onLogout }) => {
                       </div>
                       <div>
                         <span className="text-gray-400">Total Amount: </span>
-                        <span className="text-red-400 font-bold">${calculatePurchasesStats().total.toFixed(2)}</span>
+                        <span className="text-red-400 font-bold">৳{calculatePurchasesStats().total.toFixed(2)}</span>
                       </div>
                       <div>
                         <span className="text-gray-400">Avg Purchase: </span>
-                        <span className="text-purple-400 font-bold">${calculatePurchasesStats().avg.toFixed(2)}</span>
+                        <span className="text-purple-400 font-bold">৳{calculatePurchasesStats().avg.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

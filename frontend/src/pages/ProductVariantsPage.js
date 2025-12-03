@@ -165,7 +165,7 @@ function ProductVariantsPage() {
                     </span>
                   )}
                 </td>
-                <td className="p-3 font-semibold">${variant.price.toFixed(2)}</td>
+                <td className="p-3 font-semibold">৳{variant.price.toFixed(2)}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-sm ${
                     variant.stock > 10 ? 'bg-green-100 text-green-800' :

@@ -79,7 +79,7 @@ const ExpensesPage = ({ user, onLogout }) => {
               <div>
                 <p className="text-slate-400 text-sm">Total Expenses</p>
                 <p className="text-3xl font-bold text-white" data-testid="total-expenses">
-                  ${totalExpenses.toFixed(2)}
+                  ৳{totalExpenses.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -93,7 +93,7 @@ const ExpensesPage = ({ user, onLogout }) => {
               <div>
                 <p className="text-slate-400 text-sm">This Month</p>
                 <p className="text-3xl font-bold text-white">
-                  ${expenses.filter(e => 
+                  ৳{expenses.filter(e => 
                     new Date(e.date).getMonth() === new Date().getMonth()
                   ).reduce((sum, e) => sum + e.amount, 0).toFixed(2)}
                 </p>
@@ -135,7 +135,7 @@ const ExpensesPage = ({ user, onLogout }) => {
                       <span className="badge badge-info">{expense.category}</span>
                     </td>
                     <td className="text-slate-300">{expense.description}</td>
-                    <td className="text-red-400 font-bold">-${expense.amount.toFixed(2)}</td>
+                    <td className="text-red-400 font-bold">-৳{expense.amount.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>

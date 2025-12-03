@@ -512,7 +512,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                         <div className="flex-1">
                           <p className="text-white font-semibold">{item.product_name}</p>
                           <p className="text-gray-400 text-sm">
-                            Quantity: {item.quantity} × ${item.price.toFixed(2)} = ${(item.quantity * item.price).toFixed(2)}
+                            Quantity: {item.quantity} × ৳{item.price.toFixed(2)} = ৳{(item.quantity * item.price).toFixed(2)}
                           </p>
                           {item.has_warranty && (
                             <p className="text-orange-400 text-sm flex items-center gap-1 mt-1">
@@ -534,7 +534,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                   <div className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/50 rounded-lg p-4">
                     <p className="text-2xl font-bold text-white flex items-center justify-between">
                       <span>Total Amount:</span>
-                      <span className="text-yellow-400">${calculateTotal().toFixed(2)}</span>
+                      <span className="text-yellow-400">৳{calculateTotal().toFixed(2)}</span>
                     </p>
                   </div>
                 </div>
@@ -695,7 +695,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                         <td className="py-4 px-4 text-gray-300">{purchase.supplier_name || getSupplierName(purchase.supplier_id)}</td>
                         <td className="py-4 px-4 text-gray-400">{purchase.items?.length || 0} items</td>
                         <td className="py-4 px-4">
-                          <span className="text-yellow-400 font-bold">${purchase.total_amount?.toFixed(2) || '0.00'}</span>
+                          <span className="text-yellow-400 font-bold">৳{purchase.total_amount?.toFixed(2) || '0.00'}</span>
                         </td>
                         <td className="py-4 px-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -739,7 +739,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                                           {item.product_name || `Product #${item.product_id || idx + 1}`}
                                         </p>
                                         <p className="text-gray-400 text-sm">
-                                          Qty: {item.quantity} × ${item.price?.toFixed(2)} = ${((item.quantity || 0) * (item.price || 0)).toFixed(2)}
+                                          Qty: {item.quantity} × ৳{item.price?.toFixed(2)} = ৳{((item.quantity || 0) * (item.price || 0)).toFixed(2)}
                                         </p>
                                       </div>
                                     ))}

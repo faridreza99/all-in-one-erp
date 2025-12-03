@@ -75,7 +75,7 @@ const TenantDashboard = ({ user, onLogout }) => {
                 <div>
                   <p className="text-slate-400 text-sm">Total Sales</p>
                   <p className="text-3xl font-bold text-white" data-testid="total-sales">
-                    ${stats.total_sales.toFixed(2)}
+                    ৳{stats.total_sales.toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -176,13 +176,13 @@ const TenantDashboard = ({ user, onLogout }) => {
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Today's Sales</span>
                 <span className="text-xl font-bold text-green-400">
-                  ${stats?.today_sales.toFixed(2)}
+                  ৳{stats?.today_sales.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">Monthly Sales</span>
                 <span className="text-xl font-bold text-blue-400">
-                  ${stats?.monthly_sales.toFixed(2)}
+                  ৳{stats?.monthly_sales.toFixed(2)}
                 </span>
               </div>
             </div>

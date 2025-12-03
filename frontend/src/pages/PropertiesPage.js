@@ -150,7 +150,7 @@ function PropertiesPage() {
                 </p>
               </div>
               <div className="mt-4 pt-4 border-t">
-                <p className="text-2xl font-bold text-green-600">${property.rent_amount.toFixed(2)}/mo</p>
+                <p className="text-2xl font-bold text-green-600">৳{property.rent_amount.toFixed(2)}/mo</p>
               </div>
             </div>
           </div>

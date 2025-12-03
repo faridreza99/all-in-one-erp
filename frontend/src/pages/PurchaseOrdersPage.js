@@ -126,7 +126,7 @@ function PurchaseOrdersPage() {
               <tr key={order.id} className="border-t hover:bg-gray-50">
                 <td className="p-3 font-mono font-bold">{order.po_number}</td>
                 <td className="p-3">{order.supplier_id}</td>
-                <td className="p-3 font-semibold">${order.total_amount.toFixed(2)}</td>
+                <td className="p-3 font-semibold">৳{order.total_amount.toFixed(2)}</td>
                 <td className="p-3">{new Date(order.expected_delivery).toLocaleDateString()}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-sm ${

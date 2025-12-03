@@ -160,7 +160,7 @@ const CustomersPage = ({ user, onLogout }) => {
 
   const fmtMoney = (v) => {
     const n = Number(v || 0);
-    return `$${n.toFixed(2)}`;
+    return `৳${n.toFixed(2)}`;
   };
 
   return (
@@ -528,7 +528,7 @@ const CustomersPage = ({ user, onLogout }) => {
                                   <span className="text-slate-400 text-sm">
                                     @{" "}
                                     <span className="text-blue-400 font-semibold">
-                                      ${Number(item.price || 0).toFixed(2)}
+                                      ৳{Number(item.price || 0).toFixed(2)}
                                     </span>
                                   </span>
                                   <span className="text-green-400 font-semibold min-w-[80px] text-right">

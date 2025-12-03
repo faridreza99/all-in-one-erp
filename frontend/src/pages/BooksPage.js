@@ -151,7 +151,7 @@ function BooksPage() {
                 <td className="p-3">
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">{book.category}</span>
                 </td>
-                <td className="p-3 font-semibold">${book.price.toFixed(2)}</td>
+                <td className="p-3 font-semibold">৳{book.price.toFixed(2)}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 rounded text-sm ${
                     book.stock > 10 ? 'bg-green-100 text-green-800' :
