@@ -1738,8 +1738,11 @@ async def create_user(
     user_data: UserCreate,
     current_user: dict = Depends(require_user_management_access)
 ):
-    # Check if email exists
-    existing_email = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    # Check if email exists within the same tenant
+    existing_email = await db.users.find_one(
+        {"email": user_data.email, "tenant_id": current_user["tenant_id"]}, 
+        {"_id": 0}
+    )
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already registered")
     
