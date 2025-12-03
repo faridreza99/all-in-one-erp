@@ -77,32 +77,44 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Sector Layout Wrapper - validates sector access and renders child routes
-const SectorLayoutWrapper = ({ user, loading, onLogout }) => {
-  const { sector } = useParams();
-  
-  // Show loading while checking auth
-  if (loading) {
-    return <LoadingSpinner />;
-  }
+// Protected Sector Route - handles auth check and module access (moved outside App for stable identity)
+const ProtectedSectorRouteWrapper = ({ user, loading, module, children, element }) => {
+  // Show loading spinner while checking auth
+  if (loading) return <LoadingSpinner />;
   
   // Redirect to auth if not logged in
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!user.business_type) return <Navigate to="/auth" replace />;
   
-  // Redirect to correct sector if URL doesn't match user's business type
-  if (user.business_type && sector !== user.business_type) {
+  // Check if business type allows this module
+  const isBusinessTypeAllowed = isSectorAllowed(user.business_type, module);
+  if (!isBusinessTypeAllowed) {
     return <Navigate to={`/${user.business_type}`} replace />;
   }
-  
-  // User doesn't have a business type - redirect to auth
-  if (!user.business_type) {
-    return <Navigate to="/auth" replace />;
+
+  // Check if user's role allows this route
+  const userRole = user.role;
+  const allowedRoutes = user.allowed_routes || [];
+
+  // Render the content (support both children and element prop patterns)
+  const content = children || element;
+
+  // Super admin and tenant admin can access everything
+  if (userRole === "super_admin" || userRole === "tenant_admin") {
+    return content;
   }
-  
-  // Render child routes
-  return <Outlet context={{ user, onLogout }} />;
+
+  // Dashboard is always allowed
+  if (module === "dashboard") {
+    return content;
+  }
+
+  // Check if module is in user's allowed_routes
+  if (!allowedRoutes.includes(module)) {
+    return <Navigate to={`/${user.business_type}`} replace />;
+  }
+
+  return content;
 };
 
 
@@ -256,27 +268,6 @@ const App = () => {
     setUser(null);
   };
 
-  // Helper component to handle sector route with access control
-  const ProtectedSectorRoute = ({ module, element }) => {
-    if (loading) return <LoadingSpinner />;
-    if (!user) return <Navigate to="/auth" replace />;
-    if (!user.business_type) return <Navigate to="/auth" replace />;
-    
-    return (
-      <SectorRoute user={user} module={module} element={element} />
-    );
-  };
-
-  // Helper component for sector dashboard
-  const SectorDashboardRoute = () => {
-    if (loading) return <LoadingSpinner />;
-    if (!user) return <Navigate to="/auth" replace />;
-    if (!user.business_type) return <Navigate to="/auth" replace />;
-    
-    return user.business_type === "cnf" 
-      ? <CNFDashboard user={user} onLogout={handleLogout} />
-      : <SectorDashboard user={user} onLogout={handleLogout} />;
-  };
 
   return (
     <SidebarProvider>
@@ -340,69 +331,73 @@ const App = () => {
           {/* Static Sector Routes - Always registered, handle auth inside */}
           <Route
             path="/:sector"
-            element={<SectorDashboardRoute />}
+            element={
+              loading ? (
+                <LoadingSpinner />
+              ) : !user ? (
+                <Navigate to="/auth" replace />
+              ) : !user.business_type ? (
+                <Navigate to="/auth" replace />
+              ) : user.business_type === "cnf" ? (
+                <CNFDashboard user={user} onLogout={handleLogout} />
+              ) : (
+                <SectorDashboard user={user} onLogout={handleLogout} />
+              )
+            }
           />
 
           <Route
             path="/:sector/products"
             element={
-              <ProtectedSectorRoute
-                module="products"
-                element={<ProductsPage user={user} onLogout={handleLogout} />}
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="products">
+                <ProductsPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/pos"
             element={
-              <ProtectedSectorRoute
-                module="pos"
-                element={<POSPage user={user} onLogout={handleLogout} />}
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="pos">
+                <POSPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/services"
             element={
-              <ProtectedSectorRoute
-                module="services"
-                element={<ServicesPage user={user} onLogout={handleLogout} />}
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="services">
+                <ServicesPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/appointments"
             element={
-              <ProtectedSectorRoute
-                module="appointments"
-                element={
-                  <AppointmentsPage user={user} onLogout={handleLogout} />
-                }
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="appointments">
+                <AppointmentsPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/repairs"
             element={
-              <ProtectedSectorRoute
-                module="repairs"
-                element={<RepairsPage user={user} onLogout={handleLogout} />}
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="repairs">
+                <RepairsPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/tables"
             element={
-              <ProtectedSectorRoute
-                module="tables"
-                element={<TablesPage user={user} onLogout={handleLogout} />}
-              />
+              <ProtectedSectorRouteWrapper user={user} loading={loading} module="tables">
+                <TablesPage user={user} onLogout={handleLogout} />
+              </ProtectedSectorRouteWrapper>
             }
           />
           <Route
             path="/:sector/customers"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="customers"
                 element={<CustomersPage user={user} onLogout={handleLogout} />}
               />
@@ -411,7 +406,7 @@ const App = () => {
           <Route
             path="/:sector/customer-dues"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="customer-dues"
                 element={<CustomerDuesPage user={user} onLogout={handleLogout} />}
               />
@@ -420,7 +415,7 @@ const App = () => {
           <Route
             path="/:sector/suppliers"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="suppliers"
                 element={<SuppliersPage user={user} onLogout={handleLogout} />}
               />
@@ -429,7 +424,7 @@ const App = () => {
           <Route
             path="/:sector/purchases"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="purchases"
                 element={<PurchasesPage user={user} onLogout={handleLogout} />}
               />
@@ -438,7 +433,7 @@ const App = () => {
           <Route
             path="/:sector/low-stock"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="low-stock"
                 element={<LowStockPage user={user} onLogout={handleLogout} />}
               />
@@ -447,7 +442,7 @@ const App = () => {
           <Route
             path="/:sector/expenses"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="expenses"
                 element={<ExpensesPage user={user} onLogout={handleLogout} />}
               />
@@ -456,7 +451,7 @@ const App = () => {
           <Route
             path="/:sector/doctors"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="doctors"
                 element={<DoctorsPage user={user} onLogout={handleLogout} />}
               />
@@ -465,7 +460,7 @@ const App = () => {
           <Route
             path="/:sector/patients"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="patients"
                 element={<PatientsPage user={user} onLogout={handleLogout} />}
               />
@@ -474,7 +469,7 @@ const App = () => {
           <Route
             path="/:sector/vehicles"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="vehicles"
                 element={<VehiclesPage user={user} onLogout={handleLogout} />}
               />
@@ -483,7 +478,7 @@ const App = () => {
           <Route
             path="/:sector/properties"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="properties"
                 element={<PropertiesPage user={user} onLogout={handleLogout} />}
               />
@@ -492,7 +487,7 @@ const App = () => {
           <Route
             path="/:sector/offers"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="offers"
                 element={<OffersPage user={user} onLogout={handleLogout} />}
               />
@@ -501,7 +496,7 @@ const App = () => {
           <Route
             path="/:sector/variants"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="variants"
                 element={<ProductVariantsPage user={user} onLogout={handleLogout} />}
               />
@@ -510,7 +505,7 @@ const App = () => {
           <Route
             path="/:sector/branches"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="branches"
                 element={<BranchesPage user={user} onLogout={handleLogout} />}
               />
@@ -519,7 +514,7 @@ const App = () => {
           <Route
             path="/:sector/product-assignment"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="product-assignment"
                 element={<ProductBranchAssignmentPage user={user} onLogout={handleLogout} />}
               />
@@ -528,7 +523,7 @@ const App = () => {
           <Route
             path="/:sector/stock-transfer"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="stock-transfer"
                 element={<StockTransferPage user={user} onLogout={handleLogout} />}
               />
@@ -537,7 +532,7 @@ const App = () => {
           <Route
             path="/:sector/components"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="components"
                 element={<ComponentsPage user={user} onLogout={handleLogout} />}
               />
@@ -546,7 +541,7 @@ const App = () => {
           <Route
             path="/:sector/job-cards"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="job-cards"
                 element={<JobCardsPage user={user} onLogout={handleLogout} />}
               />
@@ -555,7 +550,7 @@ const App = () => {
           <Route
             path="/:sector/device-history"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="device-history"
                 element={<DeviceHistoryPage user={user} onLogout={handleLogout} />}
               />
@@ -564,7 +559,7 @@ const App = () => {
           <Route
             path="/:sector/warranties"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="warranties"
                 element={<WarrantiesPage user={user} onLogout={handleLogout} />}
               />
@@ -587,7 +582,7 @@ const App = () => {
           <Route
             path="/:sector/returns"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="returns"
                 element={<ReturnsPage user={user} onLogout={handleLogout} />}
               />
@@ -596,7 +591,7 @@ const App = () => {
           <Route
             path="/:sector/books"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="books"
                 element={<BooksPage user={user} onLogout={handleLogout} />}
               />
@@ -605,7 +600,7 @@ const App = () => {
           <Route
             path="/:sector/custom-orders"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="custom-orders"
                 element={<CustomOrdersPage user={user} onLogout={handleLogout} />}
               />
@@ -614,7 +609,7 @@ const App = () => {
           <Route
             path="/:sector/purchase-orders"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="purchase-orders"
                 element={<PurchaseOrdersPage user={user} onLogout={handleLogout} />}
               />
@@ -623,7 +618,7 @@ const App = () => {
           <Route
             path="/:sector/goods-receipts"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="goods-receipts"
                 element={<GoodsReceiptsPage user={user} onLogout={handleLogout} />}
               />
@@ -632,7 +627,7 @@ const App = () => {
           <Route
             path="/:sector/online-orders"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="online-orders"
                 element={<OnlineOrdersPage user={user} onLogout={handleLogout} />}
               />
@@ -641,7 +636,7 @@ const App = () => {
           <Route
             path="/:sector/sales"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="sales"
                 element={<SalesPage user={user} onLogout={handleLogout} />}
               />
@@ -650,7 +645,7 @@ const App = () => {
           <Route
             path="/:sector/invoice/:saleId"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="sales"
                 element={<InvoicePage user={user} onLogout={handleLogout} />}
               />
@@ -659,7 +654,7 @@ const App = () => {
           <Route
             path="/:sector/reports"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="reports"
                 element={<ReportsPage user={user} onLogout={handleLogout} />}
               />
@@ -706,7 +701,7 @@ const App = () => {
           <Route
             path="/:sector/shipments"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="shipments"
                 element={<ShipmentsPage user={user} onLogout={handleLogout} />}
               />
@@ -715,7 +710,7 @@ const App = () => {
           <Route
             path="/:sector/jobs"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="jobs"
                 element={<JobFilesPage user={user} onLogout={handleLogout} />}
               />
@@ -724,7 +719,7 @@ const App = () => {
           <Route
             path="/:sector/billing"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="billing"
                 element={<BillingPage user={user} onLogout={handleLogout} />}
               />
@@ -733,7 +728,7 @@ const App = () => {
           <Route
             path="/:sector/documents"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="documents"
                 element={<DocumentsPage user={user} onLogout={handleLogout} />}
               />
@@ -742,7 +737,7 @@ const App = () => {
           <Route
             path="/:sector/transport"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="transport"
                 element={<TransportPage user={user} onLogout={handleLogout} />}
               />
@@ -751,7 +746,7 @@ const App = () => {
           <Route
             path="/:sector/cnf-reports"
             element={
-              <ProtectedSectorRoute
+              <ProtectedSectorRouteWrapper user={user} loading={loading}
                 module="cnf-reports"
                 element={<CNFReportsPage user={user} onLogout={handleLogout} />}
               />
