@@ -78,10 +78,8 @@ const LoadingSpinner = () => (
 );
 
 // Protected Sector Route - handles auth check and module access (moved outside App for stable identity)
-const ProtectedSectorRouteWrapper = ({ user, loading, module, children, element }) => {
-  // Show loading spinner while checking auth
-  if (loading) return <LoadingSpinner />;
-  
+// Note: This component only renders after authChecked is true, so user state is already resolved
+const ProtectedSectorRouteWrapper = ({ user, module, children, element }) => {
   // Redirect to auth if not logged in
   if (!user) return <Navigate to="/auth" replace />;
   if (!user.business_type) return <Navigate to="/auth" replace />;
@@ -210,6 +208,7 @@ const SectorRoute = ({ user, element, module }) => {
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -223,11 +222,14 @@ const App = () => {
         const response = await axios.get(`${API}/auth/me`);
         setUser(response.data);
       } catch (error) {
+        console.error("Auth check failed:", error);
         localStorage.removeItem("token");
         delete axios.defaults.headers.common["Authorization"];
+        setUser(null);
       }
     }
     setLoading(false);
+    setAuthChecked(true);
   };
 
   const handleLogin = (userData, token) => {
@@ -269,6 +271,11 @@ const App = () => {
   };
 
 
+  // Don't render any routes until auth check completes - this prevents premature redirects
+  if (!authChecked) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <SidebarProvider>
       <div className="App">
@@ -278,9 +285,7 @@ const App = () => {
           <Route
             path="/auth"
             element={
-              loading ? (
-                <LoadingSpinner />
-              ) : !user ? (
+              !user ? (
                 <AuthPage onLogin={handleLogin} />
               ) : user.role === "super_admin" ? (
                 <Navigate to="/" replace />
@@ -314,9 +319,7 @@ const App = () => {
           <Route
             path="/"
             element={
-              loading ? (
-                <LoadingSpinner />
-              ) : !user ? (
+              !user ? (
                 <Navigate to="/auth" replace />
               ) : user.role === "super_admin" ? (
                 <SuperAdminDashboard user={user} onLogout={handleLogout} />
@@ -332,9 +335,7 @@ const App = () => {
           <Route
             path="/:sector"
             element={
-              loading ? (
-                <LoadingSpinner />
-              ) : !user ? (
+              !user ? (
                 <Navigate to="/auth" replace />
               ) : !user.business_type ? (
                 <Navigate to="/auth" replace />
@@ -349,7 +350,7 @@ const App = () => {
           <Route
             path="/:sector/products"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="products">
+              <ProtectedSectorRouteWrapper user={user} module="products">
                 <ProductsPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
@@ -357,7 +358,7 @@ const App = () => {
           <Route
             path="/:sector/pos"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="pos">
+              <ProtectedSectorRouteWrapper user={user} module="pos">
                 <POSPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
@@ -365,7 +366,7 @@ const App = () => {
           <Route
             path="/:sector/services"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="services">
+              <ProtectedSectorRouteWrapper user={user} module="services">
                 <ServicesPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
@@ -373,7 +374,7 @@ const App = () => {
           <Route
             path="/:sector/appointments"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="appointments">
+              <ProtectedSectorRouteWrapper user={user} module="appointments">
                 <AppointmentsPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
@@ -381,7 +382,7 @@ const App = () => {
           <Route
             path="/:sector/repairs"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="repairs">
+              <ProtectedSectorRouteWrapper user={user} module="repairs">
                 <RepairsPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
@@ -389,7 +390,7 @@ const App = () => {
           <Route
             path="/:sector/tables"
             element={
-              <ProtectedSectorRouteWrapper user={user} loading={loading} module="tables">
+              <ProtectedSectorRouteWrapper user={user} module="tables">
                 <TablesPage user={user} onLogout={handleLogout} />
               </ProtectedSectorRouteWrapper>
             }
