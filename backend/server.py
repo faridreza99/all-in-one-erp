@@ -542,13 +542,14 @@ class CustomerCreate(BaseModel):
     credit_limit: float = 0
 
 class Customer(BaseDBModel):
-    tenant_id: str
+    tenant_id: Optional[str] = None
     name: str
     phone: str
     email: Optional[str] = None
     address: Optional[str] = None
-    credit_limit: float
+    credit_limit: float = 0
     total_purchases: float = 0
+    due_amount: float = 0
 
 class ExpenseCreate(BaseModel):
     category: str
