@@ -1190,9 +1190,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         # Extract tenant info from JWT payload (for multi-tenant support)
         user["tenant_slug"] = payload.get("tenant_slug")
         user["business_name"] = payload.get("business_name")
+        user["business_type"] = payload.get("business_type")
         
-        # Add business_type from tenant if tenant_id exists
-        if user.get("tenant_id"):
+        # Fallback: Add business_type from tenant collection if not in JWT
+        if not user.get("business_type") and user.get("tenant_id"):
             tenant = await db.tenants.find_one({"tenant_id": user["tenant_id"]}, {"_id": 0})
             if tenant:
                 user["business_type"] = tenant.get("business_type")

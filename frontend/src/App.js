@@ -216,20 +216,26 @@ const App = () => {
 
   const checkAuth = async () => {
     const token = localStorage.getItem("token");
+    console.log("[Auth] Checking auth, token exists:", !!token);
     if (token) {
       try {
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         const response = await axios.get(`${API}/auth/me`);
+        console.log("[Auth] Got user data:", response.data);
+        console.log("[Auth] User business_type:", response.data?.business_type);
         setUser(response.data);
       } catch (error) {
-        console.error("Auth check failed:", error);
+        console.error("[Auth] Auth check failed:", error);
         localStorage.removeItem("token");
         delete axios.defaults.headers.common["Authorization"];
         setUser(null);
       }
+    } else {
+      console.log("[Auth] No token found in localStorage");
     }
     setLoading(false);
     setAuthChecked(true);
+    console.log("[Auth] Auth check complete, authChecked=true");
   };
 
   const handleLogin = (userData, token) => {
