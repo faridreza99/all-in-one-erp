@@ -127,13 +127,25 @@ const POSPage = ({ user, onLogout }) => {
   const handlePhoneChange = (e) => {
     let digits = e.target.value.replace(/\D/g, "");
 
-    if (digits.startsWith("880")) digits = digits.slice(3);
-    if (digits.startsWith("0")) digits = digits.slice(1);
-    if (digits.length > 10) digits = digits.slice(0, 10);
+    // Handle various input formats and duplicates
+    // Remove leading 880 if present (handles +880, 880)
+    while (digits.startsWith("880")) {
+      digits = digits.slice(3);
+    }
+    // If starts with 0, remove the leading 0 (handles 01...)
+    if (digits.startsWith("0")) {
+      digits = digits.slice(1);
+    }
+    // Ensure first digit is 1 for mobile numbers (1xxxxxxxxx)
+    // Limit to 10 digits
+    if (digits.length > 10) {
+      digits = digits.slice(0, 10);
+    }
 
     const newPhone = "+880" + digits;
     setCustomerPhone(newPhone);
 
+    // Search when we have a valid Bangladesh mobile number (+8801xxxxxxxxx = 14 chars)
     if (newPhone.length === 14 && newPhone.startsWith("+8801")) {
       searchCustomerByPhone(newPhone);
     } else {
