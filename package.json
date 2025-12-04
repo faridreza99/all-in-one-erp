@@ -1,22 +1,25 @@
 {
   "name": "workspace",
   "version": "1.0.0",
-  "description": "A comprehensive, sector-specific ERP system supporting **15 business types** with complete multi-tenant data isolation, role-based access control, and specialized features for each industry.",
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
-  },
+  "description": "A comprehensive ERP system",
+  "main": "server/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server/index.js",
+    "dev": "NODE_ENV=development nodemon server/index.js",
+    "build": "echo \"If you have a front-end build step, add it here\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.18.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
     "jwt-decode": "^4.0.0",
     "qrcode": "^1.5.4",
     "sweetalert2": "^11.26.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
   }
 }
