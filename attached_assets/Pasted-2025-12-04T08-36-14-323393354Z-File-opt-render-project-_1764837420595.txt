@@ -1,0 +1,50 @@
+2025-12-04T08:36:14.323393354Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 416, in main
+2025-12-04T08:36:14.323395484Z     run(
+2025-12-04T08:36:14.323397594Z     ~~~^
+2025-12-04T08:36:14.323399754Z         app,
+2025-12-04T08:36:14.323401924Z         ^^^^
+2025-12-04T08:36:14.323404024Z     ...<45 lines>...
+2025-12-04T08:36:14.323406244Z         h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+2025-12-04T08:36:14.323408434Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-04T08:36:14.323410634Z     )
+2025-12-04T08:36:14.323412774Z     ^
+2025-12-04T08:36:14.323415004Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 587, in run
+2025-12-04T08:36:14.323417094Z     server.run()
+2025-12-04T08:36:14.323419155Z     ~~~~~~~~~~^^
+2025-12-04T08:36:14.323421315Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 61, in run
+2025-12-04T08:36:14.323423464Z     return asyncio.run(self.serve(sockets=sockets))
+2025-12-04T08:36:14.323425535Z            ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-04T08:36:14.323427725Z   File "/opt/render/project/python/Python-3.13.4/lib/python3.13/asyncio/runners.py", line 195, in run
+2025-12-04T08:36:14.323429825Z     return runner.run(main)
+2025-12-04T08:36:14.323431905Z            ~~~~~~~~~~^^^^^^
+2025-12-04T08:36:14.323433975Z   File "/opt/render/project/python/Python-3.13.4/lib/python3.13/asyncio/runners.py", line 118, in run
+2025-12-04T08:36:14.323436085Z     return self._loop.run_until_complete(task)
+2025-12-04T08:36:14.323438175Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2025-12-04T08:36:14.323453335Z   File "/opt/render/project/python/Python-3.13.4/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+2025-12-04T08:36:14.323455976Z     return future.result()
+2025-12-04T08:36:14.323458025Z            ~~~~~~~~~~~~~^^
+2025-12-04T08:36:14.323460156Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 68, in serve
+2025-12-04T08:36:14.323462186Z     config.load()
+2025-12-04T08:36:14.323464226Z     ~~~~~~~~~~~^^
+2025-12-04T08:36:14.323466266Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 467, in load
+2025-12-04T08:36:14.323485006Z     self.loaded_app = import_from_string(self.app)
+2025-12-04T08:36:14.323487356Z                       ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+2025-12-04T08:36:14.323489666Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 24, in import_from_string
+2025-12-04T08:36:14.323491766Z     raise exc from None
+2025-12-04T08:36:14.323493886Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 21, in import_from_string
+2025-12-04T08:36:14.323496046Z     module = importlib.import_module(module_str)
+2025-12-04T08:36:14.323498157Z   File "/opt/render/project/python/Python-3.13.4/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2025-12-04T08:36:14.323500257Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-12-04T08:36:14.323502367Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-12-04T08:36:14.323504487Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-12-04T08:36:14.323506637Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-12-04T08:36:14.323508667Z   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-12-04T08:36:14.323510777Z   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-12-04T08:36:14.323512867Z   File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+2025-12-04T08:36:14.323515477Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-12-04T08:36:14.323518867Z   File "/opt/render/project/src/backend/server.py", line 27, in <module>
+2025-12-04T08:36:14.323522817Z     import cloudinary
+2025-12-04T08:36:14.323526497Z ModuleNotFoundError: No module named 'cloudinary'
+2025-12-04T08:36:29.493401357Z ==> Exited with status 1
+2025-12-04T08:36:29.717705812Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2025-12-04T08:36:35.232318617Z ==> Running 'cd backend && uvicorn server:app --host 0.0.0.0 --port $PORT'
