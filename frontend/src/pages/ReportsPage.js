@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, Download, Filter } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, ShoppingCart, Download, Filter, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '../components/BackButton';
 import SectorLayout from '../components/SectorLayout';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import Footer from '../components/Footer';
 import { API } from '../App';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const ReportsPage = ({ user, onLogout }) => {
   const [reportType, setReportType] = useState('profit-loss');
@@ -13,6 +14,7 @@ const ReportsPage = ({ user, onLogout }) => {
   const [topProducts, setTopProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [purchases, setPurchases] = useState([]);
+  const [branchSalesData, setBranchSalesData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -58,6 +60,44 @@ const ReportsPage = ({ user, onLogout }) => {
         if (response.ok) {
           const data = await response.json();
           setPurchases(filterByDateRange(data));
+        }
+      } else if (reportType === 'branch-sales') {
+        let url = `${API}/reports/branch-sales`;
+        const params = new URLSearchParams();
+        
+        const now = new Date();
+        let start = null;
+        let end = now.toISOString().split('T')[0];
+        
+        if (dateRange === 'today') {
+          start = end;
+        } else if (dateRange === 'week') {
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          start = weekAgo.toISOString().split('T')[0];
+        } else if (dateRange === 'month') {
+          const monthAgo = new Date(now);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          start = monthAgo.toISOString().split('T')[0];
+        } else if (dateRange === 'year') {
+          const yearAgo = new Date(now);
+          yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          start = yearAgo.toISOString().split('T')[0];
+        } else if (dateRange === 'custom') {
+          if (customStartDate) start = customStartDate;
+          if (customEndDate) end = customEndDate;
+        }
+        
+        if (start) params.append('start_date', start);
+        if (dateRange !== 'all') params.append('end_date', end);
+        if (params.toString()) url += `?${params.toString()}`;
+        
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setBranchSalesData(data);
         }
       }
     } catch (error) {
@@ -204,9 +244,22 @@ const ReportsPage = ({ user, onLogout }) => {
             <h3 className="text-white font-semibold">Top Products</h3>
             <p className="text-gray-400 text-sm">Best sellers</p>
           </button>
+
+          <button
+            onClick={() => setReportType('branch-sales')}
+            className={`p-6 rounded-xl border-2 transition-all duration-200 ${
+              reportType === 'branch-sales'
+                ? 'bg-gradient-to-br from-cyan-600/30 to-cyan-800/30 border-cyan-500 shadow-xl scale-105'
+                : 'bg-gray-800/50 border-gray-700 hover:border-cyan-500'
+            }`}
+          >
+            <Building2 className="w-8 h-8 text-cyan-400 mb-2" />
+            <h3 className="text-white font-semibold">Branch Sales</h3>
+            <p className="text-gray-400 text-sm">Sales by branch</p>
+          </button>
         </div>
 
-        {(reportType === 'sales' || reportType === 'purchases') && (
+        {(reportType === 'sales' || reportType === 'purchases' || reportType === 'branch-sales') && (
           <div className="bg-gradient-to-br from-gray-800/50 to-indigo-900/30 backdrop-blur-lg border border-gray-700/50 rounded-xl p-6 mb-6 shadow-2xl">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-5 h-5 text-indigo-400" />
@@ -514,6 +567,141 @@ const ReportsPage = ({ user, onLogout }) => {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {reportType === 'branch-sales' && branchSalesData && (
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-gray-800/50 to-indigo-900/30 backdrop-blur-lg border border-gray-700/50 rounded-xl p-8 shadow-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-2">
+                        <Building2 className="w-6 h-6 text-cyan-400" />
+                        Branch-wise Sales Report
+                      </h2>
+                      <div className="flex gap-6 text-sm flex-wrap">
+                        <div>
+                          <span className="text-gray-400">Total Branches: </span>
+                          <span className="text-white font-bold">{branchSalesData.overall?.branch_count || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Total Sales: </span>
+                          <span className="text-white font-bold">{branchSalesData.overall?.sales_count || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Total Revenue: </span>
+                          <span className="text-green-400 font-bold">{formatCurrency(branchSalesData.overall?.total_sales || 0)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Items Sold: </span>
+                          <span className="text-cyan-400 font-bold">{branchSalesData.overall?.items_sold || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => exportToCSV(branchSalesData.branches || [], 'branch_sales_report')}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export
+                    </button>
+                  </div>
+
+                  {branchSalesData.branches?.length > 0 && (
+                    <div className="h-80 mb-6">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={branchSalesData.branches} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis 
+                            dataKey="branch_name" 
+                            stroke="#9CA3AF" 
+                            tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis 
+                            stroke="#9CA3AF" 
+                            tick={{ fill: '#9CA3AF' }}
+                            tickFormatter={(value) => `৳${(value / 1000).toFixed(0)}k`}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1F2937', 
+                              border: '1px solid #374151',
+                              borderRadius: '8px',
+                              color: '#F9FAFB'
+                            }}
+                            formatter={(value) => [formatCurrency(value), 'Revenue']}
+                          />
+                          <Bar dataKey="total_sales" fill="#06B6D4" radius={[4, 4, 0, 0]}>
+                            {branchSalesData.branches.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={index === 0 ? '#10B981' : index === 1 ? '#3B82F6' : '#06B6D4'}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {branchSalesData.branches?.length === 0 ? (
+                    <div className="text-center py-16">
+                      <Building2 className="w-20 h-20 text-gray-600 mx-auto mb-4" />
+                      <p className="text-gray-400">No branch sales data available for selected period</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-600/50">
+                            <th className="text-left py-3 px-4 text-gray-300 font-semibold">Branch</th>
+                            <th className="text-center py-3 px-4 text-gray-300 font-semibold">Code</th>
+                            <th className="text-center py-3 px-4 text-gray-300 font-semibold">Sales Count</th>
+                            <th className="text-center py-3 px-4 text-gray-300 font-semibold">Items Sold</th>
+                            <th className="text-right py-3 px-4 text-gray-300 font-semibold">Subtotal</th>
+                            <th className="text-right py-3 px-4 text-gray-300 font-semibold">Discount</th>
+                            <th className="text-right py-3 px-4 text-gray-300 font-semibold">Tax</th>
+                            <th className="text-right py-3 px-4 text-gray-300 font-semibold">Total Sales</th>
+                            <th className="text-right py-3 px-4 text-gray-300 font-semibold">Payments</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {branchSalesData.branches.map((branch, index) => (
+                            <tr key={branch.branch_id} className={`border-b border-gray-700/50 hover:bg-gray-700/20 transition-all ${index === 0 ? 'bg-green-900/10' : ''}`}>
+                              <td className="py-4 px-4 text-white font-semibold flex items-center gap-2">
+                                {index === 0 && <span className="text-yellow-400">🏆</span>}
+                                {branch.branch_name}
+                              </td>
+                              <td className="py-4 px-4 text-center text-gray-400 font-mono text-sm">{branch.branch_code || '-'}</td>
+                              <td className="py-4 px-4 text-center text-white font-bold">{branch.sales_count}</td>
+                              <td className="py-4 px-4 text-center text-cyan-400 font-semibold">{branch.items_sold}</td>
+                              <td className="py-4 px-4 text-right text-gray-300">{formatCurrency(branch.subtotal)}</td>
+                              <td className="py-4 px-4 text-right text-orange-400">{formatCurrency(branch.discount)}</td>
+                              <td className="py-4 px-4 text-right text-purple-400">{formatCurrency(branch.tax)}</td>
+                              <td className="py-4 px-4 text-right text-green-400 font-bold">{formatCurrency(branch.total_sales)}</td>
+                              <td className="py-4 px-4 text-right text-blue-400 font-semibold">{formatCurrency(branch.payments_received)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-t-2 border-indigo-500/50">
+                            <td colSpan="2" className="py-4 px-4 text-white font-bold">TOTAL</td>
+                            <td className="py-4 px-4 text-center text-white font-bold">{branchSalesData.overall?.sales_count}</td>
+                            <td className="py-4 px-4 text-center text-cyan-300 font-bold">{branchSalesData.overall?.items_sold}</td>
+                            <td className="py-4 px-4 text-right text-gray-200 font-bold">{formatCurrency(branchSalesData.overall?.subtotal || 0)}</td>
+                            <td className="py-4 px-4 text-right text-orange-300 font-bold">{formatCurrency(branchSalesData.overall?.discount || 0)}</td>
+                            <td className="py-4 px-4 text-right text-purple-300 font-bold">{formatCurrency(branchSalesData.overall?.tax || 0)}</td>
+                            <td className="py-4 px-4 text-right text-green-300 font-bold text-lg">{formatCurrency(branchSalesData.overall?.total_sales || 0)}</td>
+                            <td className="py-4 px-4 text-right text-blue-300 font-bold">{formatCurrency(branchSalesData.overall?.payments_received || 0)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </>

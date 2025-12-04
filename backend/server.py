@@ -6253,6 +6253,106 @@ async def get_top_products(
     
     return enriched_products
 
+@api_router.get("/reports/branch-sales")
+async def get_branch_sales_report(
+    current_user: dict = Depends(get_current_user),
+    start_date: str = None,
+    end_date: str = None
+):
+    """Get branch-wise sales report with date filtering"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for branch-sales report: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    tenant_id = current_user["tenant_id"]
+    user_role = current_user.get("role", "")
+    user_branch_id = current_user.get("branch_id")
+    
+    query = {"tenant_id": tenant_id}
+    
+    if start_date or end_date:
+        date_filter = {}
+        if start_date:
+            date_filter["$gte"] = start_date + "T00:00:00"
+        if end_date:
+            date_filter["$lte"] = end_date + "T23:59:59"
+        if date_filter:
+            query["created_at"] = date_filter
+    
+    if user_role == "staff" and user_branch_id:
+        query["branch_id"] = user_branch_id
+    
+    sales = await target_db.sales.find(query, {"_id": 0}).to_list(50000)
+    
+    branches = await target_db.branches.find(
+        {"tenant_id": tenant_id},
+        {"_id": 0, "id": 1, "name": 1, "branch_code": 1}
+    ).to_list(100)
+    branch_map = {b["id"]: b for b in branches}
+    
+    branch_stats = {}
+    for sale in sales:
+        branch_id = sale.get("branch_id") or "unassigned"
+        
+        if branch_id not in branch_stats:
+            branch_info = branch_map.get(branch_id, {})
+            branch_stats[branch_id] = {
+                "branch_id": branch_id,
+                "branch_name": branch_info.get("name", "Unassigned" if branch_id == "unassigned" else "Unknown Branch"),
+                "branch_code": branch_info.get("branch_code", ""),
+                "total_sales": 0,
+                "sales_count": 0,
+                "subtotal": 0,
+                "discount": 0,
+                "tax": 0,
+                "items_sold": 0,
+                "payments_received": 0
+            }
+        
+        stats = branch_stats[branch_id]
+        stats["sales_count"] += 1
+        stats["total_sales"] += sale.get("total", 0)
+        stats["subtotal"] += sale.get("subtotal", 0)
+        stats["discount"] += sale.get("discount", 0)
+        stats["tax"] += sale.get("tax", 0)
+        stats["payments_received"] += sale.get("amount_paid", sale.get("total", 0))
+        
+        for item in sale.get("items", []):
+            stats["items_sold"] += item.get("quantity", 0)
+    
+    branch_list = sorted(
+        branch_stats.values(),
+        key=lambda x: x["total_sales"],
+        reverse=True
+    )
+    
+    overall = {
+        "total_sales": sum(b["total_sales"] for b in branch_list),
+        "sales_count": sum(b["sales_count"] for b in branch_list),
+        "subtotal": sum(b["subtotal"] for b in branch_list),
+        "discount": sum(b["discount"] for b in branch_list),
+        "tax": sum(b["tax"] for b in branch_list),
+        "items_sold": sum(b["items_sold"] for b in branch_list),
+        "payments_received": sum(b["payments_received"] for b in branch_list),
+        "branch_count": len(branch_list)
+    }
+    
+    return {
+        "branches": branch_list,
+        "overall": overall,
+        "filters": {
+            "start_date": start_date,
+            "end_date": end_date
+        }
+    }
+
 # ========== DOCTOR ROUTES (Clinic) ==========
 @api_router.post("/doctors", response_model=Doctor)
 async def create_doctor(
