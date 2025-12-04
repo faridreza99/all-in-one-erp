@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function OffersPage() {
   const [offers, setOffers] = useState([]);
@@ -22,7 +22,7 @@ function OffersPage() {
   const fetchOffers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/offers`, {
+      const response = await axios.get(`${API}/offers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOffers(response.data);
@@ -35,7 +35,7 @@ function OffersPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/offers`, formData, {
+      await axios.post(`${API}/offers`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);
@@ -49,7 +49,7 @@ function OffersPage() {
   const toggleOffer = async (offerId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/api/offers/${offerId}/toggle`, {}, {
+      await axios.patch(`${API}/offers/${offerId}/toggle`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOffers();

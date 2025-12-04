@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function ReturnsPage() {
   const [returns, setReturns] = useState([]);
@@ -21,7 +21,7 @@ function ReturnsPage() {
   const fetchReturns = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/returns`, {
+      const response = await axios.get(`${API}/returns`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setReturns(response.data);
@@ -34,7 +34,7 @@ function ReturnsPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/returns`, formData, {
+      await axios.post(`${API}/returns`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);
@@ -48,7 +48,7 @@ function ReturnsPage() {
   const handleApprove = async (returnId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/api/returns/${returnId}/approve`, {}, {
+      await axios.patch(`${API}/returns/${returnId}/approve`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchReturns();

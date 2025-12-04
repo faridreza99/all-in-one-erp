@@ -13,8 +13,7 @@ import {
 import BackButton from "../components/BackButton";
 import SectorLayout from "../components/SectorLayout";
 import { toast } from "sonner";
-
-const API_URL = process.env.REACT_APP_BACKEND_URL || "";
+import { API } from "../App";
 
 function ProductBranchAssignmentPage({ user, onLogout }) {
   const [branches, setBranches] = useState([]);
@@ -61,7 +60,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/branches`, {
+      const res = await axios.get(`${API}/branches`, {
         headers: authHeader(),
       });
       if (mountedRef.current) setBranches(res.data || []);
@@ -73,7 +72,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/products`, {
+      const res = await axios.get(`${API}/products`, {
         headers: authHeader(),
       });
       if (mountedRef.current) setProducts(res.data || []);
@@ -85,7 +84,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
 
   const fetchAssignments = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/product-branches`, {
+      const res = await axios.get(`${API}/product-branches`, {
         headers: authHeader(),
       });
       if (mountedRef.current) setAssignments(res.data || []);
@@ -208,7 +207,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
 
         if (ba.assigned && !ba.assignment_id) {
           await axios.post(
-            `${API_URL}/api/product-branches`,
+            `${API}/product-branches`,
             {
               product_id: selectedProduct.id,
               branch_id: ba.branch_id,
@@ -221,7 +220,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
           );
         } else if (ba.assigned && ba.assignment_id) {
           await axios.put(
-            `${API_URL}/api/product-branches/${ba.assignment_id}`,
+            `${API}/product-branches/${ba.assignment_id}`,
             {
               stock_quantity: toNumberOrZero(ba.stock_quantity),
               purchase_price: toNumberOrZero(ba.purchase_price),
@@ -232,7 +231,7 @@ function ProductBranchAssignmentPage({ user, onLogout }) {
           );
         } else if (!ba.assigned && ba.assignment_id) {
           await axios.delete(
-            `${API_URL}/api/product-branches/${ba.assignment_id}`,
+            `${API}/product-branches/${ba.assignment_id}`,
             headers,
           );
         }

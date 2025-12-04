@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function PropertiesPage() {
   const [properties, setProperties] = useState([]);
@@ -23,7 +23,7 @@ function PropertiesPage() {
   const fetchProperties = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/properties`, {
+      const response = await axios.get(`${API}/properties`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProperties(response.data);
@@ -36,7 +36,7 @@ function PropertiesPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/properties`, formData, {
+      await axios.post(`${API}/properties`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);

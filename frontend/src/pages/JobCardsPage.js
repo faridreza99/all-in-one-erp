@@ -3,7 +3,7 @@ import axios from 'axios';
 import BackButton from '../components/BackButton';
 import { toast } from 'sonner';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 const JOB_STATUSES = [
   { value: 'pending', label: 'Pending', color: 'yellow' },
@@ -35,7 +35,7 @@ function JobCardsPage() {
   const fetchJobCards = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/job-cards`, {
+      const response = await axios.get(`${API}/job-cards`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJobCards(response.data);
@@ -47,7 +47,7 @@ function JobCardsPage() {
   const fetchCustomers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/customers`, {
+      const response = await axios.get(`${API}/customers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCustomers(response.data);
@@ -60,7 +60,7 @@ function JobCardsPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/job-cards`, formData, {
+      await axios.post(`${API}/job-cards`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);
@@ -75,7 +75,7 @@ function JobCardsPage() {
   const updateStatus = async (jobId, newStatus) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/api/job-cards/${jobId}/status`, 
+      await axios.patch(`${API}/job-cards/${jobId}/status`, 
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` }}
       );

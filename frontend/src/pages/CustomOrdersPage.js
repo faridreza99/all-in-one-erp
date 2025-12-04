@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function CustomOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -25,7 +25,7 @@ function CustomOrdersPage() {
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/custom-orders`, {
+      const response = await axios.get(`${API}/custom-orders`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(response.data);
@@ -39,7 +39,7 @@ function CustomOrdersPage() {
     try {
       const token = localStorage.getItem('token');
       const balance = formData.total_amount - formData.advance_payment;
-      await axios.post(`${API_URL}/api/custom-orders`, { ...formData, balance_amount: balance }, {
+      await axios.post(`${API}/custom-orders`, { ...formData, balance_amount: balance }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);

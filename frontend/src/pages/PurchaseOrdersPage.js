@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function PurchaseOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -23,7 +23,7 @@ function PurchaseOrdersPage() {
   const fetchOrders = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/purchase-orders`, {
+      const response = await axios.get(`${API}/purchase-orders`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrders(response.data);
@@ -35,7 +35,7 @@ function PurchaseOrdersPage() {
   const fetchSuppliers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/suppliers`, {
+      const response = await axios.get(`${API}/suppliers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSuppliers(response.data);
@@ -48,7 +48,7 @@ function PurchaseOrdersPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/purchase-orders`, formData, {
+      await axios.post(`${API}/purchase-orders`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);

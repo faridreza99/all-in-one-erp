@@ -5,7 +5,7 @@ import BackButton from '../components/BackButton';
 import SectorLayout from '../components/SectorLayout';
 import { Building2, Phone, MapPin, User, CheckCircle, XCircle, Hash, Save } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 // Generate branch code
 const generateBranchCode = () => {
@@ -33,7 +33,7 @@ function BranchesPage({ user, onLogout }) {
   const fetchBranches = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/branches`, {
+      const response = await axios.get(`${API}/branches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(response.data);
@@ -53,11 +53,11 @@ function BranchesPage({ user, onLogout }) {
         : { ...formData, branch_code: branchCode };
       
       if (editingBranch) {
-        await axios.put(`${API_URL}/api/branches/${editingBranch.id}`, submitData, {
+        await axios.put(`${API}/branches/${editingBranch.id}`, submitData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post(`${API_URL}/api/branches`, submitData, {
+        await axios.post(`${API}/branches`, submitData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -102,7 +102,7 @@ function BranchesPage({ user, onLogout }) {
     if (result.isConfirmed) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`${API_URL}/api/branches/${branchId}`, {
+        await axios.delete(`${API}/branches/${branchId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Branch deleted successfully');

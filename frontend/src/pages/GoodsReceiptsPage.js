@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function GoodsReceiptsPage() {
   const [receipts, setReceipts] = useState([]);
@@ -20,7 +20,7 @@ function GoodsReceiptsPage() {
   const fetchReceipts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/goods-receipts`, {
+      const response = await axios.get(`${API}/goods-receipts`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setReceipts(response.data);
@@ -33,7 +33,7 @@ function GoodsReceiptsPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/goods-receipts`, formData, {
+      await axios.post(`${API}/goods-receipts`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);

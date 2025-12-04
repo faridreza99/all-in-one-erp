@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import BackButton from '../components/BackButton';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function PatientsPage() {
   const [patients, setPatients] = useState([]);
@@ -24,7 +24,7 @@ function PatientsPage() {
   const fetchPatients = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/patients`, {
+      const response = await axios.get(`${API}/patients`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPatients(response.data);
@@ -37,7 +37,7 @@ function PatientsPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/patients`, formData, {
+      await axios.post(`${API}/patients`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);

@@ -3,7 +3,7 @@ import axios from 'axios';
 import BackButton from '../components/BackButton';
 import { toast } from 'sonner';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL || '';
+import { API } from '../App';
 
 function DeviceHistoryPage() {
   const [devices, setDevices] = useState([]);
@@ -27,7 +27,7 @@ function DeviceHistoryPage() {
   const fetchDevices = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/device-history`, {
+      const response = await axios.get(`${API}/device-history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDevices(response.data);
@@ -39,7 +39,7 @@ function DeviceHistoryPage() {
   const fetchCustomers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/customers`, {
+      const response = await axios.get(`${API}/customers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCustomers(response.data);
@@ -52,7 +52,7 @@ function DeviceHistoryPage() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/api/device-history`, formData, {
+      await axios.post(`${API}/device-history`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);
