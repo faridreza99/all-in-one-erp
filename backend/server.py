@@ -80,11 +80,38 @@ ALGORITHM = "HS256"
 
 app = FastAPI()
 
+# CORS origins - include production URLs
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
+]
+
+# Add Render production URLs from environment or use default patterns
+render_frontend_url = os.environ.get('FRONTEND_URL', '')
+if render_frontend_url:
+    cors_origins.append(render_frontend_url)
+
+# Add common Render patterns
+cors_origins.extend([
+    "https://all-in-one-erp-frontend.onrender.com",
+    "https://all-in-one-erp.onrender.com",
+])
+
+# Also allow any Replit URLs
+cors_origins.extend([
+    origin for origin in [
+        os.environ.get('REPLIT_DEV_DOMAIN', ''),
+    ] if origin
+])
+
 # Add CORS middleware FIRST before any routes
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.replit\.dev|https://.*\.onrender\.com",
     allow_methods=["*"],
     allow_headers=["*"],
 )
