@@ -4340,11 +4340,31 @@ async def get_sales(
     
     sales = await target_db.sales.find(query, {"_id": 0}).to_list(1000)
     
+    # Build product map for enriching items with product names
+    product_ids = set()
+    for sale in sales:
+        for item in sale.get('items', []):
+            if item.get('product_id'):
+                product_ids.add(item['product_id'])
+    
+    products = await target_db.products.find(
+        {"id": {"$in": list(product_ids)}, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "id": 1, "name": 1, "sku": 1}
+    ).to_list(len(product_ids) + 1)
+    product_map = {p["id"]: p for p in products}
+    
     for sale in sales:
         if isinstance(sale.get('created_at'), str):
             sale['created_at'] = datetime.fromisoformat(sale['created_at'])
         if isinstance(sale.get('updated_at'), str):
             sale['updated_at'] = datetime.fromisoformat(sale['updated_at'])
+        
+        # Enrich items with product names
+        for item in sale.get('items', []):
+            product = product_map.get(item.get('product_id'))
+            if product:
+                item['product_name'] = product.get('name', '')
+                item['product_sku'] = product.get('sku', '')
     
     return sales
 
@@ -5702,6 +5722,21 @@ async def get_purchases(
         ).to_list(1000)
         suppliers_map = {s["id"]: s["name"] for s in suppliers}
     
+    # Get all unique product IDs from purchase items to fetch names in batch
+    product_ids = set()
+    for purchase in purchases:
+        for item in purchase.get('items', []):
+            if item.get('product_id'):
+                product_ids.add(item['product_id'])
+    
+    product_map = {}
+    if product_ids:
+        products = await target_db.products.find(
+            {"id": {"$in": list(product_ids)}, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0, "id": 1, "name": 1, "sku": 1}
+        ).to_list(len(product_ids) + 1)
+        product_map = {p["id"]: p for p in products}
+    
     for purchase in purchases:
         # Convert datetime strings
         if isinstance(purchase.get('created_at'), str):
@@ -5712,6 +5747,17 @@ async def get_purchases(
         # Populate supplier_name if missing
         if not purchase.get('supplier_name') and purchase.get('supplier_id'):
             purchase['supplier_name'] = suppliers_map.get(purchase['supplier_id'], 'Unknown')
+        
+        # Enrich items with product names
+        for item in purchase.get('items', []):
+            product = product_map.get(item.get('product_id'))
+            if product:
+                item['product_name'] = product.get('name', '')
+                item['product_sku'] = product.get('sku', '')
+            elif item.get('product_name'):
+                pass  # Already has product_name (for new products created during purchase)
+            else:
+                item['product_name'] = item.get('name', 'Unknown Product')
         
         # Backfill URL for legacy receipt files that don't have it
         if purchase.get('receipt_files'):
