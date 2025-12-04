@@ -118,22 +118,36 @@ const ProtectedSectorRouteWrapper = ({ user, module, children, element }) => {
 
 // Auto-detect backend URL based on environment
 const getBackendUrl = () => {
-  // If running in Replit webview (hostname contains replit.dev)
-  if (window.location.hostname.includes("replit.dev")) {
-    // In Replit, use the public hostname for API calls
-    // The backend must be on port 5000 or use a separate deployment URL
+  // Priority 1: Use explicit API URL environment variable if set
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Priority 2: If running on Render production (onrender.com)
+  if (window.location.hostname.includes("onrender.com")) {
+    // Use the backend URL from environment or construct from hostname
+    // Replace 'frontend' with 'backend' in the hostname for the API
     const hostname = window.location.hostname;
-    // Use the hostname with the backend port from environment or default to same origin
+    if (hostname.includes("-frontend")) {
+      return `https://${hostname.replace("-frontend", "-backend")}`;
+    }
+    // If no 'frontend' in name, try using the REACT_APP_BACKEND_URL
+    return process.env.REACT_APP_BACKEND_URL || window.location.origin;
+  }
+  
+  // Priority 3: If running in Replit webview (hostname contains replit.dev)
+  if (window.location.hostname.includes("replit.dev")) {
+    const hostname = window.location.hostname;
     const backendPort = process.env.REACT_APP_BACKEND_PORT || "";
     const backendHost = process.env.REACT_APP_BACKEND_HOST || hostname;
     
     if (backendPort) {
       return `${window.location.protocol}//${backendHost}:${backendPort}`;
     }
-    // For production, backend and frontend are on same domain
     return window.location.origin;
   }
-  // For local development
+  
+  // Priority 4: For local development
   return process.env.REACT_APP_BACKEND_URL || "http://localhost:8000";
 };
 
