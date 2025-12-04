@@ -35,6 +35,7 @@ const PurchasesPage = ({ user, onLogout }) => {
     warranty_months: '',
     warranty_serial: ''
   });
+  const [isOtherProduct, setIsOtherProduct] = useState(false);
   const [newPurchaseReceipt, setNewPurchaseReceipt] = useState(null);
   const [newPurchaseReceiptPreview, setNewPurchaseReceiptPreview] = useState(null);
   const [warrantyForm, setWarrantyForm] = useState({
@@ -130,6 +131,7 @@ const PurchasesPage = ({ user, onLogout }) => {
       warranty_months: '',
       warranty_serial: ''
     });
+    setIsOtherProduct(false);
 
     toast.success('Item added to purchase');
   };
@@ -186,6 +188,7 @@ const PurchasesPage = ({ user, onLogout }) => {
         warranty_months: '',
         warranty_serial: ''
       });
+      setIsOtherProduct(false);
       setNewPurchaseReceipt(null);
       setNewPurchaseReceiptPreview(null);
       fetchPurchases();
@@ -348,6 +351,7 @@ const PurchasesPage = ({ user, onLogout }) => {
                 warranty_months: '',
                 warranty_serial: ''
               });
+              setIsOtherProduct(false);
               setNewPurchaseReceipt(null);
               setNewPurchaseReceiptPreview(null);
             }}
@@ -407,14 +411,46 @@ const PurchasesPage = ({ user, onLogout }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-gray-300 mb-2">Product Name <span className="text-red-400">*</span></label>
-                    <input
-                      type="text"
-                      value={currentItem.product_name}
-                      onChange={(e) => setCurrentItem({ ...currentItem, product_name: e.target.value })}
-                      placeholder="Enter product name"
+                    <label className="block text-gray-300 mb-2">Product <span className="text-red-400">*</span></label>
+                    <select
+                      value={isOtherProduct ? 'other' : currentItem.product_id}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'other') {
+                          setIsOtherProduct(true);
+                          setCurrentItem({ ...currentItem, product_id: '', product_name: '' });
+                        } else if (value === '') {
+                          setIsOtherProduct(false);
+                          setCurrentItem({ ...currentItem, product_id: '', product_name: '' });
+                        } else {
+                          setIsOtherProduct(false);
+                          const selectedProduct = products.find(p => p.id === value);
+                          setCurrentItem({
+                            ...currentItem,
+                            product_id: value,
+                            product_name: selectedProduct?.name || ''
+                          });
+                        }
+                      }}
                       className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    />
+                    >
+                      <option value="">Select Product</option>
+                      {products.map(product => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                      <option value="other">-- Other (New Product) --</option>
+                    </select>
+                    {isOtherProduct && (
+                      <input
+                        type="text"
+                        value={currentItem.product_name}
+                        onChange={(e) => setCurrentItem({ ...currentItem, product_name: e.target.value })}
+                        placeholder="Enter new product name"
+                        className="w-full mt-2 bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-gray-300 mb-2">Quantity <span className="text-red-400">*</span></label>
