@@ -402,7 +402,8 @@ const ReportsPage = ({ user, onLogout }) => {
                       <thead>
                         <tr className="border-b border-gray-600/50">
                           <th className="text-left py-3 px-4 text-gray-300 font-semibold">Rank</th>
-                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Product ID</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Product Name</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">SKU</th>
                           <th className="text-center py-3 px-4 text-gray-300 font-semibold">Quantity Sold</th>
                           <th className="text-right py-3 px-4 text-gray-300 font-semibold">Revenue</th>
                         </tr>
@@ -420,9 +421,10 @@ const ReportsPage = ({ user, onLogout }) => {
                                 #{index + 1}
                               </span>
                             </td>
-                            <td className="py-4 px-4 text-white font-mono">{product.product_id}</td>
+                            <td className="py-4 px-4 text-white font-semibold">{product.product_name || 'Unknown Product'}</td>
+                            <td className="py-4 px-4 text-gray-400 font-mono text-sm">{product.product_sku || '-'}</td>
                             <td className="py-4 px-4 text-center text-white font-semibold">{product.quantity}</td>
-                            <td className="py-4 px-4 text-right text-green-400 font-bold">৳{product.revenue.toFixed(2)}</td>
+                            <td className="py-4 px-4 text-right text-green-400 font-bold">{formatCurrency(product.revenue)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -474,19 +476,32 @@ const ReportsPage = ({ user, onLogout }) => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-600/50">
-                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Sale ID</th>
-                          <th className="text-center py-3 px-4 text-gray-300 font-semibold">Items</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Invoice</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Products</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Customer</th>
                           <th className="text-right py-3 px-4 text-gray-300 font-semibold">Total</th>
                           <th className="text-center py-3 px-4 text-gray-300 font-semibold">Date</th>
                         </tr>
                       </thead>
                       <tbody>
                         {sales.map((sale) => (
-                          <tr key={sale.sale_id} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
-                            <td className="py-4 px-4 text-white font-mono">{sale.sale_id}</td>
-                            <td className="py-4 px-4 text-center text-gray-300">{sale.items?.length || 0}</td>
-                            <td className="py-4 px-4 text-right text-green-400 font-bold">৳{sale.total?.toFixed(2) || '0.00'}</td>
-                            <td className="py-4 px-4 text-center text-gray-400">{new Date(sale.created_at).toLocaleString()}</td>
+                          <tr key={sale.sale_id || sale.id} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
+                            <td className="py-4 px-4 text-white font-mono text-sm">{sale.invoice_no || sale.sale_number || '-'}</td>
+                            <td className="py-4 px-4">
+                              <div className="flex flex-col gap-1">
+                                {sale.items?.slice(0, 3).map((item, idx) => (
+                                  <span key={idx} className="text-gray-300 text-sm">
+                                    {item.product_name || item.name || 'Product'} x{item.quantity}
+                                  </span>
+                                ))}
+                                {sale.items?.length > 3 && (
+                                  <span className="text-gray-500 text-xs">+{sale.items.length - 3} more items</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-gray-400">{sale.customer_name || 'Walk-in'}</td>
+                            <td className="py-4 px-4 text-right text-green-400 font-bold">{formatCurrency(sale.total || 0)}</td>
+                            <td className="py-4 px-4 text-center text-gray-400 text-sm">{new Date(sale.created_at).toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -539,7 +554,8 @@ const ReportsPage = ({ user, onLogout }) => {
                       <thead>
                         <tr className="border-b border-gray-600/50">
                           <th className="text-left py-3 px-4 text-gray-300 font-semibold">PO Number</th>
-                          <th className="text-center py-3 px-4 text-gray-300 font-semibold">Items</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Products</th>
+                          <th className="text-left py-3 px-4 text-gray-300 font-semibold">Supplier</th>
                           <th className="text-right py-3 px-4 text-gray-300 font-semibold">Total</th>
                           <th className="text-center py-3 px-4 text-gray-300 font-semibold">Status</th>
                           <th className="text-center py-3 px-4 text-gray-300 font-semibold">Date</th>
@@ -547,9 +563,21 @@ const ReportsPage = ({ user, onLogout }) => {
                       </thead>
                       <tbody>
                         {purchases.map((purchase) => (
-                          <tr key={purchase.purchase_number} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
-                            <td className="py-4 px-4 text-white font-mono">{purchase.purchase_number}</td>
-                            <td className="py-4 px-4 text-center text-gray-300">{purchase.items?.length || 0}</td>
+                          <tr key={purchase.purchase_number || purchase.id} className="border-b border-gray-700/50 hover:bg-gray-700/20 transition-all">
+                            <td className="py-4 px-4 text-white font-mono text-sm">{purchase.purchase_number}</td>
+                            <td className="py-4 px-4">
+                              <div className="flex flex-col gap-1">
+                                {purchase.items?.slice(0, 3).map((item, idx) => (
+                                  <span key={idx} className="text-gray-300 text-sm">
+                                    {item.product_name || item.name || 'Product'} x{item.quantity}
+                                  </span>
+                                ))}
+                                {purchase.items?.length > 3 && (
+                                  <span className="text-gray-500 text-xs">+{purchase.items.length - 3} more items</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 text-gray-400">{purchase.supplier_name || '-'}</td>
                             <td className="py-4 px-4 text-right text-red-400 font-bold">{formatCurrency(purchase.total_amount || 0)}</td>
                             <td className="py-4 px-4 text-center">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -560,7 +588,7 @@ const ReportsPage = ({ user, onLogout }) => {
                                 {purchase.payment_status?.toUpperCase()}
                               </span>
                             </td>
-                            <td className="py-4 px-4 text-center text-gray-400">{formatDate(purchase.created_at)}</td>
+                            <td className="py-4 px-4 text-center text-gray-400 text-sm">{formatDate(purchase.created_at)}</td>
                           </tr>
                         ))}
                       </tbody>
