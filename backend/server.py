@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import asyncio
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
@@ -117,6 +118,61 @@ app.add_middleware(
 )
 
 api_router = APIRouter(prefix="/api")
+
+# WebSocket Connection Manager for real-time updates
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+        self.user_roles: Dict[str, str] = {}
+    
+    async def connect(self, websocket: WebSocket, tenant_id: str, user_id: str, role: str = ""):
+        await websocket.accept()
+        key = f"{tenant_id}:{user_id}"
+        if key not in self.active_connections:
+            self.active_connections[key] = []
+        self.active_connections[key].append(websocket)
+        self.user_roles[key] = role
+        logging.info(f"WebSocket connected: {key} (role: {role}), total connections: {len(self.active_connections[key])}")
+    
+    def disconnect(self, websocket: WebSocket, tenant_id: str, user_id: str):
+        key = f"{tenant_id}:{user_id}"
+        if key in self.active_connections:
+            if websocket in self.active_connections[key]:
+                self.active_connections[key].remove(websocket)
+            if not self.active_connections[key]:
+                del self.active_connections[key]
+                if key in self.user_roles:
+                    del self.user_roles[key]
+        logging.info(f"WebSocket disconnected: {key}")
+    
+    async def send_to_user(self, tenant_id: str, user_id: str, message: dict):
+        key = f"{tenant_id}:{user_id}"
+        if key in self.active_connections:
+            disconnected = []
+            for connection in self.active_connections[key]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    disconnected.append(connection)
+            for conn in disconnected:
+                self.active_connections[key].remove(conn)
+    
+    async def send_to_tenant_admins(self, tenant_id: str, message: dict):
+        admin_roles = ["tenant_admin", "super_admin"]
+        for key, connections in list(self.active_connections.items()):
+            if key.startswith(f"{tenant_id}:"):
+                role = self.user_roles.get(key, "")
+                if role in admin_roles:
+                    disconnected = []
+                    for connection in connections:
+                        try:
+                            await connection.send_json(message)
+                        except Exception:
+                            disconnected.append(connection)
+                    for conn in disconnected:
+                        connections.remove(conn)
+
+ws_manager = ConnectionManager()
 
 # MongoDB connection test on startup
 @app.on_event("startup")
@@ -5364,6 +5420,18 @@ async def create_due_request(
     notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
     await target_db.notifications.insert_one(notif_doc)
     
+    # Broadcast via WebSocket to tenant admins only
+    asyncio.create_task(broadcast_notification(
+        tenant_id=current_user["tenant_id"],
+        notification_type="due_request",
+        data={
+            "title": "New Due Payment Request",
+            "message": f"৳{request_data.due_amount:.2f} for {request_data.customer_name}",
+            "request_id": due_request.id
+        },
+        admins_only=True
+    ))
+    
     return due_request
 
 @api_router.get("/due-requests", response_model=List[DueRequest])
@@ -5498,6 +5566,19 @@ async def approve_due_request(
         {"$set": {"is_read": True, "is_sticky": False}}
     )
     
+    # Broadcast via WebSocket to the staff who requested
+    if due_request.get("requested_by"):
+        asyncio.create_task(broadcast_notification(
+            tenant_id=current_user["tenant_id"],
+            user_id=due_request.get("requested_by"),
+            notification_type="notification",
+            data={
+                "title": "Due Request Approved",
+                "message": f"Request {due_request.get('request_number')} approved",
+                "request_id": request_id
+            }
+        ))
+    
     return {"message": "Due request approved successfully", "status": "approved"}
 
 @api_router.patch("/due-requests/{request_id}/reject")
@@ -5573,6 +5654,19 @@ async def reject_due_request(
         {"reference_id": request_id, "type": NotificationType.DUE_REQUEST.value},
         {"$set": {"is_read": True, "is_sticky": False}}
     )
+    
+    # Broadcast via WebSocket to the staff who requested
+    if due_request.get("requested_by"):
+        asyncio.create_task(broadcast_notification(
+            tenant_id=current_user["tenant_id"],
+            user_id=due_request.get("requested_by"),
+            notification_type="notification",
+            data={
+                "title": "Due Request Rejected",
+                "message": f"Request {due_request.get('request_number')} rejected" + (f": {reason}" if reason else ""),
+                "request_id": request_id
+            }
+        ))
     
     return {"message": "Due request rejected", "status": "rejected"}
 
@@ -9503,6 +9597,66 @@ try:
     app.include_router(warranty_router, prefix="/api")
 except ImportError as e:
     logger.warning(f"Warranty router not available - warranty management endpoints disabled: {e}")
+
+# WebSocket endpoint for real-time updates
+@app.websocket("/ws/{token}")
+async def websocket_endpoint(websocket: WebSocket, token: str):
+    tenant_id = None
+    user_id = None
+    user_role = None
+    
+    try:
+        payload = jwt.decode(
+            token, 
+            SECRET_KEY, 
+            algorithms=[ALGORITHM],
+            options={"verify_signature": True, "verify_exp": True, "require": ["exp", "user_id", "tenant_id"]}
+        )
+        tenant_id = payload.get("tenant_id", "")
+        user_id = payload.get("user_id", "")
+        user_role = payload.get("role", "")
+        
+        if not tenant_id or not user_id:
+            await websocket.close(code=4001)
+            return
+        
+        await ws_manager.connect(websocket, tenant_id, user_id, user_role)
+        
+        try:
+            while True:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_text("pong")
+        except WebSocketDisconnect:
+            ws_manager.disconnect(websocket, tenant_id, user_id)
+    except jwt.ExpiredSignatureError:
+        logging.warning(f"WebSocket connection rejected: expired token")
+        await websocket.close(code=4002)
+    except jwt.InvalidTokenError as e:
+        logging.warning(f"WebSocket connection rejected: invalid token - {e}")
+        await websocket.close(code=4003)
+    except Exception as e:
+        logging.error(f"WebSocket error: {e}")
+        if tenant_id and user_id:
+            ws_manager.disconnect(websocket, tenant_id, user_id)
+        try:
+            await websocket.close(code=4000)
+        except Exception:
+            pass
+
+# Helper function to broadcast notifications via WebSocket
+async def broadcast_notification(tenant_id: str, user_id: str = None, notification_type: str = "notification", data: dict = None, admins_only: bool = False):
+    message = {
+        "type": notification_type,
+        "data": data or {},
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    if user_id:
+        await ws_manager.send_to_user(tenant_id, user_id, message)
+    elif admins_only:
+        await ws_manager.send_to_tenant_admins(tenant_id, message)
+    else:
+        await ws_manager.send_to_tenant_admins(tenant_id, message)
 
 # Mount uploads directory for settings images
 uploads_path = Path(__file__).parent / "static" / "uploads"

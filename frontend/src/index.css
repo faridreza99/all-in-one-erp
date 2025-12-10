@@ -194,3 +194,124 @@ code {
 .ps-menu-button:hover {
   transform: translateX(2px);
 }
+
+/* ===== Mobile-First Responsive Utilities ===== */
+@layer utilities {
+  /* Touch-friendly tap targets (min 44x44px recommended by Apple/Google) */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Mobile-friendly button padding */
+  .btn-mobile {
+    @apply px-4 py-3 text-base;
+  }
+  
+  /* Mobile card with proper padding */
+  .card-mobile {
+    @apply p-4 sm:p-6;
+  }
+  
+  /* Mobile-friendly text sizes */
+  .text-mobile-lg {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  .text-mobile-xl {
+    @apply text-xl sm:text-2xl md:text-3xl;
+  }
+  
+  /* Safe area padding for notched devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  
+  /* Sticky mobile footer/header */
+  .sticky-mobile-bottom {
+    @apply fixed bottom-0 left-0 right-0 z-50 p-4 bg-slate-900/95 backdrop-blur-md border-t border-slate-700;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+  }
+  
+  /* Better mobile table scroll */
+  .table-mobile-scroll {
+    @apply overflow-x-auto -mx-4 px-4;
+  }
+  
+  /* Mobile horizontal scroll snap */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .scroll-snap-start {
+    scroll-snap-align: start;
+  }
+  
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  
+  /* Active state for touch devices */
+  .touch-active:active {
+    @apply scale-95 opacity-80;
+    transition: all 0.1s ease-out;
+  }
+  
+  /* Mobile-friendly gap */
+  .gap-mobile {
+    @apply gap-3 sm:gap-4 md:gap-6;
+  }
+}
+
+/* ===== Mobile Viewport Height Fix ===== */
+@supports (height: 100dvh) {
+  .h-screen-mobile {
+    height: 100dvh;
+  }
+}
+
+@supports not (height: 100dvh) {
+  .h-screen-mobile {
+    height: 100vh;
+  }
+}
+
+/* ===== Reduce motion for accessibility ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== Mobile-specific table improvements ===== */
+@media (max-width: 768px) {
+  .table-responsive td,
+  .table-responsive th {
+    @apply px-2 py-2 text-sm;
+  }
+  
+  .table-responsive th {
+    @apply text-xs;
+  }
+  
+  /* Hide less important columns on mobile */
+  .hide-mobile {
+    @apply hidden;
+  }
+  
+  /* Compact buttons on mobile */
+  .btn-compact-mobile {
+    @apply px-2 py-1 text-xs;
+  }
+}

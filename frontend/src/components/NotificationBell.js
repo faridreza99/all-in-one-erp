@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, AlertCircle, Package, DollarSign, XCircle, Clock, CheckCircle, X } from 'lucide-react';
+import { Bell, AlertCircle, Package, DollarSign, XCircle, Clock, CheckCircle, X, Wifi, WifiOff } from 'lucide-react';
 import axios from 'axios';
 import { API } from '../App';
 import { formatCurrency } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+
+const WS_RECONNECT_INTERVAL = 3000;
+const WS_MAX_RECONNECT_ATTEMPTS = 5;
+const FALLBACK_POLL_INTERVAL = 60000;
 
 const NotificationBell = ({ user }) => {
   const [notifications, setNotifications] = useState([]);
@@ -15,13 +19,138 @@ const NotificationBell = ({ user }) => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  // Due request modal state
   const [showDueRequestModal, setShowDueRequestModal] = useState(false);
   const [selectedDueRequest, setSelectedDueRequest] = useState(null);
   const [processingRequest, setProcessingRequest] = useState(false);
   const [pendingDueCount, setPendingDueCount] = useState(0);
+  
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const reconnectTimeout = useRef(null);
+  const pingInterval = useRef(null);
+  const pollInterval = useRef(null);
 
   const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
+
+  const handleWebSocketMessage = useCallback((data) => {
+    if (data.type === 'notification' || data.type === 'due_request') {
+      fetchNotifications();
+      if (isAdmin) fetchPendingDueCount();
+      
+      if (data.data?.title) {
+        toast.info(data.data.title, {
+          description: data.data.message || 'New notification received'
+        });
+      }
+    }
+  }, [isAdmin]);
+
+  const connectWebSocket = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (!token || !user) return;
+
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let wsUrl;
+      
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        wsUrl = `ws://localhost:8000/ws/${token}`;
+      } else {
+        const host = window.location.host.replace(':5000', '').replace('-5000', '-8000');
+        wsUrl = `${protocol}//${host}/ws/${token}`;
+      }
+
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('NotificationBell WebSocket connected');
+        setWsConnected(true);
+        reconnectAttempts.current = 0;
+        
+        if (pollInterval.current) {
+          clearInterval(pollInterval.current);
+          pollInterval.current = null;
+        }
+        
+        pingInterval.current = setInterval(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send('ping');
+          }
+        }, 30000);
+      };
+
+      wsRef.current.onmessage = (event) => {
+        if (event.data === 'pong') return;
+        
+        try {
+          const data = JSON.parse(event.data);
+          handleWebSocketMessage(data);
+        } catch (e) {
+          console.error('Failed to parse WebSocket message:', e);
+        }
+      };
+
+      wsRef.current.onerror = () => {
+        console.error('WebSocket error');
+      };
+
+      wsRef.current.onclose = (event) => {
+        setWsConnected(false);
+        
+        if (pingInterval.current) {
+          clearInterval(pingInterval.current);
+          pingInterval.current = null;
+        }
+
+        if (event.code >= 4000 && event.code <= 4003) {
+          startFallbackPolling();
+          return;
+        }
+
+        if (reconnectAttempts.current < WS_MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts.current++;
+          reconnectTimeout.current = setTimeout(connectWebSocket, WS_RECONNECT_INTERVAL);
+        } else {
+          startFallbackPolling();
+        }
+      };
+    } catch (error) {
+      console.error('Failed to create WebSocket:', error);
+      startFallbackPolling();
+    }
+  }, [user, handleWebSocketMessage]);
+
+  const startFallbackPolling = useCallback(() => {
+    if (!pollInterval.current) {
+      pollInterval.current = setInterval(() => {
+        fetchNotifications();
+        if (isAdmin) fetchPendingDueCount();
+      }, FALLBACK_POLL_INTERVAL);
+    }
+  }, [isAdmin]);
+
+  const disconnectWebSocket = useCallback(() => {
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+    if (pingInterval.current) {
+      clearInterval(pingInterval.current);
+      pingInterval.current = null;
+    }
+    if (pollInterval.current) {
+      clearInterval(pollInterval.current);
+      pollInterval.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setWsConnected(false);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -29,13 +158,11 @@ const NotificationBell = ({ user }) => {
       if (isAdmin) {
         fetchPendingDueCount();
       }
-      const interval = setInterval(() => {
-        fetchNotifications();
-        if (isAdmin) fetchPendingDueCount();
-      }, 30000); // Refresh every 30 seconds for faster updates
-      return () => clearInterval(interval);
+      connectWebSocket();
+      
+      return () => disconnectWebSocket();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, connectWebSocket, disconnectWebSocket]);
 
   const fetchPendingDueCount = async () => {
     try {
