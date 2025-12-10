@@ -17,6 +17,7 @@ const NotificationBell = ({ user }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -356,22 +357,62 @@ const NotificationBell = ({ user }) => {
             className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-slate-800/95 backdrop-blur-lg border border-slate-700/50 rounded-xl shadow-2xl z-50"
           >
             <div className="p-4 border-b border-slate-700/50">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <h3 className="text-white font-semibold">Notifications</h3>
                 {unreadCount > 0 && (
                   <span className="text-xs text-slate-400">{unreadCount} unread</span>
                 )}
               </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                    activeTab === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setActiveTab('due_requests')}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                    activeTab === 'due_requests'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-slate-700/50 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Clock className="w-3 h-3" />
+                  Due Requests
+                </button>
+              </div>
             </div>
 
             <div className="divide-y divide-slate-700/30">
-              {notifications.length === 0 ? (
-                <div className="p-6 text-center text-slate-400">
-                  <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                  <p>No notifications</p>
-                </div>
-              ) : (
-                notifications.map((notification) => (
+              {(() => {
+                const filteredNotifications = activeTab === 'due_requests'
+                  ? notifications.filter(n => ['due_request', 'due_request_approved', 'due_request_rejected'].includes(n.type))
+                  : notifications;
+                
+                if (filteredNotifications.length === 0) {
+                  return (
+                    <div className="p-6 text-center text-slate-400">
+                      {activeTab === 'due_requests' ? (
+                        <>
+                          <Clock className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                          <p>No due request notifications</p>
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                          <p>No notifications</p>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+                
+                return filteredNotifications.map((notification) => (
                   <motion.div
                     key={notification.id}
                     whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
@@ -404,8 +445,8 @@ const NotificationBell = ({ user }) => {
                       )}
                     </div>
                   </motion.div>
-                ))
-              )}
+                ));
+              })()}
             </div>
 
             {notifications.length > 0 && user?.business_type && (
