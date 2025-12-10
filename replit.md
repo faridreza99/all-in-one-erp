@@ -27,6 +27,10 @@ The ERP system is a full-stack application with a multi-database per tenant arch
     -   **Purchase Management System**: Enhanced UI, per-item warranty support, receipt upload (Cloudinary), supplier warranty linking, and stock application with auto-creation of products.
 -   **Technical Implementations**: Secure file uploads with Cloudinary signed URLs. Pydantic models strictly use `Field(default_factory=list/dict)` to prevent data leakage.
     -   **React Router Fix (Dec 2025)**: Complete refactoring from conditional routes (`{user.business_type && <Route path={/${user.business_type}/module} />}`) to static parameterized routes (`<Route path="/:sector/module" />`). Routes are always registered and use `ProtectedSectorRoute` wrapper component to handle loading states, auth checks, and access control. This eliminates "No routes matched location" errors on page reload.
+    -   **Due Payment Request System (Dec 2025)**: Staff can request admin approval for customer credit/due payments from POS. Backend DueRequest model with status workflow (pending → approved/rejected). Admin receives real-time notifications with approve/reject modal. Notifications created for both admin and requesting staff.
+    -   **WebSocket Real-Time Updates (Dec 2025)**: WebSocket endpoint at /ws/{token} with JWT authentication (signature + expiry verification). ConnectionManager tracks tenant-scoped connections with role-based targeting. Due request notifications broadcast only to admins. NotificationBell uses WebSocket with 60s polling fallback.
+    -   **Performance Optimization (Dec 2025)**: React.lazy() code splitting for all page components with Suspense fallback. Reduces initial bundle size by loading pages on-demand.
+    -   **Mobile Responsive Utilities (Dec 2025)**: Added CSS utility classes for touch-friendly tap targets (min 44x44px), safe-area padding for notched devices, mobile sticky footer, and reduced motion accessibility support.
 
 ## External Dependencies
 -   **Database**: MongoDB Atlas
