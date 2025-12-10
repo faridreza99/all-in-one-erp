@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, AlertCircle, Package, DollarSign, XCircle, Clock, CheckCircle, X, Wifi, WifiOff } from 'lucide-react';
 import axios from 'axios';
@@ -410,16 +411,17 @@ const NotificationBell = ({ user }) => {
         )}
       </AnimatePresence>
 
-      {/* Due Request Approval Modal */}
-      <AnimatePresence>
-        {showDueRequestModal && selectedDueRequest && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
-            onClick={() => setShowDueRequestModal(false)}
-          >
+      {/* Due Request Approval Modal - Rendered via Portal */}
+      {createPortal(
+        <AnimatePresence>
+          {showDueRequestModal && selectedDueRequest && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+              onClick={() => setShowDueRequestModal(false)}
+            >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -493,7 +495,9 @@ const NotificationBell = ({ user }) => {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
