@@ -4913,7 +4913,20 @@ async def get_notifications(
     unread_count = sum(1 for n in all_notifications if not n.get('is_read', False))
     
     # Sort all notifications by created_at (newest first)
-    all_notifications.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
+    # Handle mixed datetime types (string ISO format vs datetime objects)
+    def get_sortable_datetime(x):
+        created = x.get('created_at')
+        if created is None:
+            return ""
+        if isinstance(created, str):
+            return created
+        # Convert datetime to ISO string for consistent comparison
+        try:
+            return created.isoformat()
+        except:
+            return ""
+    
+    all_notifications.sort(key=get_sortable_datetime, reverse=True)
     
     # Apply limit AFTER counting unread
     if limit:
