@@ -323,6 +323,13 @@ const POSPage = ({ user, onLogout }) => {
 
     if (paidAmountValue > totalAmount)
       return toast.error("Paid amount invalid");
+    
+    // Staff users cannot create partial payment invoices directly
+    const staffRole = user?.role === "staff";
+    if (staffRole && paidAmountValue < totalAmount) {
+      return toast.error("Staff users must request admin approval for due payments");
+    }
+    
     if (paidAmountValue < totalAmount && !customerName)
       return toast.error("Customer name required for due");
 
@@ -434,8 +441,9 @@ const POSPage = ({ user, onLogout }) => {
     }
   };
 
-  // Check if user is staff (non-admin)
+  // Check if user is staff (non-admin) or tenant admin
   const isStaffUser = user?.role === "staff";
+  const isTenantAdmin = user?.role === "tenant_admin" || user?.role === "super_admin";
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -784,59 +792,95 @@ const POSPage = ({ user, onLogout }) => {
                 </span>
               </div>
 
-              {/* PARTIAL PAYMENT SECTION */}
-              <div className="mb-4 p-4 bg-slate-800/50 border border-slate-600 rounded-lg">
-                <label className="text-sm font-semibold text-slate-300 mb-2 block">
-                  Payment Amount (Leave empty for full payment)
-                </label>
-                <input
-                  type="number"
-                  value={paidAmount}
-                  onChange={(e) => setPaidAmount(e.target.value)}
-                  placeholder={`Full Amount: ${formatCurrency(total)}`}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-                  min="0"
-                  max={total}
-                  step="0.01"
-                />
-                {paidAmount && parseFloat(paidAmount) < total && (
-                  <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 text-sm">
-                    <div className="flex justify-between">
-                      <span>Paying:</span>
-                      <span className="font-semibold">{formatCurrency(parseFloat(paidAmount))}</span>
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span>Balance Due:</span>
-                      <span className="font-semibold">{formatCurrency(total - parseFloat(paidAmount))}</span>
-                    </div>
-                    <p className="mt-2 text-xs text-yellow-300">
-                      ⚠️ Customer name required for partial payment
-                    </p>
-
-                    {/* Due Request Checkbox - Only for staff users with partial payment */}
-                    {isStaffUser && (
-                      <div className="mt-3 pt-3 border-t border-yellow-500/30">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={requestDuePayment}
-                            onChange={(e) => setRequestDuePayment(e.target.checked)}
-                            className="w-4 h-4 rounded border-yellow-500 text-yellow-500 focus:ring-yellow-500 bg-slate-700"
-                          />
-                          <span className="text-yellow-300 text-sm font-medium">
-                            Request due payment approval from admin
-                          </span>
-                        </label>
+              {/* PARTIAL PAYMENT SECTION - Only for Tenant Admins */}
+              {isTenantAdmin && (
+                <div className="mb-4 p-4 bg-slate-800/50 border border-slate-600 rounded-lg">
+                  <label className="text-sm font-semibold text-slate-300 mb-2 block">
+                    Payment Amount (Leave empty for full payment)
+                  </label>
+                  <input
+                    type="number"
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(e.target.value)}
+                    placeholder={`Full Amount: ${formatCurrency(total)}`}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                    min="0"
+                    max={total}
+                    step="0.01"
+                  />
+                  {paidAmount && parseFloat(paidAmount) < total && (
+                    <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 text-sm">
+                      <div className="flex justify-between">
+                        <span>Paying:</span>
+                        <span className="font-semibold">{formatCurrency(parseFloat(paidAmount))}</span>
                       </div>
-                    )}
-                  </div>
-                )}
-                {paidAmount && parseFloat(paidAmount) > total && (
-                  <p className="mt-2 text-red-400 text-sm">
-                    ⚠️ Payment amount cannot exceed total
-                  </p>
-                )}
-              </div>
+                      <div className="flex justify-between mt-1">
+                        <span>Balance Due:</span>
+                        <span className="font-semibold">{formatCurrency(total - parseFloat(paidAmount))}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-yellow-300">
+                        ⚠️ Customer name required for partial payment
+                      </p>
+                    </div>
+                  )}
+                  {paidAmount && parseFloat(paidAmount) > total && (
+                    <p className="mt-2 text-red-400 text-sm">
+                      ⚠️ Payment amount cannot exceed total
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* STAFF DUE REQUEST SECTION - Only for Staff Users */}
+              {isStaffUser && (
+                <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={requestDuePayment}
+                      onChange={(e) => setRequestDuePayment(e.target.checked)}
+                      className="w-4 h-4 rounded border-purple-500 text-purple-500 focus:ring-purple-500 bg-slate-700"
+                    />
+                    <span className="text-purple-300 text-sm font-medium">
+                      Request due payment approval from admin
+                    </span>
+                  </label>
+                  {requestDuePayment && (
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="text-sm text-slate-300 mb-1 block">
+                          Customer Payment Amount
+                        </label>
+                        <input
+                          type="number"
+                          value={paidAmount}
+                          onChange={(e) => setPaidAmount(e.target.value)}
+                          placeholder={`Enter amount customer is paying now`}
+                          className="w-full px-3 py-2 bg-slate-700 border border-purple-500/30 rounded-lg text-white"
+                          min="0"
+                          max={total}
+                          step="0.01"
+                        />
+                      </div>
+                      {paidAmount && parseFloat(paidAmount) < total && (
+                        <div className="p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400 text-sm">
+                          <div className="flex justify-between">
+                            <span>Customer Paying:</span>
+                            <span className="font-semibold">{formatCurrency(parseFloat(paidAmount))}</span>
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span>Due Amount (needs approval):</span>
+                            <span className="font-semibold">{formatCurrency(total - parseFloat(paidAmount))}</span>
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs text-purple-300">
+                        ⚠️ Admin approval required for due payments. Customer name is mandatory.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Due Request Notes - Shows when checkbox is checked */}
               {requestDuePayment && paidAmount && parseFloat(paidAmount) < total && (
