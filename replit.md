@@ -31,6 +31,7 @@ The ERP system is a full-stack application with a multi-database per tenant arch
     -   **WebSocket Real-Time Updates (Dec 2025)**: WebSocket endpoint at /ws/{token} with JWT authentication (signature + expiry verification). ConnectionManager tracks tenant-scoped connections with role-based targeting. Due request notifications broadcast only to admins. NotificationBell uses WebSocket with 60s polling fallback.
     -   **Performance Optimization (Dec 2025)**: React.lazy() code splitting for all page components with Suspense fallback. Reduces initial bundle size by loading pages on-demand.
     -   **Mobile Responsive Utilities (Dec 2025)**: Added CSS utility classes for touch-friendly tap targets (min 44x44px), safe-area padding for notched devices, mobile sticky footer, and reduced motion accessibility support.
+    -   **Shared Sale Service (Dec 2025)**: Extracted sale creation logic into `backend/sales_service.py` to ensure consistency between POS sales and due request approvals. The service handles: stock validation, stock updates, low-stock notifications, customer auto-creation/update, sale creation, warranty auto-creation, payment records, customer dues, and unpaid invoice notifications. Due request approvals now use this shared service for full feature parity with direct POS sales.
 
 ## External Dependencies
 -   **Database**: MongoDB Atlas
