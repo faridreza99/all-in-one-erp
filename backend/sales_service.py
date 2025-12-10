@@ -7,10 +7,6 @@ from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
-from models import (
-    Sale, SaleStatus, PaymentStatus, Payment, PaymentMethod,
-    CustomerDue, Notification, NotificationType
-)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,7 +27,7 @@ class SaleCreationOverrides(BaseModel):
     sale_number: Optional[str] = None
     invoice_no: Optional[str] = None
     reference: Optional[str] = None
-    skip_stock_update: bool = False  # For idempotent retries
+    skip_stock_update: bool = False
 
 
 class SaleItemInput(BaseModel):
@@ -113,13 +109,13 @@ async def perform_sale_creation(
     
     balance_due = total - paid_amount
     
-    # Determine payment status
+    # Determine payment status (using enum values that match server.py's PaymentStatus)
     if paid_amount >= total:
-        payment_status = PaymentStatus.PAID
+        payment_status = "paid"
     elif paid_amount > 0:
-        payment_status = PaymentStatus.PARTIALLY_PAID
+        payment_status = "partially_paid"
     else:
-        payment_status = PaymentStatus.UNPAID
+        payment_status = "unpaid"
     
     # Generate sale number and invoice number (unless overridden)
     if overrides.sale_number and overrides.invoice_no:
@@ -191,21 +187,22 @@ async def perform_sale_creation(
                 if product:
                     existing_notif = await target_db.notifications.find_one({
                         "tenant_id": actor.tenant_id,
-                        "type": NotificationType.LOW_STOCK,
+                        "type": "low_stock",
                         "reference_id": f"{item.product_id}_{sale_input.branch_id}"
                     })
                     
                     if not existing_notif:
-                        notification = Notification(
-                            tenant_id=actor.tenant_id,
-                            type=NotificationType.LOW_STOCK,
-                            reference_id=f"{item.product_id}_{sale_input.branch_id}",
-                            message=f"Low stock alert: {product['name']} (Branch) - Only {branch_stock} units left!",
-                            is_sticky=False
-                        )
-                        notif_doc = notification.model_dump()
-                        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
-                        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+                        notif_doc = {
+                            "id": str(uuid4()),
+                            "tenant_id": actor.tenant_id,
+                            "type": "low_stock",
+                            "reference_id": f"{item.product_id}_{sale_input.branch_id}",
+                            "message": f"Low stock alert: {product['name']} (Branch) - Only {branch_stock} units left!",
+                            "is_sticky": False,
+                            "is_read": False,
+                            "created_at": datetime.utcnow().isoformat(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
                         await target_db.notifications.insert_one(notif_doc)
                         low_stock_product_ids.append(item.product_id)
         else:
@@ -217,21 +214,22 @@ async def perform_sale_creation(
             if product and product.get("stock", 0) <= 5:
                 existing_notif = await target_db.notifications.find_one({
                     "tenant_id": actor.tenant_id,
-                    "type": NotificationType.LOW_STOCK,
+                    "type": "low_stock",
                     "reference_id": item.product_id
                 })
                 
                 if not existing_notif:
-                    notification = Notification(
-                        tenant_id=actor.tenant_id,
-                        type=NotificationType.LOW_STOCK,
-                        reference_id=item.product_id,
-                        message=f"Low stock alert: {product['name']} - Only {product['stock']} units left!",
-                        is_sticky=False
-                    )
-                    notif_doc = notification.model_dump()
-                    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
-                    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+                    notif_doc = {
+                        "id": str(uuid4()),
+                        "tenant_id": actor.tenant_id,
+                        "type": "low_stock",
+                        "reference_id": item.product_id,
+                        "message": f"Low stock alert: {product['name']} - Only {product['stock']} units left!",
+                        "is_sticky": False,
+                        "is_read": False,
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
                     await target_db.notifications.insert_one(notif_doc)
                     low_stock_product_ids.append(item.product_id)
     
@@ -285,37 +283,37 @@ async def perform_sale_creation(
             await target_db.customers.insert_one(new_customer)
             actual_customer_id = new_customer_id
     
-    # Create sale
+    # Create sale document (using dict instead of Pydantic model to avoid circular imports)
     sale_id = overrides.sale_id or str(uuid4())
-    sale = Sale(
-        id=sale_id,
-        tenant_id=actor.tenant_id,
-        sale_number=sale_number,
-        invoice_no=invoice_no,
-        branch_id=sale_input.branch_id,
-        customer_id=actual_customer_id,
-        customer_name=sale_input.customer_name,
-        customer_phone=sale_input.customer_phone,
-        customer_address=sale_input.customer_address,
-        items=[item.model_dump() for item in sale_input.items],
-        subtotal=subtotal,
-        discount=sale_input.discount,
-        tax=sale_input.tax,
-        total=total,
-        amount_paid=paid_amount,
-        balance_due=balance_due,
-        status=SaleStatus.COMPLETED,
-        payment_status=payment_status,
-        payment_method=sale_input.payment_method,
-        reference=overrides.reference,
-        created_by=actor.email
-    )
+    now = datetime.utcnow()
     
-    doc = sale.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    doc['updated_at'] = doc['updated_at'].isoformat()
+    sale_doc = {
+        "id": sale_id,
+        "tenant_id": actor.tenant_id,
+        "sale_number": sale_number,
+        "invoice_no": invoice_no,
+        "branch_id": sale_input.branch_id,
+        "customer_id": actual_customer_id,
+        "customer_name": sale_input.customer_name,
+        "customer_phone": sale_input.customer_phone,
+        "customer_address": sale_input.customer_address,
+        "items": [item.model_dump() for item in sale_input.items],
+        "subtotal": subtotal,
+        "discount": sale_input.discount,
+        "tax": sale_input.tax,
+        "total": total,
+        "amount_paid": paid_amount,
+        "balance_due": balance_due,
+        "status": "completed",
+        "payment_status": payment_status,
+        "payment_method": sale_input.payment_method.lower(),
+        "reference": overrides.reference,
+        "created_by": actor.email,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
     
-    await target_db.sales.insert_one(doc)
+    await target_db.sales.insert_one(sale_doc)
     
     # Auto-create warranty records
     warranty_ids = []
@@ -394,51 +392,50 @@ async def perform_sale_creation(
     
     # Create payment record
     if paid_amount > 0:
-        payment = Payment(
-            tenant_id=actor.tenant_id,
-            sale_id=sale_id,
-            amount=paid_amount,
-            method=PaymentMethod(sale_input.payment_method.lower())
-        )
-        payment_doc = payment.model_dump()
-        payment_doc['created_at'] = payment_doc['created_at'].isoformat()
-        payment_doc['updated_at'] = payment_doc['updated_at'].isoformat()
-        payment_doc['received_at'] = payment_doc['received_at'].isoformat()
+        payment_doc = {
+            "id": str(uuid4()),
+            "tenant_id": actor.tenant_id,
+            "sale_id": sale_id,
+            "amount": paid_amount,
+            "method": sale_input.payment_method.lower(),
+            "received_at": now.isoformat(),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
         await target_db.payments.insert_one(payment_doc)
     
     # Create customer due if partial payment
     if paid_amount < total and sale_input.customer_name:
         due_amount = total - paid_amount
-        customer_due = CustomerDue(
-            tenant_id=actor.tenant_id,
-            customer_name=sale_input.customer_name,
-            sale_id=sale_id,
-            sale_number=sale_number,
-            total_amount=total,
-            paid_amount=paid_amount,
-            due_amount=due_amount
-        )
-        
-        due_doc = customer_due.model_dump()
-        due_doc['created_at'] = due_doc['created_at'].isoformat()
-        due_doc['updated_at'] = due_doc['updated_at'].isoformat()
-        due_doc['transaction_date'] = due_doc['transaction_date'].isoformat()
-        
-        await target_db.customer_dues.insert_one(due_doc)
+        customer_due_doc = {
+            "id": str(uuid4()),
+            "tenant_id": actor.tenant_id,
+            "customer_name": sale_input.customer_name,
+            "sale_id": sale_id,
+            "sale_number": sale_number,
+            "total_amount": total,
+            "paid_amount": paid_amount,
+            "due_amount": due_amount,
+            "transaction_date": now.isoformat(),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await target_db.customer_dues.insert_one(customer_due_doc)
     
     # Create sticky notification for unpaid/partially paid invoices
     if balance_due > 0:
-        notification = Notification(
-            tenant_id=actor.tenant_id,
-            type=NotificationType.UNPAID_INVOICE,
-            sale_id=sale_id,
-            message=f"Invoice {invoice_no} has outstanding balance: ৳{balance_due:.2f}",
-            is_sticky=True
-        )
-        notif_doc = notification.model_dump()
-        notif_doc['created_at'] = notif_doc['created_at'].isoformat()
-        notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
-        await target_db.notifications.insert_one(notif_doc)
+        unpaid_notif = {
+            "id": str(uuid4()),
+            "tenant_id": actor.tenant_id,
+            "type": "unpaid_invoice",
+            "sale_id": sale_id,
+            "message": f"Invoice {invoice_no} has outstanding balance: ৳{balance_due:.2f}",
+            "is_sticky": True,
+            "is_read": False,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await target_db.notifications.insert_one(unpaid_notif)
     
     return SaleCreationResult(
         sale_id=sale_id,
@@ -450,7 +447,7 @@ async def perform_sale_creation(
         total=total,
         paid_amount=paid_amount,
         balance_due=balance_due,
-        payment_status=payment_status.value,
+        payment_status=payment_status,
         customer_id=actual_customer_id,
         warranty_ids=warranty_ids,
         low_stock_product_ids=low_stock_product_ids
