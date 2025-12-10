@@ -226,6 +226,20 @@ const NotificationBell = ({ user }) => {
       return;
     }
 
+    // Handle approved due request notifications - redirect to invoice
+    if (notification.type === 'due_request_approved' && notification.metadata?.sale_id) {
+      navigate(`/${user.business_type}/invoice/${notification.metadata.sale_id}`);
+      setIsOpen(false);
+      return;
+    }
+
+    // Handle rejected due request notifications - show toast with info
+    if (notification.type === 'due_request_rejected') {
+      toast.info(`Due request ${notification.metadata?.request_number || ''} was rejected`);
+      setIsOpen(false);
+      return;
+    }
+
     if (notification.type === 'unpaid_invoice' && notification.related_id) {
       navigate(`/${user.business_type}/invoice/${notification.related_id}`);
       setIsOpen(false);

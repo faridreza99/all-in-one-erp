@@ -5527,7 +5527,167 @@ async def approve_due_request(
     if due_request.get("status") != DueRequestStatus.PENDING.value:
         raise HTTPException(status_code=400, detail="Request has already been processed")
     
-    # Update the request
+    # Idempotency: If sale was already created, return existing sale_id
+    if due_request.get("sale_id"):
+        existing_sale = await target_db.sales.find_one(
+            {"id": due_request.get("sale_id"), "tenant_id": current_user["tenant_id"]},
+            {"_id": 0, "id": 1, "invoice_no": 1}
+        )
+        if existing_sale:
+            return {
+                "message": "Due request already approved",
+                "status": "approved",
+                "sale_id": existing_sale["id"],
+                "invoice_no": existing_sale.get("invoice_no")
+            }
+    
+    # === AUTO-CREATE SALE FROM DUE REQUEST ===
+    # Get cart items and calculate totals
+    cart_items = due_request.get("items", [])
+    branch_id = due_request.get("branch_id")
+    
+    # Recalculate totals from items to prevent tampering
+    subtotal = sum(item.get("price", 0) * item.get("quantity", 0) for item in cart_items)
+    discount = due_request.get("discount", 0)
+    tax = due_request.get("tax", 0)
+    total_amount = subtotal - discount + tax
+    paid_amount = due_request.get("paid_amount", 0)
+    balance_due = total_amount - paid_amount
+    
+    # Validate stock availability for all items before proceeding
+    for item in cart_items:
+        product_id = item.get("product_id")
+        quantity = item.get("quantity", 0)
+        product_name = item.get("name", product_id)
+        
+        if branch_id:
+            product_branch = await target_db.product_branches.find_one({
+                "product_id": product_id,
+                "branch_id": branch_id,
+                "tenant_id": current_user["tenant_id"]
+            }, {"_id": 0, "stock_quantity": 1})
+            
+            available_stock = product_branch.get("stock_quantity", 0) if product_branch else 0
+            if available_stock < quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {product_name}. Available: {available_stock}, Requested: {quantity}"
+                )
+        else:
+            product = await target_db.products.find_one({
+                "id": product_id,
+                "tenant_id": current_user["tenant_id"]
+            }, {"_id": 0, "stock": 1})
+            
+            available_stock = product.get("stock", 0) if product else 0
+            if available_stock < quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {product_name}. Available: {available_stock}, Requested: {quantity}"
+                )
+    
+    # Determine payment status
+    if paid_amount >= total_amount:
+        payment_status = PaymentStatus.PAID
+    elif paid_amount > 0:
+        payment_status = PaymentStatus.PARTIALLY_PAID
+    else:
+        payment_status = PaymentStatus.UNPAID
+    
+    # Generate sale number and invoice number
+    count = await target_db.sales.count_documents({"tenant_id": current_user["tenant_id"]})
+    sale_number = f"SALE-{count + 1:06d}"
+    invoice_no = f"INV-{count + 1:06d}"
+    
+    # Update stock for each item
+    for item in cart_items:
+        product_id = item.get("product_id")
+        quantity = item.get("quantity", 0)
+        
+        if branch_id:
+            # Update branch-specific stock
+            await target_db.product_branches.update_one(
+                {"product_id": product_id, "branch_id": branch_id, "tenant_id": current_user["tenant_id"]},
+                {"$inc": {"stock_quantity": -quantity}}
+            )
+        else:
+            # Update global stock
+            await target_db.products.update_one(
+                {"id": product_id, "tenant_id": current_user["tenant_id"]},
+                {"$inc": {"stock": -quantity}}
+            )
+    
+    # Handle customer creation/update
+    actual_customer_id = due_request.get("customer_id")
+    customer_name = due_request.get("customer_name")
+    customer_phone = due_request.get("customer_phone")
+    
+    if customer_name and customer_phone:
+        existing_customer = await target_db.customers.find_one({
+            "tenant_id": current_user["tenant_id"],
+            "phone": customer_phone
+        }, {"_id": 0})
+        
+        if existing_customer:
+            actual_customer_id = existing_customer['id']
+            await target_db.customers.update_one(
+                {"id": actual_customer_id, "tenant_id": current_user["tenant_id"]},
+                {"$set": {
+                    "total_purchases": existing_customer.get('total_purchases', 0) + total_amount,
+                    "updated_at": datetime.utcnow().isoformat()
+                }}
+            )
+        else:
+            new_customer_id = str(uuid.uuid4())
+            new_customer = {
+                "id": new_customer_id,
+                "tenant_id": current_user["tenant_id"],
+                "name": customer_name,
+                "phone": customer_phone or "",
+                "email": None,
+                "address": "",
+                "credit_limit": 0.0,
+                "total_purchases": total_amount,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            await target_db.customers.insert_one(new_customer)
+            actual_customer_id = new_customer_id
+    
+    # Create the sale with proper values
+    sale = Sale(
+        tenant_id=current_user["tenant_id"],
+        sale_number=sale_number,
+        invoice_no=invoice_no,
+        branch_id=branch_id,
+        customer_id=actual_customer_id,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        customer_address=None,
+        items=cart_items,
+        subtotal=subtotal,
+        discount=discount,
+        tax=tax,
+        total=total_amount,
+        amount_paid=paid_amount,
+        balance_due=balance_due,
+        status=SaleStatus.COMPLETED,
+        payment_status=payment_status,
+        payment_method="cash",
+        reference=f"Due Request: {due_request.get('request_number')}",
+        created_by=due_request.get("requested_by_name", "Staff")
+    )
+    
+    sale_doc = sale.model_dump()
+    sale_doc['created_at'] = sale_doc['created_at'].isoformat()
+    sale_doc['updated_at'] = sale_doc['updated_at'].isoformat()
+    
+    created_sale_id = sale_doc['id']
+    await target_db.sales.insert_one(sale_doc)
+    
+    logger.info(f"✅ Created sale {invoice_no} from due request {due_request.get('request_number')}")
+    
+    # Update the due request with sale_id
     await target_db.due_requests.update_one(
         {"id": request_id},
         {
@@ -5535,12 +5695,13 @@ async def approve_due_request(
                 "status": DueRequestStatus.APPROVED.value,
                 "approved_by": current_user.get("id"),
                 "approved_by_name": current_user.get("full_name", current_user.get("name", "Admin")),
+                "sale_id": created_sale_id,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
         }
     )
     
-    # Create notification for the staff who requested
+    # Create notification for the staff who requested (with sale_id for navigation)
     notification = Notification(
         tenant_id=current_user["tenant_id"],
         type=NotificationType.DUE_REQUEST_APPROVED,
@@ -5552,7 +5713,9 @@ async def approve_due_request(
             "request_id": request_id,
             "request_number": due_request.get("request_number"),
             "customer_name": due_request.get("customer_name"),
-            "due_amount": due_request.get("due_amount")
+            "due_amount": due_request.get("due_amount"),
+            "sale_id": created_sale_id,
+            "invoice_no": invoice_no
         }
     )
     notif_doc = notification.model_dump()
@@ -5575,11 +5738,13 @@ async def approve_due_request(
             data={
                 "title": "Due Request Approved",
                 "message": f"Request {due_request.get('request_number')} approved",
-                "request_id": request_id
+                "request_id": request_id,
+                "sale_id": created_sale_id,
+                "invoice_no": invoice_no
             }
         ))
     
-    return {"message": "Due request approved successfully", "status": "approved"}
+    return {"message": "Due request approved successfully", "status": "approved", "sale_id": created_sale_id, "invoice_no": invoice_no}
 
 @api_router.patch("/due-requests/{request_id}/reject")
 async def reject_due_request(
