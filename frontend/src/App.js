@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -13,62 +13,65 @@ import { jwtDecode } from "jwt-decode";
 import Swal from "sweetalert2";
 import "@/App.css";
 
+// Critical components loaded immediately
 import AuthPage from "./pages/AuthPage";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import SectorDashboard from "./pages/SectorDashboard";
-import POSPage from "./pages/POSPage";
-import ProductsPage from "./pages/ProductsPage";
-import ServicesPage from "./pages/ServicesPage";
-import AppointmentsPage from "./pages/AppointmentsPage";
-import RepairsPage from "./pages/RepairsPage";
-import TablesPage from "./pages/TablesPage";
-import SalesPage from "./pages/SalesPage";
-import InvoicePage from "./pages/InvoicePage";
-import CustomersPage from "./pages/CustomersPage";
-import CustomerDuesPage from "./pages/CustomerDuesPage";
-import ExpensesPage from "./pages/ExpensesPage";
-import ReportsPage from "./pages/ReportsPage";
-import NotificationsPage from "./pages/NotificationsPage";
-import ClinicPage from "./pages/ClinicPage";
-import WarrantiesPage from "./pages/WarrantiesPage";
-import ReturnsPage from "./pages/ReturnsPage";
-import BooksPage from "./pages/BooksPage";
-import CustomOrdersPage from "./pages/CustomOrdersPage";
-import OnlineOrdersPage from "./pages/OnlineOrdersPage";
-import PropertiesPage from "./pages/PropertiesPage";
-import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
-import GoodsReceiptsPage from "./pages/GoodsReceiptsPage";
-import OffersPage from "./pages/OffersPage";
-import VehiclesPage from "./pages/VehiclesPage";
-import DoctorsPage from "./pages/DoctorsPage";
-import PatientsPage from "./pages/PatientsPage";
-import ProductVariantsPage from "./pages/ProductVariantsPage";
-import BranchesPage from "./pages/BranchesPage";
-import ProductBranchAssignmentPage from "./pages/ProductBranchAssignmentPage";
-import StockTransferPage from "./pages/StockTransferPage";
-import ComponentsPage from "./pages/ComponentsPage";
-import JobCardsPage from "./pages/JobCardsPage";
-import DeviceHistoryPage from "./pages/DeviceHistoryPage";
-import SuppliersPage from "./pages/SuppliersPage";
-import PurchasesPage from "./pages/PurchasesPage";
-import LowStockPage from "./pages/LowStockPage";
-import CNFDashboard from "./pages/cnf/CNFDashboard";
-import ShipmentsPage from "./pages/cnf/ShipmentsPage";
-import JobFilesPage from "./pages/cnf/JobFilesPage";
-import BillingPage from "./pages/cnf/BillingPage";
-import DocumentsPage from "./pages/cnf/DocumentsPage";
-import TransportPage from "./pages/cnf/TransportPage";
-import CNFReportsPage from "./pages/cnf/CNFReportsPage";
-import SettingsPage from "./pages/SettingsPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import WarrantyResolve from "./pages/WarrantyResolve";
-import WarrantyClaim from "./pages/WarrantyClaim";
-import WarrantyClaimSuccess from "./pages/WarrantyClaimSuccess";
-import WarrantyDetails from "./pages/WarrantyDetails";
 import SectorLayout from "./components/SectorLayout";
 import { Toaster } from "./components/ui/sonner";
 import { isSectorAllowed } from "./config/sectorModules";
 import { SidebarProvider } from "./contexts/SidebarContext";
+
+// Lazy-loaded pages for code splitting and reduced initial bundle size
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const SectorDashboard = lazy(() => import("./pages/SectorDashboard"));
+const POSPage = lazy(() => import("./pages/POSPage"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ServicesPage = lazy(() => import("./pages/ServicesPage"));
+const AppointmentsPage = lazy(() => import("./pages/AppointmentsPage"));
+const RepairsPage = lazy(() => import("./pages/RepairsPage"));
+const TablesPage = lazy(() => import("./pages/TablesPage"));
+const SalesPage = lazy(() => import("./pages/SalesPage"));
+const InvoicePage = lazy(() => import("./pages/InvoicePage"));
+const CustomersPage = lazy(() => import("./pages/CustomersPage"));
+const CustomerDuesPage = lazy(() => import("./pages/CustomerDuesPage"));
+const ExpensesPage = lazy(() => import("./pages/ExpensesPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const ClinicPage = lazy(() => import("./pages/ClinicPage"));
+const WarrantiesPage = lazy(() => import("./pages/WarrantiesPage"));
+const ReturnsPage = lazy(() => import("./pages/ReturnsPage"));
+const BooksPage = lazy(() => import("./pages/BooksPage"));
+const CustomOrdersPage = lazy(() => import("./pages/CustomOrdersPage"));
+const OnlineOrdersPage = lazy(() => import("./pages/OnlineOrdersPage"));
+const PropertiesPage = lazy(() => import("./pages/PropertiesPage"));
+const PurchaseOrdersPage = lazy(() => import("./pages/PurchaseOrdersPage"));
+const GoodsReceiptsPage = lazy(() => import("./pages/GoodsReceiptsPage"));
+const OffersPage = lazy(() => import("./pages/OffersPage"));
+const VehiclesPage = lazy(() => import("./pages/VehiclesPage"));
+const DoctorsPage = lazy(() => import("./pages/DoctorsPage"));
+const PatientsPage = lazy(() => import("./pages/PatientsPage"));
+const ProductVariantsPage = lazy(() => import("./pages/ProductVariantsPage"));
+const BranchesPage = lazy(() => import("./pages/BranchesPage"));
+const ProductBranchAssignmentPage = lazy(() => import("./pages/ProductBranchAssignmentPage"));
+const StockTransferPage = lazy(() => import("./pages/StockTransferPage"));
+const ComponentsPage = lazy(() => import("./pages/ComponentsPage"));
+const JobCardsPage = lazy(() => import("./pages/JobCardsPage"));
+const DeviceHistoryPage = lazy(() => import("./pages/DeviceHistoryPage"));
+const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
+const PurchasesPage = lazy(() => import("./pages/PurchasesPage"));
+const LowStockPage = lazy(() => import("./pages/LowStockPage"));
+const CNFDashboard = lazy(() => import("./pages/cnf/CNFDashboard"));
+const ShipmentsPage = lazy(() => import("./pages/cnf/ShipmentsPage"));
+const JobFilesPage = lazy(() => import("./pages/cnf/JobFilesPage"));
+const BillingPage = lazy(() => import("./pages/cnf/BillingPage"));
+const DocumentsPage = lazy(() => import("./pages/cnf/DocumentsPage"));
+const TransportPage = lazy(() => import("./pages/cnf/TransportPage"));
+const CNFReportsPage = lazy(() => import("./pages/cnf/CNFReportsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const WarrantyResolve = lazy(() => import("./pages/WarrantyResolve"));
+const WarrantyClaim = lazy(() => import("./pages/WarrantyClaim"));
+const WarrantyClaimSuccess = lazy(() => import("./pages/WarrantyClaimSuccess"));
+const WarrantyDetails = lazy(() => import("./pages/WarrantyDetails"));
 
 // Loading spinner component
 const LoadingSpinner = () => (
@@ -300,6 +303,7 @@ const App = () => {
     <SidebarProvider>
       <div className="App">
         <BrowserRouter>
+        <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           {/* Auth Route */}
           <Route
@@ -792,6 +796,7 @@ const App = () => {
             }
           />
         </Routes>
+        </Suspense>
         </BrowserRouter>
         <Toaster position="top-right" richColors />
       </div>

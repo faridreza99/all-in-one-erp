@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, AlertCircle, Package, DollarSign, XCircle } from 'lucide-react';
+import { Bell, AlertCircle, Package, DollarSign, XCircle, Clock, CheckCircle, X } from 'lucide-react';
 import axios from 'axios';
 import { API } from '../App';
 import { formatCurrency } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const NotificationBell = ({ user }) => {
   const [notifications, setNotifications] = useState([]);
@@ -14,13 +15,36 @@ const NotificationBell = ({ user }) => {
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
+  // Due request modal state
+  const [showDueRequestModal, setShowDueRequestModal] = useState(false);
+  const [selectedDueRequest, setSelectedDueRequest] = useState(null);
+  const [processingRequest, setProcessingRequest] = useState(false);
+  const [pendingDueCount, setPendingDueCount] = useState(0);
+
+  const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
+
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 60000); // Refresh every minute
+      if (isAdmin) {
+        fetchPendingDueCount();
+      }
+      const interval = setInterval(() => {
+        fetchNotifications();
+        if (isAdmin) fetchPendingDueCount();
+      }, 30000); // Refresh every 30 seconds for faster updates
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, isAdmin]);
+
+  const fetchPendingDueCount = async () => {
+    try {
+      const response = await axios.get(`${API}/due-requests/pending-count`);
+      setPendingDueCount(response.data?.count || 0);
+    } catch (error) {
+      console.error('Failed to fetch pending due count:', error);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -68,6 +92,12 @@ const NotificationBell = ({ user }) => {
       await markAsRead(notification.id);
     }
 
+    // Handle due request notifications for admins
+    if (notification.type === 'due_request' && isAdmin) {
+      handleDueRequestClick(notification);
+      return;
+    }
+
     if (notification.type === 'unpaid_invoice' && notification.related_id) {
       navigate(`/${user.business_type}/invoice/${notification.related_id}`);
       setIsOpen(false);
@@ -87,8 +117,70 @@ const NotificationBell = ({ user }) => {
         return <DollarSign className="text-green-400" size={20} />;
       case 'sale_cancelled':
         return <XCircle className="text-orange-400" size={20} />;
+      case 'due_request':
+        return <Clock className="text-purple-400" size={20} />;
+      case 'due_request_approved':
+        return <CheckCircle className="text-green-400" size={20} />;
+      case 'due_request_rejected':
+        return <XCircle className="text-red-400" size={20} />;
       default:
         return <Bell className="text-blue-400" size={20} />;
+    }
+  };
+
+  // Handle due request notification click
+  const handleDueRequestClick = (notification) => {
+    if (notification.metadata) {
+      setSelectedDueRequest({
+        id: notification.metadata.request_id,
+        request_number: notification.metadata.request_number,
+        customer_name: notification.metadata.customer_name,
+        due_amount: notification.metadata.due_amount,
+        requested_by: notification.metadata.requested_by,
+        notification_id: notification.id
+      });
+      setShowDueRequestModal(true);
+      setIsOpen(false);
+    }
+  };
+
+  // Approve due request
+  const handleApproveDueRequest = async () => {
+    if (!selectedDueRequest) return;
+    setProcessingRequest(true);
+    try {
+      await axios.patch(`${API}/due-requests/${selectedDueRequest.id}/approve`);
+      toast.success('Due request approved successfully!');
+      setShowDueRequestModal(false);
+      setSelectedDueRequest(null);
+      fetchNotifications();
+      fetchPendingDueCount();
+    } catch (error) {
+      toast.error('Failed to approve due request');
+      console.error(error);
+    } finally {
+      setProcessingRequest(false);
+    }
+  };
+
+  // Reject due request
+  const handleRejectDueRequest = async (reason = '') => {
+    if (!selectedDueRequest) return;
+    setProcessingRequest(true);
+    try {
+      await axios.patch(`${API}/due-requests/${selectedDueRequest.id}/reject`, null, {
+        params: { reason }
+      });
+      toast.success('Due request rejected');
+      setShowDueRequestModal(false);
+      setSelectedDueRequest(null);
+      fetchNotifications();
+      fetchPendingDueCount();
+    } catch (error) {
+      toast.error('Failed to reject due request');
+      console.error(error);
+    } finally {
+      setProcessingRequest(false);
     }
   };
 
@@ -187,6 +279,91 @@ const NotificationBell = ({ user }) => {
                 </button>
               </div>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Due Request Approval Modal */}
+      <AnimatePresence>
+        {showDueRequestModal && selectedDueRequest && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+            onClick={() => setShowDueRequestModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 border border-purple-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Due Payment Request</h3>
+                    <p className="text-slate-400 text-sm">{selectedDueRequest.request_number}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDueRequestModal(false)}
+                  className="w-8 h-8 bg-slate-700 hover:bg-slate-600 rounded-lg flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-4 mb-6">
+                <div className="bg-slate-800/50 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-slate-400 text-xs mb-1">Customer</p>
+                      <p className="text-white font-medium">{selectedDueRequest.customer_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs mb-1">Requested By</p>
+                      <p className="text-white font-medium">{selectedDueRequest.requested_by}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4">
+                  <p className="text-slate-400 text-xs mb-1">Due Amount</p>
+                  <p className="text-3xl font-bold text-purple-400">{formatCurrency(selectedDueRequest.due_amount)}</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleRejectDueRequest()}
+                  disabled={processingRequest}
+                  className="flex-1 py-3 px-4 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <XCircle className="w-5 h-5" />
+                  Reject
+                </button>
+                <button
+                  onClick={handleApproveDueRequest}
+                  disabled={processingRequest}
+                  className="flex-1 py-3 px-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {processingRequest ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                  Approve
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

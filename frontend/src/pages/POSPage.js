@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, Minus, X, ShoppingCart, Globe, User, Phone, MapPin, Search, Edit2, Check } from "lucide-react";
+import { Plus, Minus, X, ShoppingCart, Globe, User, Phone, MapPin, Search, Edit2, Check, Clock, Send } from "lucide-react";
 import SectorLayout from "../components/SectorLayout";
 import BackButton from "../components/BackButton";
 import { API } from "../App";
@@ -36,6 +36,11 @@ const POSPage = ({ user, onLogout }) => {
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [customerSearched, setCustomerSearched] = useState(false);
+
+  // Due request state (for staff users)
+  const [requestDuePayment, setRequestDuePayment] = useState(false);
+  const [isSubmittingDueRequest, setIsSubmittingDueRequest] = useState(false);
+  const [dueRequestNotes, setDueRequestNotes] = useState("");
 
   useEffect(() => {
     fetchProducts();
@@ -357,6 +362,80 @@ const POSPage = ({ user, onLogout }) => {
       toast.error(formatErrorMessage(error, "Checkout failed"));
     }
   };
+
+  // Handle due request submission (for staff)
+  const handleDueRequest = async () => {
+    if (!customerPhone.startsWith("+8801") || customerPhone.length !== 14) {
+      toast.error("Enter a valid Bangladeshi number (+8801XXXXXXXXX)");
+      return;
+    }
+
+    if (!customerName) {
+      toast.error("Customer name is required for due payment request");
+      return;
+    }
+
+    if (cart.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    const totalAmount = calculateTotal();
+    const paidAmountValue = paidAmount ? parseFloat(paidAmount) : 0;
+    const dueAmount = totalAmount - paidAmountValue;
+
+    if (dueAmount <= 0) {
+      toast.error("No due amount to request");
+      return;
+    }
+
+    setIsSubmittingDueRequest(true);
+
+    try {
+      const payload = {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_id: existingCustomer?.id || null,
+        due_amount: dueAmount,
+        total_amount: totalAmount,
+        paid_amount: paidAmountValue,
+        items: cart.map(item => ({
+          product_id: item.product_id,
+          product_name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        notes: dueRequestNotes || null,
+        branch_id: branchId || null,
+      };
+
+      await axios.post(`${API}/due-requests`, payload);
+
+      toast.success("Due payment request sent to admin for approval!");
+
+      // Reset form
+      setCart([]);
+      setCustomerName("");
+      setCustomerPhone("+880");
+      setCustomerAddress("");
+      setPaidAmount("");
+      setDiscount(0);
+      setTax(0);
+      setExistingCustomer(null);
+      setCustomerSearched(false);
+      setIsEditingCustomer(false);
+      setRequestDuePayment(false);
+      setDueRequestNotes("");
+
+    } catch (error) {
+      toast.error(formatErrorMessage(error, "Failed to submit due request"));
+    } finally {
+      setIsSubmittingDueRequest(false);
+    }
+  };
+
+  // Check if user is staff (non-admin)
+  const isStaffUser = user?.role === "staff";
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -733,6 +812,23 @@ const POSPage = ({ user, onLogout }) => {
                     <p className="mt-2 text-xs text-yellow-300">
                       ⚠️ Customer name required for partial payment
                     </p>
+
+                    {/* Due Request Checkbox - Only for staff users with partial payment */}
+                    {isStaffUser && (
+                      <div className="mt-3 pt-3 border-t border-yellow-500/30">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={requestDuePayment}
+                            onChange={(e) => setRequestDuePayment(e.target.checked)}
+                            className="w-4 h-4 rounded border-yellow-500 text-yellow-500 focus:ring-yellow-500 bg-slate-700"
+                          />
+                          <span className="text-yellow-300 text-sm font-medium">
+                            Request due payment approval from admin
+                          </span>
+                        </label>
+                      </div>
+                    )}
                   </div>
                 )}
                 {paidAmount && parseFloat(paidAmount) > total && (
@@ -742,13 +838,51 @@ const POSPage = ({ user, onLogout }) => {
                 )}
               </div>
 
-              <button
-                onClick={handleCheckout}
-                disabled={cart.length === 0}
-                className="w-full btn-primary py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Complete Sale
-              </button>
+              {/* Due Request Notes - Shows when checkbox is checked */}
+              {requestDuePayment && paidAmount && parseFloat(paidAmount) < total && (
+                <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-purple-400" />
+                    <span className="text-sm font-semibold text-purple-300">Due Request Details</span>
+                  </div>
+                  <textarea
+                    value={dueRequestNotes}
+                    onChange={(e) => setDueRequestNotes(e.target.value)}
+                    placeholder="Add notes for admin (optional)..."
+                    className="w-full px-3 py-2 bg-slate-700 border border-purple-500/30 rounded-lg text-white text-sm"
+                    rows={2}
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {requestDuePayment && paidAmount && parseFloat(paidAmount) < total ? (
+                <button
+                  onClick={handleDueRequest}
+                  disabled={cart.length === 0 || isSubmittingDueRequest}
+                  className="w-full py-4 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isSubmittingDueRequest ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending Request...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Request Due Approval
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleCheckout}
+                  disabled={cart.length === 0}
+                  className="w-full btn-primary py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Complete Sale
+                </button>
+              )}
             </div>
           </div>
         </div>

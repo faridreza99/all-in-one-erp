@@ -269,6 +269,14 @@ class NotificationType(str, Enum):
     PAYMENT_RECEIVED = "payment_received"
     SALE_CANCELLED = "sale_cancelled"
     ACTIVITY = "activity"
+    DUE_REQUEST = "due_request"
+    DUE_REQUEST_APPROVED = "due_request_approved"
+    DUE_REQUEST_REJECTED = "due_request_rejected"
+
+class DueRequestStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 class ActivitySubtype(str, Enum):
     POS_SALE_CREATED = "pos_sale_created"
@@ -524,6 +532,38 @@ class Notification(BaseDBModel):
     user_id: Optional[str] = None
     title: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
+class DueRequestCreate(BaseModel):
+    customer_name: str
+    customer_phone: Optional[str] = None
+    customer_id: Optional[str] = None
+    due_amount: float
+    total_amount: float
+    paid_amount: float
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: Optional[str] = None
+    branch_id: Optional[str] = None
+
+class DueRequest(BaseDBModel):
+    tenant_id: str
+    request_number: str
+    customer_name: str
+    customer_phone: Optional[str] = None
+    customer_id: Optional[str] = None
+    due_amount: float
+    total_amount: float
+    paid_amount: float
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: Optional[str] = None
+    branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
+    status: DueRequestStatus = DueRequestStatus.PENDING
+    requested_by: Optional[str] = None
+    requested_by_name: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_by_name: Optional[str] = None
+    sale_id: Optional[str] = None
+    rejection_reason: Optional[str] = None
 
 class CustomerDueCreate(BaseModel):
     customer_name: str
@@ -5251,6 +5291,290 @@ async def download_invoice(
         "payments": payments,
         "warranties": warranties
     }
+
+# ========== DUE REQUEST ROUTES ==========
+@api_router.post("/due-requests", response_model=DueRequest)
+async def create_due_request(
+    request_data: DueRequestCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as e:
+            logger.error(f"Failed to resolve tenant DB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Generate request number
+    count = await target_db.due_requests.count_documents({"tenant_id": current_user["tenant_id"]})
+    request_number = f"DUE-{count + 1:06d}"
+    
+    # Get branch name if branch_id provided
+    branch_name = None
+    if request_data.branch_id:
+        branch = await target_db.branches.find_one({"id": request_data.branch_id}, {"_id": 0, "name": 1})
+        if branch:
+            branch_name = branch.get("name")
+    
+    due_request = DueRequest(
+        tenant_id=current_user["tenant_id"],
+        request_number=request_number,
+        customer_name=request_data.customer_name,
+        customer_phone=request_data.customer_phone,
+        customer_id=request_data.customer_id,
+        due_amount=request_data.due_amount,
+        total_amount=request_data.total_amount,
+        paid_amount=request_data.paid_amount,
+        items=request_data.items,
+        notes=request_data.notes,
+        branch_id=request_data.branch_id or current_user.get("branch_id"),
+        branch_name=branch_name,
+        requested_by=current_user.get("id"),
+        requested_by_name=current_user.get("full_name", current_user.get("name", "Staff"))
+    )
+    
+    doc = due_request.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await target_db.due_requests.insert_one(doc)
+    
+    # Create notification for admin
+    notification = Notification(
+        tenant_id=current_user["tenant_id"],
+        type=NotificationType.DUE_REQUEST,
+        reference_id=due_request.id,
+        title="New Due Payment Request",
+        message=f"{current_user.get('full_name', 'Staff')} requested due payment of ৳{request_data.due_amount:.2f} for {request_data.customer_name}",
+        is_sticky=True,
+        metadata={
+            "request_id": due_request.id,
+            "request_number": request_number,
+            "customer_name": request_data.customer_name,
+            "due_amount": request_data.due_amount,
+            "requested_by": current_user.get("full_name", "Staff")
+        }
+    )
+    notif_doc = notification.model_dump()
+    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+    await target_db.notifications.insert_one(notif_doc)
+    
+    return due_request
+
+@api_router.get("/due-requests", response_model=List[DueRequest])
+async def get_due_requests(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as e:
+            logger.error(f"Failed to resolve tenant DB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    query = {"tenant_id": current_user["tenant_id"]}
+    
+    # Filter by status if provided
+    if status:
+        query["status"] = status
+    
+    # Staff can only see their own requests, admin sees all
+    if current_user.get("role") == "staff":
+        query["requested_by"] = current_user.get("id")
+    
+    requests = await target_db.due_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    for req in requests:
+        if isinstance(req.get('created_at'), str):
+            req['created_at'] = datetime.fromisoformat(req['created_at'])
+        if isinstance(req.get('updated_at'), str):
+            req['updated_at'] = datetime.fromisoformat(req['updated_at'])
+    
+    return requests
+
+@api_router.get("/due-requests/pending-count")
+async def get_pending_due_requests_count(
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Only admins can see pending count
+    if current_user.get("role") not in ["tenant_admin", "super_admin"]:
+        return {"count": 0}
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as e:
+            return {"count": 0}
+    
+    count = await target_db.due_requests.count_documents({
+        "tenant_id": current_user["tenant_id"],
+        "status": DueRequestStatus.PENDING.value
+    })
+    
+    return {"count": count}
+
+@api_router.patch("/due-requests/{request_id}/approve")
+async def approve_due_request(
+    request_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Only admins can approve
+    if current_user.get("role") not in ["tenant_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Only administrators can approve due requests")
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as e:
+            logger.error(f"Failed to resolve tenant DB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Get the request
+    due_request = await target_db.due_requests.find_one(
+        {"id": request_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not due_request:
+        raise HTTPException(status_code=404, detail="Due request not found")
+    
+    if due_request.get("status") != DueRequestStatus.PENDING.value:
+        raise HTTPException(status_code=400, detail="Request has already been processed")
+    
+    # Update the request
+    await target_db.due_requests.update_one(
+        {"id": request_id},
+        {
+            "$set": {
+                "status": DueRequestStatus.APPROVED.value,
+                "approved_by": current_user.get("id"),
+                "approved_by_name": current_user.get("full_name", current_user.get("name", "Admin")),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Create notification for the staff who requested
+    notification = Notification(
+        tenant_id=current_user["tenant_id"],
+        type=NotificationType.DUE_REQUEST_APPROVED,
+        reference_id=request_id,
+        user_id=due_request.get("requested_by"),
+        title="Due Request Approved",
+        message=f"Your due payment request {due_request.get('request_number')} for {due_request.get('customer_name')} has been approved",
+        metadata={
+            "request_id": request_id,
+            "request_number": due_request.get("request_number"),
+            "customer_name": due_request.get("customer_name"),
+            "due_amount": due_request.get("due_amount")
+        }
+    )
+    notif_doc = notification.model_dump()
+    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+    await target_db.notifications.insert_one(notif_doc)
+    
+    # Mark the original due request notification as read
+    await target_db.notifications.update_many(
+        {"reference_id": request_id, "type": NotificationType.DUE_REQUEST.value},
+        {"$set": {"is_read": True, "is_sticky": False}}
+    )
+    
+    return {"message": "Due request approved successfully", "status": "approved"}
+
+@api_router.patch("/due-requests/{request_id}/reject")
+async def reject_due_request(
+    request_id: str,
+    reason: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Only admins can reject
+    if current_user.get("role") not in ["tenant_admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Only administrators can reject due requests")
+    
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as e:
+            logger.error(f"Failed to resolve tenant DB: {e}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Get the request
+    due_request = await target_db.due_requests.find_one(
+        {"id": request_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not due_request:
+        raise HTTPException(status_code=404, detail="Due request not found")
+    
+    if due_request.get("status") != DueRequestStatus.PENDING.value:
+        raise HTTPException(status_code=400, detail="Request has already been processed")
+    
+    # Update the request
+    await target_db.due_requests.update_one(
+        {"id": request_id},
+        {
+            "$set": {
+                "status": DueRequestStatus.REJECTED.value,
+                "approved_by": current_user.get("id"),
+                "approved_by_name": current_user.get("full_name", current_user.get("name", "Admin")),
+                "rejection_reason": reason,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Create notification for the staff who requested
+    notification = Notification(
+        tenant_id=current_user["tenant_id"],
+        type=NotificationType.DUE_REQUEST_REJECTED,
+        reference_id=request_id,
+        user_id=due_request.get("requested_by"),
+        title="Due Request Rejected",
+        message=f"Your due payment request {due_request.get('request_number')} for {due_request.get('customer_name')} has been rejected" + (f": {reason}" if reason else ""),
+        metadata={
+            "request_id": request_id,
+            "request_number": due_request.get("request_number"),
+            "customer_name": due_request.get("customer_name"),
+            "due_amount": due_request.get("due_amount"),
+            "reason": reason
+        }
+    )
+    notif_doc = notification.model_dump()
+    notif_doc['created_at'] = notif_doc['created_at'].isoformat()
+    notif_doc['updated_at'] = notif_doc['updated_at'].isoformat()
+    await target_db.notifications.insert_one(notif_doc)
+    
+    # Mark the original due request notification as read
+    await target_db.notifications.update_many(
+        {"reference_id": request_id, "type": NotificationType.DUE_REQUEST.value},
+        {"$set": {"is_read": True, "is_sticky": False}}
+    )
+    
+    return {"message": "Due request rejected", "status": "rejected"}
 
 # ========== SUPPLIER ROUTES ==========
 @api_router.post("/suppliers", response_model=Supplier)
