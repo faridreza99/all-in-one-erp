@@ -210,7 +210,7 @@ const InvoicePage = ({ user, onLogout }) => {
           serial_number: item.serial_number || null,
           custom_description: item.custom_description || null
         }))
-      });
+      }, { withCredentials: true });
       toast.success("Product details updated successfully");
       setIsEditingItems(false);
       await fetchInvoice();
