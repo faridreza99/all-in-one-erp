@@ -451,6 +451,8 @@ class Product(BaseDBModel):
     expiry_date: Optional[str] = None
     imei: Optional[str] = None
     warranty_months: Optional[int] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class ServiceCreate(BaseModel):
     name: str
@@ -6193,6 +6195,8 @@ async def create_purchase(
                     "tax_rate": 0.0,
                     "tax_type": "none",
                     "is_active": True,
+                    "include_warranty_terms": include_warranty_terms,
+                    "warranty_terms": warranty_terms if include_warranty_terms else None,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "updated_at": datetime.now(timezone.utc).isoformat()
                 }
@@ -6220,6 +6224,20 @@ async def create_purchase(
     doc['updated_at'] = doc['updated_at'].isoformat()
     
     await target_db.purchases.insert_one(doc)
+    
+    # Update existing products with warranty terms from this purchase
+    if include_warranty_terms and warranty_terms:
+        product_ids_to_update = [item.get("product_id") for item in items_list if item.get("product_id")]
+        if product_ids_to_update:
+            await target_db.products.update_many(
+                {"id": {"$in": product_ids_to_update}, "tenant_id": current_user["tenant_id"]},
+                {"$set": {
+                    "include_warranty_terms": True,
+                    "warranty_terms": warranty_terms,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+    
     return purchase
 
 @api_router.get("/purchases", response_model=List[Purchase])
