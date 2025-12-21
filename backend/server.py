@@ -4766,6 +4766,68 @@ async def cancel_sale(
         "stock_restored": len(sale.get('items', []))
     }
 
+class SaleItemUpdate(BaseModel):
+    product_id: str
+    serial_number: Optional[str] = None
+    custom_description: Optional[str] = None
+
+class SaleItemsUpdateRequest(BaseModel):
+    items: List[SaleItemUpdate]
+
+@api_router.patch("/sales/{sale_id}/items")
+async def update_sale_items(
+    sale_id: str,
+    update_data: SaleItemsUpdateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update sale item details like serial number and custom description"""
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Resolve tenant-specific database
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for sale items update: {resolve_error}")
+            raise HTTPException(status_code=500, detail="Failed to resolve tenant database")
+    
+    # Get the sale
+    sale = await target_db.sales.find_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Build update map from request
+    update_map = {item.product_id: item for item in update_data.items}
+    
+    # Update items in the sale
+    updated_items = []
+    for item in sale.get('items', []):
+        product_id = item.get('product_id')
+        if product_id in update_map:
+            update_item = update_map[product_id]
+            item['serial_number'] = update_item.serial_number
+            item['custom_description'] = update_item.custom_description
+        updated_items.append(item)
+    
+    # Save updated items
+    await target_db.sales.update_one(
+        {"id": sale_id, "tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "items": updated_items,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Sale items updated successfully", "updated_count": len(update_data.items)}
+
 # ========== CUSTOMER DUES ROUTES ==========
 @api_router.get("/customer-dues", response_model=List[CustomerDue])
 async def get_customer_dues(

@@ -11,6 +11,9 @@ import {
   Download,
   Plus,
   Shield,
+  Edit2,
+  Save,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -65,6 +68,9 @@ const InvoicePage = ({ user, onLogout }) => {
 
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isEditingItems, setIsEditingItems] = useState(false);
+  const [editedItems, setEditedItems] = useState([]);
+  const [savingItems, setSavingItems] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -164,6 +170,54 @@ const InvoicePage = ({ user, onLogout }) => {
     } finally {
       setIsExportingPDF(false);
       setGeneratingPDF(false);
+    }
+  };
+
+  const startEditingItems = () => {
+    const currentItems = invoice?.sale?.items || [];
+    setEditedItems(currentItems.map(item => ({
+      product_id: item.product_id,
+      product_name: item.product_name || item.name,
+      serial_number: item.serial_number || "",
+      custom_description: item.custom_description || "",
+      price: item.price,
+      quantity: item.quantity
+    })));
+    setIsEditingItems(true);
+  };
+
+  const cancelEditingItems = () => {
+    setIsEditingItems(false);
+    setEditedItems([]);
+  };
+
+  const updateEditedItem = (productId, field, value) => {
+    setEditedItems(items =>
+      items.map(item =>
+        item.product_id === productId
+          ? { ...item, [field]: value }
+          : item
+      )
+    );
+  };
+
+  const saveEditedItems = async () => {
+    setSavingItems(true);
+    try {
+      await axios.patch(`${API}/sales/${saleId}/items`, {
+        items: editedItems.map(item => ({
+          product_id: item.product_id,
+          serial_number: item.serial_number || null,
+          custom_description: item.custom_description || null
+        }))
+      });
+      toast.success("Product details updated successfully");
+      setIsEditingItems(false);
+      await fetchInvoice();
+    } catch (err) {
+      toast.error(formatErrorMessage(err, "Failed to update product details"));
+    } finally {
+      setSavingItems(false);
     }
   };
 
@@ -341,10 +395,39 @@ const InvoicePage = ({ user, onLogout }) => {
 
           {/* items */}
           <div className="relative mt-4 overflow-x-auto rounded-lg border border-slate-200">
+            {/* Edit button (no-print) */}
+            {!isEditingItems && (
+              <div className="no-print absolute top-2 right-2 z-10">
+                <button
+                  onClick={startEditingItems}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  <Edit2 size={12} /> Edit
+                </button>
+              </div>
+            )}
+            {isEditingItems && (
+              <div className="no-print absolute top-2 right-2 z-10 flex gap-2">
+                <button
+                  onClick={saveEditedItems}
+                  disabled={savingItems}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                >
+                  <Save size={12} /> {savingItems ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={cancelEditingItems}
+                  disabled={savingItems}
+                  className="flex items-center gap-1 px-2 py-1 text-xs bg-slate-500 text-white rounded hover:bg-slate-600 disabled:opacity-50"
+                >
+                  <X size={12} /> Cancel
+                </button>
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-100 text-slate-600">
-                  <th className="px-4 py-2 text-left  font-semibold">
+                  <th className="px-4 py-2 text-left font-semibold">
                     Product
                   </th>
                   <th className="px-4 py-2 text-right font-semibold">Price</th>
@@ -353,31 +436,78 @@ const InvoicePage = ({ user, onLogout }) => {
                 </tr>
               </thead>
               <tbody className="[&>tr:nth-child(even)]:bg-slate-50">
-                {items.map((it, i) => (
-                  <tr key={i} className="border-t border-slate-200">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800">
-                        {human(it.product_name) || human(it.name) || "Product"}
-                      </p>
-                      {human(it.product_sku, "") && (
-                        <p className="text-xs text-slate-500">
-                          SKU: {it.product_sku}
+                {isEditingItems ? (
+                  editedItems.map((it, i) => (
+                    <tr key={i} className="border-t border-slate-200">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800 mb-2">
+                          {human(it.product_name) || "Product"}
                         </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {formatCurrency(Number(it.price || 0))}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {Number(it.quantity || 0)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold">
-                      {formatCurrency(
-                        Number(it.price || 0) * Number(it.quantity || 0),
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Serial Number"
+                            value={it.serial_number}
+                            onChange={(e) => updateEditedItem(it.product_id, "serial_number", e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800"
+                          />
+                          <textarea
+                            placeholder="Product details (specs, model info...)"
+                            value={it.custom_description}
+                            onChange={(e) => updateEditedItem(it.product_id, "custom_description", e.target.value)}
+                            rows={3}
+                            className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 resize-none"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right align-top">
+                        {formatCurrency(Number(it.price || 0))}
+                      </td>
+                      <td className="px-4 py-3 text-right align-top">
+                        {Number(it.quantity || 0)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold align-top">
+                        {formatCurrency(Number(it.price || 0) * Number(it.quantity || 0))}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  items.map((it, i) => (
+                    <tr key={i} className="border-t border-slate-200">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800">
+                          {human(it.product_name) || human(it.name) || "Product"}
+                        </p>
+                        {human(it.custom_description, "") && (
+                          <p className="text-xs text-slate-600 whitespace-pre-line mt-1">
+                            {it.custom_description}
+                          </p>
+                        )}
+                        {human(it.serial_number, "") && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            SN: {it.serial_number}
+                          </p>
+                        )}
+                        {human(it.product_sku, "") && (
+                          <p className="text-xs text-slate-500">
+                            SKU: {it.product_sku}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {formatCurrency(Number(it.price || 0))}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {Number(it.quantity || 0)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold">
+                        {formatCurrency(
+                          Number(it.price || 0) * Number(it.quantity || 0),
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
