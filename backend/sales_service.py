@@ -289,6 +289,29 @@ async def perform_sale_creation(
     sale_id = overrides.sale_id or str(uuid4())
     now = datetime.utcnow()
     
+    # Inherit warranty terms from products if not explicitly provided
+    include_warranty_terms = sale_input.include_warranty_terms
+    warranty_terms = sale_input.warranty_terms
+    
+    # Always check product warranty terms if sale doesn't have explicit warranty text
+    if not warranty_terms:
+        product_ids = [item.product_id for item in sale_input.items]
+        if product_ids:
+            products_with_warranty = await target_db.products.find(
+                {
+                    "id": {"$in": product_ids},
+                    "tenant_id": actor.tenant_id,
+                    "include_warranty_terms": True,
+                    "warranty_terms": {"$ne": None}
+                },
+                {"_id": 0, "warranty_terms": 1}
+            ).to_list(len(product_ids))
+            
+            if products_with_warranty:
+                # Use the first product's warranty terms
+                include_warranty_terms = True
+                warranty_terms = products_with_warranty[0].get("warranty_terms")
+    
     sale_doc = {
         "id": sale_id,
         "tenant_id": actor.tenant_id,
@@ -311,8 +334,8 @@ async def perform_sale_creation(
         "payment_method": sale_input.payment_method.lower(),
         "reference": overrides.reference,
         "created_by": actor.email,
-        "include_warranty_terms": sale_input.include_warranty_terms,
-        "warranty_terms": sale_input.warranty_terms,
+        "include_warranty_terms": include_warranty_terms,
+        "warranty_terms": warranty_terms,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
