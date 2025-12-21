@@ -398,8 +398,8 @@ const InvoicePage = ({ user, onLogout }) => {
 
           {/* items */}
           <div className="relative mt-4 overflow-x-auto rounded-lg border border-slate-200">
-            {/* Edit button (no-print) */}
-            {!isEditingItems && (
+            {/* Edit button (no-print, hide during PDF export) */}
+            {!isEditingItems && !isExportingPDF && (
               <div className="no-print absolute top-2 right-2 z-10">
                 <button
                   onClick={startEditingItems}
@@ -409,7 +409,7 @@ const InvoicePage = ({ user, onLogout }) => {
                 </button>
               </div>
             )}
-            {isEditingItems && (
+            {isEditingItems && !isExportingPDF && (
               <div className="no-print absolute top-2 right-2 z-10 flex gap-2">
                 <button
                   onClick={saveEditedItems}
