@@ -263,6 +263,9 @@ const InvoicePage = ({ user, onLogout }) => {
           #print-root, #print-root * { visibility: visible !important; }
           #print-root { position: absolute !important; inset: 0 !important; width: auto !important; margin: 0 !important; }
 
+          /* Hide no-print elements */
+          .no-print, .no-print * { display: none !important; visibility: hidden !important; }
+
           /* Tighten layout */
           .invoice-sheet { padding: 12mm 10mm !important; box-shadow: none !important; border: 1px solid #e5e7eb !important; }
           .invoice-accent { margin-bottom: 8px !important; height: 3px !important; }
