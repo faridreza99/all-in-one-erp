@@ -24,7 +24,18 @@ const PurchasesPage = ({ user, onLogout }) => {
   const [formData, setFormData] = useState({
     supplier_id: '',
     items: [],
-    payment_status: 'pending'
+    payment_status: 'pending',
+    include_warranty_terms: false,
+    warranty_terms: `Warranty & Return Policy
+
+• Replacement: 15-day replacement warranty. No warranty after this period
+• Service: 2-year service warranty (excluding parts).
+• Damage: Burn or physical damage not covered, repair costs borne by customer
+• Returns: Accepted within 15–30 days with a 20–25% deduction
+
+By signing below, the customer agrees to these terms and conditions
+
+Signature: __________`
   });
   const [currentItem, setCurrentItem] = useState({
     product_id: '',
@@ -162,6 +173,10 @@ const PurchasesPage = ({ user, onLogout }) => {
       submitData.append('items', JSON.stringify(formData.items));
       submitData.append('total_amount', total);
       submitData.append('payment_status', formData.payment_status);
+      submitData.append('include_warranty_terms', formData.include_warranty_terms);
+      if (formData.include_warranty_terms && formData.warranty_terms) {
+        submitData.append('warranty_terms', formData.warranty_terms);
+      }
       
       if (newPurchaseReceipt) {
         submitData.append('receipt', newPurchaseReceipt);
@@ -177,7 +192,18 @@ const PurchasesPage = ({ user, onLogout }) => {
       setFormData({
         supplier_id: '',
         items: [],
-        payment_status: 'pending'
+        payment_status: 'pending',
+        include_warranty_terms: false,
+        warranty_terms: `Warranty & Return Policy
+
+• Replacement: 15-day replacement warranty. No warranty after this period
+• Service: 2-year service warranty (excluding parts).
+• Damage: Burn or physical damage not covered, repair costs borne by customer
+• Returns: Accepted within 15–30 days with a 20–25% deduction
+
+By signing below, the customer agrees to these terms and conditions
+
+Signature: __________`
       });
       setCurrentItem({
         product_id: '',
@@ -340,7 +366,18 @@ const PurchasesPage = ({ user, onLogout }) => {
               setFormData({
                 supplier_id: '',
                 items: [],
-                payment_status: 'pending'
+                payment_status: 'pending',
+                include_warranty_terms: false,
+                warranty_terms: `Warranty & Return Policy
+
+• Replacement: 15-day replacement warranty. No warranty after this period
+• Service: 2-year service warranty (excluding parts).
+• Damage: Burn or physical damage not covered, repair costs borne by customer
+• Returns: Accepted within 15–30 days with a 20–25% deduction
+
+By signing below, the customer agrees to these terms and conditions
+
+Signature: __________`
               });
               setCurrentItem({
                 product_id: '',
@@ -402,6 +439,35 @@ const PurchasesPage = ({ user, onLogout }) => {
                     <option value="paid">Paid</option>
                   </select>
                 </div>
+              </div>
+
+              {/* WARRANTY TERMS SECTION */}
+              <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.include_warranty_terms}
+                    onChange={(e) => setFormData({ ...formData, include_warranty_terms: e.target.checked })}
+                    className="w-4 h-4 rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-gray-700"
+                  />
+                  <span className="text-blue-300 text-sm font-medium flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Include Warranty & Return Policy on Invoice
+                  </span>
+                </label>
+                {formData.include_warranty_terms && (
+                  <div className="mt-3">
+                    <label className="text-sm text-gray-300 mb-1 block">
+                      Warranty Terms (editable)
+                    </label>
+                    <textarea
+                      value={formData.warranty_terms}
+                      onChange={(e) => setFormData({ ...formData, warranty_terms: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-700/50 border border-blue-500/30 rounded-lg text-white text-sm font-mono"
+                      rows={10}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-gray-600/50 pt-6">

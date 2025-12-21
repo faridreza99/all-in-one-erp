@@ -42,20 +42,6 @@ const POSPage = ({ user, onLogout }) => {
   const [isSubmittingDueRequest, setIsSubmittingDueRequest] = useState(false);
   const [dueRequestNotes, setDueRequestNotes] = useState("");
 
-  // Warranty terms state
-  const [includeWarrantyTerms, setIncludeWarrantyTerms] = useState(false);
-  const [warrantyTerms, setWarrantyTerms] = useState(
-`Warranty & Return Policy
-
-• Replacement: 15-day replacement warranty. No warranty after this period
-• Service: 2-year service warranty (excluding parts).
-• Damage: Burn or physical damage not covered, repair costs borne by customer
-• Returns: Accepted within 15–30 days with a 20–25% deduction
-
-By signing below, the customer agrees to these terms and conditions
-
-Signature: __________`
-  );
 
   useEffect(() => {
     fetchProducts();
@@ -360,8 +346,6 @@ Signature: __________`
         paid_amount: paidAmountValue,
         reference: reference || null,
         branch_id: branchId || null,
-        include_warranty_terms: includeWarrantyTerms,
-        warranty_terms: includeWarrantyTerms ? warrantyTerms : null,
       };
 
       const response = await axios.post(`${API}/sales`, payload);
@@ -431,8 +415,6 @@ Signature: __________`
         })),
         notes: dueRequestNotes || null,
         branch_id: branchId || null,
-        include_warranty_terms: includeWarrantyTerms,
-        warranty_terms: includeWarrantyTerms ? warrantyTerms : null,
       };
 
       await axios.post(`${API}/due-requests`, payload);
@@ -900,34 +882,6 @@ Signature: __________`
                   )}
                 </div>
               )}
-
-              {/* WARRANTY TERMS SECTION */}
-              <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeWarrantyTerms}
-                    onChange={(e) => setIncludeWarrantyTerms(e.target.checked)}
-                    className="w-4 h-4 rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-slate-700"
-                  />
-                  <span className="text-blue-300 text-sm font-medium">
-                    Include Warranty & Return Policy on Invoice
-                  </span>
-                </label>
-                {includeWarrantyTerms && (
-                  <div className="mt-3">
-                    <label className="text-sm text-slate-300 mb-1 block">
-                      Warranty Terms (editable)
-                    </label>
-                    <textarea
-                      value={warrantyTerms}
-                      onChange={(e) => setWarrantyTerms(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-700 border border-blue-500/30 rounded-lg text-white text-sm font-mono"
-                      rows={10}
-                    />
-                  </div>
-                )}
-              </div>
 
               {/* Due Request Notes - Shows when checkbox is checked */}
               {requestDuePayment && paidAmount && parseFloat(paidAmount) < total && (

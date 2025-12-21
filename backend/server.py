@@ -703,6 +703,8 @@ class PurchaseCreate(BaseModel):
     payment_status: str = "pending"
     date: Optional[str] = None
     notes: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class Purchase(BaseDBModel):
     tenant_id: str
@@ -719,6 +721,8 @@ class Purchase(BaseDBModel):
     receipt_files: List[Dict[str, Any]] = Field(default_factory=list)
     supplier_warranty_refs: List[str] = Field(default_factory=list)
     idempotency_key: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class DoctorCreate(BaseModel):
     name: str
@@ -6060,6 +6064,8 @@ async def create_purchase(
     items: str = Form(...),
     total_amount: float = Form(...),
     payment_status: str = Form("pending"),
+    include_warranty_terms: bool = Form(False),
+    warranty_terms: Optional[str] = Form(None),
     receipt: Optional[UploadFile] = File(None),
     current_user: dict = Depends(get_current_user)
 ):
@@ -6204,7 +6210,9 @@ async def create_purchase(
         total_amount=total_amount,
         payment_status=payment_status,
         date=datetime.now(timezone.utc).isoformat(),
-        receipt_files=receipt_files
+        receipt_files=receipt_files,
+        include_warranty_terms=include_warranty_terms,
+        warranty_terms=warranty_terms if include_warranty_terms else None
     )
     
     doc = purchase.model_dump()

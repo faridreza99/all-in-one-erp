@@ -244,7 +244,7 @@ const InvoicePage = ({ user, onLogout }) => {
       <div id="print-root">
         <div
           ref={invoiceRef}
-          className="invoice-sheet relative mx-auto max-w-[900px] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 p-10 overflow-hidden avoid-break"
+          className="invoice-sheet relative mx-auto max-w-[900px] bg-white text-slate-800 rounded-2xl shadow-xl border border-slate-200 p-6 overflow-hidden avoid-break"
         >
           {branding.background_image_url && (
             <div
@@ -257,7 +257,7 @@ const InvoicePage = ({ user, onLogout }) => {
             />
           )}
 
-          <div className="invoice-accent relative h-1.5 w-full rounded-t-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 mb-6" />
+          <div className="invoice-accent relative h-1 w-full rounded-t-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-500 mb-4" />
 
           {/* header */}
           <div className="invoice-header relative flex flex-col md:flex-row md:items-start md:justify-between gap-6">
@@ -312,7 +312,7 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
 
           {/* bill to / payment */}
-          <div className="relative mt-4 grid sm:grid-cols-2 gap-4 rounded-xl border border-slate-200 p-4 bg-slate-50">
+          <div className="relative mt-3 grid sm:grid-cols-2 gap-3 rounded-lg border border-slate-200 p-3 bg-slate-50">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-slate-500">BILL TO</p>
               <p className="text-base font-semibold">
@@ -340,7 +340,7 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
 
           {/* items */}
-          <div className="relative mt-6 overflow-x-auto rounded-xl border border-slate-200">
+          <div className="relative mt-4 overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-100 text-slate-600">
@@ -383,13 +383,13 @@ const InvoicePage = ({ user, onLogout }) => {
           </div>
 
           {/* totals */}
-          <div className="relative mt-6 grid md:grid-cols-2 gap-6">
+          <div className="relative mt-4 grid md:grid-cols-2 gap-4">
             <div className="text-xs text-slate-500">
               <p className="mb-1 font-semibold">Notes</p>
               <p>Thank you for your business.</p>
             </div>
             <div className="md:ml-auto">
-              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50 space-y-2">
+              <div className="rounded-lg border border-slate-200 p-3 bg-slate-50 space-y-1.5">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal:</span>
                   <span>{formatCurrency(subtotal)}</span>
@@ -428,66 +428,14 @@ const InvoicePage = ({ user, onLogout }) => {
             </div>
           </div>
 
-          {/* payments */}
-          {payments.length > 0 && (
-            <div className="relative px-0 mt-8">
-              <h3 className="text-base font-semibold text-slate-800 mb-3">
-                Payment History
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-slate-100 text-slate-600">
-                      <th className="px-4 py-2 text-left  font-semibold">
-                        Date
-                      </th>
-                      <th className="px-4 py-2 text-left  font-semibold">
-                        Method
-                      </th>
-                      <th className="px-4 py-2 text-left  font-semibold">
-                        Reference
-                      </th>
-                      <th className="px-4 py-2 text-right font-semibold">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="[&>tr:nth-child(even)]:bg-slate-50">
-                    {payments.map((p) => (
-                      <tr
-                        key={p.id || `${p.received_at}-${p.amount}`}
-                        className="border-t border-slate-200"
-                      >
-                        <td className="px-4 py-3">
-                          {p.received_at
-                            ? new Date(p.received_at).toLocaleDateString()
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 capitalize">
-                          {human(p.method)}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500">
-                          {human(p.reference)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-green-700">
-                          {formatCurrency(Number(p.amount || 0))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* warranty qr codes */}
           {warranties.length > 0 && (
-            <div className="relative px-0 mt-8">
-              <h3 className="text-base font-semibold text-slate-800 mb-4 flex items-center justify-center gap-2">
-                <Shield size={20} className="text-blue-600" />
+            <div className="relative px-0 mt-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center justify-center gap-2">
+                <Shield size={16} className="text-blue-600" />
                 Product Warranties
               </h3>
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {warranties.map((warranty, idx) => {
                   const warrantyUrl = `${window.location.origin}/w/${warranty.warranty_token}`;
                   const expiryDate = warranty.warranty_expiry_date
@@ -499,39 +447,28 @@ const InvoicePage = ({ user, onLogout }) => {
                   return (
                     <div
                       key={warranty.warranty_id || idx}
-                      className="rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-slate-50 p-6"
+                      className="rounded-lg border border-blue-200 bg-blue-50/50 p-3"
                     >
-                      <div className="flex flex-col items-center text-center">
-                        <p className="font-bold text-slate-900 text-base mb-2">
-                          {warranty.product_name || "Product"}
-                        </p>
-
-                        <div className="bg-white p-4 rounded-xl border-2 border-slate-300 shadow-lg mb-4">
-                          <QRCodeDisplay value={warrantyUrl} size={180} />
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex-shrink-0">
+                          <QRCodeDisplay value={warrantyUrl} size={80} />
                         </div>
-
-                        <div className="space-y-1 mb-3">
-                          {/* <p className="text-sm font-semibold text-blue-700">
-                            Warranty: {warranty.warranty_months || 0} months
-                          </p> */}
-                          <p className="text-sm text-slate-600">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-900 text-sm truncate">
+                            {warranty.product_name || "Product"}
+                          </p>
+                          <p className="text-xs text-slate-600">
                             Valid until: {expiryDate}
                           </p>
+                          <a
+                            href={warrantyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 font-medium hover:underline"
+                          >
+                            View warranty →
+                          </a>
                         </div>
-
-                        <a
-                          href={warrantyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 font-semibold hover:underline inline-flex items-center gap-1"
-                        >
-                          Scan QR or click to access warranty portal →
-                        </a>
-
-                        <p className="text-xs text-slate-500 mt-4 max-w-md">
-                          📱 Scan this QR code with your phone camera to access
-                          warranty information and file claims online
-                        </p>
                       </div>
                     </div>
                   );
@@ -542,20 +479,20 @@ const InvoicePage = ({ user, onLogout }) => {
 
           {/* Warranty & Return Policy Terms */}
           {sale.include_warranty_terms && sale.warranty_terms && (
-            <div className="relative px-0 mt-8">
-              <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                <Shield size={18} className="text-amber-600" />
+            <div className="relative px-0 mt-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                <Shield size={14} className="text-amber-600" />
                 Warranty & Return Policy
               </h3>
-              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
                   {sale.warranty_terms}
                 </p>
               </div>
             </div>
           )}
 
-          <div className="relative mt-6 text-center text-xs text-slate-500">
+          <div className="relative mt-4 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} {branding.website_name} —
             Computer-generated invoice.
           </div>
