@@ -540,6 +540,21 @@ const InvoicePage = ({ user, onLogout }) => {
             </div>
           )}
 
+          {/* Warranty & Return Policy Terms */}
+          {sale.include_warranty_terms && sale.warranty_terms && (
+            <div className="relative px-0 mt-8">
+              <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                <Shield size={18} className="text-amber-600" />
+                Warranty & Return Policy
+              </h3>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {sale.warranty_terms}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="relative mt-6 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} {branding.website_name} —
             Computer-generated invoice.

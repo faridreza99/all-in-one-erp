@@ -52,6 +52,8 @@ class SaleCreationInput(BaseModel):
     tax: float = 0.0
     paid_amount: Optional[float] = None
     payment_method: str = "cash"
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 
 class SaleCreationResult(BaseModel):
@@ -309,6 +311,8 @@ async def perform_sale_creation(
         "payment_method": sale_input.payment_method.lower(),
         "reference": overrides.reference,
         "created_by": actor.email,
+        "include_warranty_terms": sale_input.include_warranty_terms,
+        "warranty_terms": sale_input.warranty_terms,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }

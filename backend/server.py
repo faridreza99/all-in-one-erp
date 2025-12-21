@@ -533,6 +533,8 @@ class SaleCreate(BaseModel):
     tax: float = 0
     paid_amount: Optional[float] = None
     reference: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class Sale(BaseDBModel):
     tenant_id: str
@@ -555,6 +557,8 @@ class Sale(BaseDBModel):
     payment_method: str = "cash"
     reference: Optional[str] = None
     created_by: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class PaymentCreate(BaseModel):
     amount: float
@@ -599,6 +603,8 @@ class DueRequestCreate(BaseModel):
     items: List[Dict[str, Any]] = Field(default_factory=list)
     notes: Optional[str] = None
     branch_id: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class DueRequest(BaseDBModel):
     tenant_id: str
@@ -620,6 +626,8 @@ class DueRequest(BaseDBModel):
     approved_by_name: Optional[str] = None
     sale_id: Optional[str] = None
     rejection_reason: Optional[str] = None
+    include_warranty_terms: bool = False
+    warranty_terms: Optional[str] = None
 
 class CustomerDueCreate(BaseModel):
     customer_name: str
@@ -4270,7 +4278,9 @@ async def create_sale(
         payment_status=payment_status,
         payment_method=sale_data.payment_method,
         reference=sale_data.reference,
-        created_by=current_user.get("email")
+        created_by=current_user.get("email"),
+        include_warranty_terms=sale_data.include_warranty_terms,
+        warranty_terms=sale_data.warranty_terms
     )
     
     doc = sale.model_dump()
@@ -5403,7 +5413,9 @@ async def create_due_request(
         branch_id=request_data.branch_id or current_user.get("branch_id"),
         branch_name=branch_name,
         requested_by=current_user.get("id"),
-        requested_by_name=current_user.get("full_name", current_user.get("name", "Staff"))
+        requested_by_name=current_user.get("full_name", current_user.get("name", "Staff")),
+        include_warranty_terms=request_data.include_warranty_terms,
+        warranty_terms=request_data.warranty_terms
     )
     
     doc = due_request.model_dump()
@@ -5584,7 +5596,9 @@ async def approve_due_request(
         discount=due_request.get("discount", 0),
         tax=due_request.get("tax", 0),
         paid_amount=due_request.get("paid_amount", 0),
-        payment_method="cash"
+        payment_method="cash",
+        include_warranty_terms=due_request.get("include_warranty_terms", False),
+        warranty_terms=due_request.get("warranty_terms")
     )
     
     actor = SaleActorContext(

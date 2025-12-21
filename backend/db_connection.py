@@ -170,3 +170,18 @@ def clear_tenant_cache(tenant_slug: Optional[str] = None):
     else:
         _tenant_cache.clear()
         logger.info("Cleared all tenant cache")
+
+
+async def get_all_tenants():
+    """
+    Get all active tenants from the registry.
+    
+    Returns:
+        List of tenant documents
+    """
+    admin_db = get_admin_db()
+    tenants = await admin_db.tenants_registry.find(
+        {"status": "active"},
+        {"_id": 0}
+    ).to_list(1000)
+    return tenants
