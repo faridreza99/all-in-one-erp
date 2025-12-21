@@ -4264,6 +4264,28 @@ async def create_sale(
             await target_db.customers.insert_one(new_customer)
             actual_customer_id = new_customer_id
     
+    # Inherit warranty terms from products if not explicitly provided
+    include_warranty_terms = sale_data.include_warranty_terms
+    warranty_terms = sale_data.warranty_terms
+    
+    if not warranty_terms:
+        # Check if any product in the sale has warranty terms from purchase
+        product_ids = [item.product_id for item in sale_data.items]
+        if product_ids:
+            products_with_warranty = await target_db.products.find(
+                {
+                    "id": {"$in": product_ids},
+                    "tenant_id": current_user["tenant_id"],
+                    "include_warranty_terms": True,
+                    "warranty_terms": {"$ne": None}
+                },
+                {"_id": 0, "warranty_terms": 1}
+            ).to_list(len(product_ids))
+            
+            if products_with_warranty:
+                include_warranty_terms = True
+                warranty_terms = products_with_warranty[0].get("warranty_terms")
+    
     sale = Sale(
         tenant_id=current_user["tenant_id"],
         sale_number=sale_number,
@@ -4285,8 +4307,8 @@ async def create_sale(
         payment_method=sale_data.payment_method,
         reference=sale_data.reference,
         created_by=current_user.get("email"),
-        include_warranty_terms=sale_data.include_warranty_terms,
-        warranty_terms=sale_data.warranty_terms
+        include_warranty_terms=include_warranty_terms,
+        warranty_terms=warranty_terms
     )
     
     doc = sale.model_dump()
