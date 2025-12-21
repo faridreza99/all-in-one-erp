@@ -494,7 +494,9 @@ Signature: __________`
                           setCurrentItem({
                             ...currentItem,
                             product_id: value,
-                            product_name: selectedProduct?.name || ''
+                            product_name: selectedProduct?.name || '',
+                            price: selectedProduct?.price || 0,
+                            original_price: selectedProduct?.price || 0
                           });
                         }
                       }}
@@ -535,9 +537,22 @@ Signature: __________`
                       step="0.01"
                       value={currentItem.price}
                       onChange={(e) => setCurrentItem({ ...currentItem, price: e.target.value })}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      className={`w-full bg-gray-700/50 border rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                        currentItem.original_price && parseFloat(currentItem.price) !== currentItem.original_price 
+                          ? 'border-yellow-500' 
+                          : 'border-gray-600'
+                      }`}
                       min="0"
                     />
+                    {currentItem.original_price > 0 && (
+                      <div className="mt-1 text-xs">
+                        <span className="text-gray-400">Current price: </span>
+                        <span className="text-blue-400 font-medium">৳{currentItem.original_price.toLocaleString()}</span>
+                        {parseFloat(currentItem.price) !== currentItem.original_price && (
+                          <span className="text-yellow-400 ml-2">(will be updated)</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 

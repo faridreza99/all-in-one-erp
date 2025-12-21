@@ -6324,6 +6324,22 @@ async def create_purchase(
                 }}
             )
     
+    # Update product prices if they differ from purchase price
+    for item in items_list:
+        if item.get("product_id"):
+            purchase_price = float(item.get("price", 0))
+            if purchase_price > 0:
+                # Update product price and cost to match purchase price
+                await target_db.products.update_one(
+                    {"id": item["product_id"], "tenant_id": current_user["tenant_id"]},
+                    {"$set": {
+                        "price": purchase_price,
+                        "cost": purchase_price,
+                        "unit_cost": purchase_price,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+    
     return purchase
 
 @api_router.get("/purchases", response_model=List[Purchase])
