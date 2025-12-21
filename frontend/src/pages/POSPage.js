@@ -279,6 +279,16 @@ const POSPage = ({ user, onLogout }) => {
     setCart(cart.filter((item) => item.product_id !== productId));
   };
 
+  const updateCartItemField = (productId, field, value) => {
+    setCart(
+      cart.map((item) =>
+        item.product_id === productId
+          ? { ...item, [field]: value }
+          : item
+      )
+    );
+  };
+
   const updateQuantity = (productId, change) => {
     const product = products.find((p) => p.id === productId);
     const availableStock = getBranchStock(product);
@@ -411,7 +421,9 @@ const POSPage = ({ user, onLogout }) => {
           product_id: item.product_id,
           product_name: item.name,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          serial_number: item.serial_number || null,
+          custom_description: item.custom_description || null
         })),
         notes: dueRequestNotes || null,
         branch_id: branchId || null,
@@ -543,42 +555,60 @@ const POSPage = ({ user, onLogout }) => {
               </div>
 
               {/* CART ITEMS */}
-              <div className="space-y-3 mb-6 max-h-60 overflow-y-auto scrollbar-hide">
+              <div className="space-y-3 mb-6 max-h-80 overflow-y-auto scrollbar-hide">
                 {cart.map((item) => (
                   <div
-                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg"
+                    className="p-3 bg-white/5 rounded-lg space-y-2"
                     key={item.product_id}
                   >
-                    <div className="flex-1">
-                      <p className="font-semibold text-white text-sm">
-                        {item.name}
-                      </p>
-                      <p className="text-slate-400 text-xs">
-                        {formatCurrency(item.price)} each
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <p className="font-semibold text-white text-sm">
+                          {item.name}
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          {formatCurrency(item.price)} each
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.product_id, -1)}
+                          className="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/30 rounded"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-white font-semibold w-8 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.product_id, 1)}
+                          className="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/30 rounded"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(item.product_id)}
+                          className="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-500/30 rounded ml-2"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.product_id, -1)}
-                        className="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/30 rounded"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-white font-semibold w-8 text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.product_id, 1)}
-                        className="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/30 rounded"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => removeFromCart(item.product_id)}
-                        className="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-500/30 rounded ml-2"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                    <div className="grid grid-cols-1 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Serial Number (optional)"
+                        value={item.serial_number || ""}
+                        onChange={(e) => updateCartItemField(item.product_id, "serial_number", e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white placeholder-slate-400"
+                      />
+                      <textarea
+                        placeholder="Product details (e.g., specs, model info)"
+                        value={item.custom_description || ""}
+                        onChange={(e) => updateCartItemField(item.product_id, "custom_description", e.target.value)}
+                        rows={2}
+                        className="w-full px-2 py-1.5 text-xs bg-slate-700/50 border border-slate-600/50 rounded text-white placeholder-slate-400 resize-none"
+                      />
                     </div>
                   </div>
                 ))}

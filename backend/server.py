@@ -522,6 +522,8 @@ class SaleItemCreate(BaseModel):
     quantity: int
     price: float
     unit_cost: Optional[float] = None
+    serial_number: Optional[str] = None
+    custom_description: Optional[str] = None
 
 class SaleCreate(BaseModel):
     items: List[SaleItemCreate]
