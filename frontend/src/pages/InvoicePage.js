@@ -333,7 +333,6 @@ const InvoicePage = ({ user, onLogout }) => {
                 <h1 className="text-2xl font-extrabold tracking-tight">
                   {branding.website_name}
                 </h1>
-                <p className="text-sm text-slate-500">Powered by MaxTech BD</p>
               </div>
             </div>
 
