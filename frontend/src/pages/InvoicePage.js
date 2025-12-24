@@ -627,6 +627,7 @@ const InvoicePage = ({ user, onLogout }) => {
           <div className="relative mt-4 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} {branding.website_name} —
             Computer-generated invoice.
+            <span className="block text-[10px] text-slate-400 mt-1">Developed by MaxtechBD</span>
           </div>
         </div>
       </div>
