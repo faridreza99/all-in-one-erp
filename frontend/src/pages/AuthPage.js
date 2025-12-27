@@ -269,25 +269,6 @@ const AuthPage = ({ onLogin }) => {
             </motion.button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              data-testid="auth-toggle-mode"
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-            >
-              {isLogin
-                ? "Don't have an account? Sign up"
-                : "Already have an account? Sign in"}
-            </button>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <p className="text-xs text-slate-500 text-center">
-              Demo: Use any email/password for super admin or create tenant
-              account
-            </p>
-          </div>
         </div>
       </motion.div>
     </div>
