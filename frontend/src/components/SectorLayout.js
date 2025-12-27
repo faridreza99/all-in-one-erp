@@ -87,6 +87,7 @@ const SectorLayout = ({ children, user, onLogout }) => {
 
   // Load cached branding immediately to avoid flash of default content
   const cachedBranding = getCachedSidebarBranding();
+  const hasCachedBranding = !!cachedBranding;
   const [branding, setBranding] = useState(cachedBranding || {
     name: "Smart Business ERP",
     logo: null,
@@ -204,6 +205,18 @@ const SectorLayout = ({ children, user, onLogout }) => {
     }
     return {};
   };
+
+  // Show loading screen when no cached branding and settings not yet loaded
+  if (!settingsLoaded && !hasCachedBranding) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-400"></div>
+          <p className="text-slate-400 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

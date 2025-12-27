@@ -32,6 +32,7 @@ const AuthPage = ({ onLogin }) => {
   const [logoUrl, setLogoUrl] = useState(cachedBranding?.logo_url || null);
   const [websiteName, setWebsiteName] = useState(cachedBranding?.website_name || null);
   const [backgroundImageUrl, setBackgroundImageUrl] = useState(cachedBranding?.background_image_url || null);
+  const [brandingLoaded, setBrandingLoaded] = useState(!!cachedBranding);
 
   useEffect(() => {
     // Apply cached branding immediately
@@ -64,6 +65,8 @@ const AuthPage = ({ onLogin }) => {
         }
       } catch (error) {
         console.log("Using default branding");
+      } finally {
+        setBrandingLoaded(true);
       }
     };
 
@@ -108,6 +111,18 @@ const AuthPage = ({ onLogin }) => {
 
   // Use custom-bg class when we have a custom background to avoid the default tech-bg overlay
   const bgClass = backgroundImageUrl ? "custom-bg" : "gradient-bg";
+
+  // Show loading spinner while fetching branding (only if no cached data)
+  if (!brandingLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-400"></div>
+          <p className="text-slate-400 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
