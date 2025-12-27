@@ -6,6 +6,7 @@ import { API } from "../App";
 import { toast } from "sonner";
 import { formatErrorMessage } from "../utils/errorHandler";
 import { SECTOR_MODULES } from "../config/sectorModules";
+import { setFavicon, setPageTitle } from "../utils/favicon";
 
 const AuthPage = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -36,6 +37,10 @@ const AuthPage = ({ onLogin }) => {
           setLogoUrl(response.data.logo_url || null);
           setWebsiteName(response.data.website_name || null);
           setBackgroundImageUrl(response.data.background_image_url || null);
+          setFavicon(response.data.favicon_url);
+          if (response.data.website_name) {
+            setPageTitle(response.data.website_name);
+          }
         }
       } catch (error) {
         console.log("Using default branding");

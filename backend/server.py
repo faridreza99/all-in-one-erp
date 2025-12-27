@@ -1293,12 +1293,14 @@ class SettingsCreate(BaseModel):
     logo_url: Optional[str] = None
     website_name: Optional[str] = None
     background_image_url: Optional[str] = None
+    favicon_url: Optional[str] = None
 
 class Settings(BaseDBModel):
     tenant_id: str
     logo_url: Optional[str] = None
     website_name: Optional[str] = "Smart Business ERP"
     background_image_url: Optional[str] = None
+    favicon_url: Optional[str] = None
 
 # ========== UTILITY FUNCTIONS ==========
 def hash_password(password: str) -> str:
@@ -2987,7 +2989,8 @@ async def get_public_branding(tenant_slug: Optional[str] = None):
                     return {
                         "logo_url": settings.get("logo_url"),
                         "website_name": settings.get("website_name", "Smart Business ERP"),
-                        "background_image_url": settings.get("background_image_url")
+                        "background_image_url": settings.get("background_image_url"),
+                        "favicon_url": settings.get("favicon_url")
                     }
             except Exception as e:
                 logger.warning(f"Could not resolve tenant branding for {tenant_slug}: {e}")
@@ -2996,14 +2999,16 @@ async def get_public_branding(tenant_slug: Optional[str] = None):
         return {
             "logo_url": None,
             "website_name": "Smart Business ERP",
-            "background_image_url": None
+            "background_image_url": None,
+            "favicon_url": None
         }
     except Exception as e:
         logger.error(f"Error fetching public branding: {e}")
         return {
             "logo_url": None,
             "website_name": "Smart Business ERP",
-            "background_image_url": None
+            "background_image_url": None,
+            "favicon_url": None
         }
 
 @api_router.get("/settings", response_model=Settings)
@@ -3264,6 +3269,86 @@ async def upload_background(
     await target_db.settings.update_one(
         {"tenant_id": current_user["tenant_id"]},
         {"$set": {"background_image_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"url": file_url, "filename": filename}
+
+@api_router.post("/upload/favicon")
+async def upload_favicon(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if not current_user.get("tenant_id"):
+        raise HTTPException(status_code=400, detail="Tenant ID required")
+    
+    # Validate file type - favicons can be ico, png, jpg, gif
+    allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (1MB max for favicon)
+    MAX_FILE_SIZE = 1 * 1024 * 1024  # 1MB in bytes
+    file_content = await file.read()
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Favicon size must be less than 1MB"
+        )
+    
+    # Upload to Cloudinary if configured, otherwise use local storage
+    if cloudinary_url:
+        try:
+            upload_result = cloudinary.uploader.upload(
+                file_content,
+                folder=f"erp/{current_user['tenant_id']}/favicons",
+                public_id=f"favicon_{secrets.token_hex(8)}",
+                resource_type="image",
+                type="authenticated"
+            )
+            
+            public_id = upload_result.get("public_id")
+            file_url = cloudinary.CloudinaryImage(public_id).build_url(
+                secure=True,
+                type="authenticated",
+                sign_url=True
+            )
+            filename = public_id
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload to Cloudinary: {str(e)}"
+            )
+    else:
+        # Fallback to local storage
+        secure_filename = f"favicon_{current_user['tenant_id']}_{secrets.token_hex(8)}{file_ext}"
+        upload_dir = Path(__file__).parent / "static" / "uploads" / "settings"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = upload_dir / secure_filename
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_content)
+        
+        file_url = f"/uploads/settings/{secure_filename}"
+        filename = secure_filename
+    
+    # Resolve tenant-specific database for settings update
+    target_db = db
+    if current_user.get("tenant_slug"):
+        try:
+            target_db = await resolve_tenant_db(current_user["tenant_slug"])
+            logger.info(f"✅ Favicon upload using tenant-specific DB: {target_db.name}")
+        except Exception as resolve_error:
+            logger.error(f"❌ Failed to resolve tenant DB for favicon upload: {resolve_error}")
+    
+    # Update settings with new favicon URL
+    await target_db.settings.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"$set": {"favicon_url": file_url, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
     )
     

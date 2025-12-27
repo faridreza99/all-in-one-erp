@@ -25,6 +25,7 @@ const SettingsPage = ({ user, onLogout }) => {
     website_name: "",
     logo_url: "",
     background_image_url: "",
+    favicon_url: "",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -43,6 +44,7 @@ const SettingsPage = ({ user, onLogout }) => {
   const [changingPassword, setChangingPassword] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -55,6 +57,7 @@ const SettingsPage = ({ user, onLogout }) => {
         website_name: response.data.website_name || "",
         logo_url: response.data.logo_url || "",
         background_image_url: response.data.background_image_url || "",
+        favicon_url: response.data.favicon_url || "",
       });
     } catch (error) {
       toast.error(formatErrorMessage(error, "Failed to fetch settings"));
@@ -190,6 +193,36 @@ const SettingsPage = ({ user, onLogout }) => {
       toast.error(formatErrorMessage(err, "Failed to upload background image"));
     } finally {
       setUploadingBackground(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = null;
+    const errMsg = validateImage(file);
+    if (errMsg) return toast.error(errMsg);
+
+    setUploadingFavicon(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      
+      const response = await axios.post(`${API}/upload/favicon`, formDataUpload, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      setFormData((prev) => ({
+        ...prev,
+        favicon_url: response.data.url,
+      }));
+      toast.success("Favicon uploaded successfully");
+      fetchSettings();
+    } catch (err) {
+      toast.error(formatErrorMessage(err, "Failed to upload favicon"));
+    } finally {
+      setUploadingFavicon(false);
     }
   };
 
@@ -330,6 +363,53 @@ const SettingsPage = ({ user, onLogout }) => {
                         src={formData.background_image_url}
                         alt="Background preview"
                         className="w-full h-24 object-cover rounded"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Favicon Upload */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Favicon (Browser Tab Icon)
+                </label>
+                <div className="space-y-3">
+                  <label className="w-full cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/x-icon,image/ico"
+                      onChange={handleFaviconUpload}
+                      className="hidden"
+                      disabled={uploadingFavicon}
+                    />
+                    <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                      {uploadingFavicon ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          <span>Upload Favicon</span>
+                        </>
+                      )}
+                    </div>
+                  </label>
+                  {formData.favicon_url && (
+                    <div className="p-3 bg-slate-800/50 rounded-lg">
+                      <p className="text-xs text-slate-400 mb-2">
+                        Current Favicon:
+                      </p>
+                      <img
+                        src={formData.favicon_url}
+                        alt="Favicon preview"
+                        className="h-8 w-8 object-contain rounded"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                         }}
