@@ -86,9 +86,12 @@ const AuthPage = ({ onLogin }) => {
       }
     : {};
 
+  // Use custom-bg class when we have a custom background to avoid the default tech-bg overlay
+  const bgClass = backgroundImageUrl ? "custom-bg" : "gradient-bg";
+
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 gradient-bg relative"
+      className={`min-h-screen flex items-center justify-center p-4 ${bgClass} relative`}
       style={containerStyle}
     >
       <motion.div
