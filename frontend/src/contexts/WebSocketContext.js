@@ -18,14 +18,10 @@ export function WebSocketProvider({ children }) {
     const token = localStorage.getItem('token');
     if (!token) return null;
 
+    // Production-ready: dynamically determine protocol and use current host
+    // Works behind Nginx reverse proxy at /ws path
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return `ws://localhost:8000/ws/${token}`;
-    }
-    
-    const host = window.location.host.replace(':5000', '').replace('-5000', '-8000');
-    return `${protocol}//${host}/ws/${token}`;
+    return `${protocol}//${window.location.host}/ws/${token}`;
   }, []);
 
   const notifyListeners = useCallback((message) => {

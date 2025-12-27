@@ -55,15 +55,10 @@ const NotificationBell = ({ user }) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
+      // Production-ready: dynamically determine protocol and use current host
+      // Works behind Nginx reverse proxy at /ws path
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      let wsUrl;
-      
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        wsUrl = `ws://localhost:8000/ws/${token}`;
-      } else {
-        const host = window.location.host.replace(':5000', '').replace('-5000', '-8000');
-        wsUrl = `${protocol}//${host}/ws/${token}`;
-      }
+      const wsUrl = `${protocol}//${window.location.host}/ws/${token}`;
 
       wsRef.current = new WebSocket(wsUrl);
 

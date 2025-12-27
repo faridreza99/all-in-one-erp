@@ -15,15 +15,10 @@ export function useWebSocket(onMessage) {
     const token = localStorage.getItem('token');
     if (!token) return null;
 
+    // Production-ready: dynamically determine protocol and use current host
+    // Works behind Nginx reverse proxy at /ws path
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const backendHost = process.env.REACT_APP_API_URL || window.location.origin;
-    const wsHost = backendHost.replace(/^https?:\/\//, '').replace(/\/api$/, '');
-    
-    if (backendHost.includes('localhost') || backendHost.includes('127.0.0.1')) {
-      return `ws://localhost:8000/ws/${token}`;
-    }
-    
-    return `${protocol}//${wsHost.replace(':5000', ':8000')}/ws/${token}`;
+    return `${protocol}//${window.location.host}/ws/${token}`;
   }, []);
 
   const connect = useCallback(() => {
