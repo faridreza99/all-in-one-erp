@@ -17,11 +17,29 @@ const AuthPage = ({ onLogin }) => {
     name: "",
     business_type: "mobile_shop",
   });
-  const [logoUrl, setLogoUrl] = useState(null);
-  const [websiteName, setWebsiteName] = useState(null);
-  const [backgroundImageUrl, setBackgroundImageUrl] = useState(null);
+  
+  // Load cached branding immediately to avoid flash of default content
+  const getCachedBranding = () => {
+    try {
+      const cached = localStorage.getItem('cached_branding');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+  
+  const cachedBranding = getCachedBranding();
+  const [logoUrl, setLogoUrl] = useState(cachedBranding?.logo_url || null);
+  const [websiteName, setWebsiteName] = useState(cachedBranding?.website_name || null);
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState(cachedBranding?.background_image_url || null);
 
   useEffect(() => {
+    // Apply cached branding immediately
+    if (cachedBranding) {
+      if (cachedBranding.favicon_url) setFavicon(cachedBranding.favicon_url);
+      if (cachedBranding.website_name) setPageTitle(cachedBranding.website_name);
+    }
+    
     const fetchBranding = async () => {
       try {
         // Try to get tenant_slug from URL or localStorage
@@ -41,6 +59,8 @@ const AuthPage = ({ onLogin }) => {
           if (response.data.website_name) {
             setPageTitle(response.data.website_name);
           }
+          // Cache branding for instant load next time
+          localStorage.setItem('cached_branding', JSON.stringify(response.data));
         }
       } catch (error) {
         console.log("Using default branding");

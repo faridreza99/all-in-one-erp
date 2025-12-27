@@ -63,6 +63,16 @@ const ICON_MAP = {
   "cnf-reports": LayoutDashboard,
 };
 
+// Get cached branding to prevent flash of default content
+const getCachedSidebarBranding = () => {
+  try {
+    const cached = localStorage.getItem('cached_sidebar_branding');
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
+
 const SectorLayout = ({ children, user, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -75,7 +85,9 @@ const SectorLayout = ({ children, user, onLogout }) => {
   const [isMobile, setIsMobile] = useState(initialIsMobile);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  const [branding, setBranding] = useState({
+  // Load cached branding immediately to avoid flash of default content
+  const cachedBranding = getCachedSidebarBranding();
+  const [branding, setBranding] = useState(cachedBranding || {
     name: "Smart Business ERP",
     logo: null,
     backgroundImage: null,
@@ -122,8 +134,11 @@ const SectorLayout = ({ children, user, onLogout }) => {
             : null;
 
         if (mounted) {
-          setBranding({ name, logo, backgroundImage });
+          const newBranding = { name, logo, backgroundImage };
+          setBranding(newBranding);
           setSettingsLoaded(true);
+          // Cache branding for instant load next time
+          localStorage.setItem('cached_sidebar_branding', JSON.stringify(newBranding));
         }
       } catch {
         if (mounted) setSettingsLoaded(true);
