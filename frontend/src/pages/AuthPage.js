@@ -21,9 +21,17 @@ const AuthPage = ({ onLogin }) => {
   const [backgroundImageUrl, setBackgroundImageUrl] = useState(null);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchBranding = async () => {
       try {
-        const response = await axios.get(`${API}/settings`);
+        // Try to get tenant_slug from URL or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const tenantSlug = urlParams.get('tenant') || localStorage.getItem('last_tenant_slug');
+        
+        const url = tenantSlug 
+          ? `${API}/public/branding?tenant_slug=${tenantSlug}`
+          : `${API}/public/branding`;
+        
+        const response = await axios.get(url);
         if (response.data) {
           setLogoUrl(response.data.logo_url || null);
           setWebsiteName(response.data.website_name || null);
@@ -34,7 +42,7 @@ const AuthPage = ({ onLogin }) => {
       }
     };
 
-    fetchSettings();
+    fetchBranding();
   }, []);
 
   const handleSubmit = async (e) => {

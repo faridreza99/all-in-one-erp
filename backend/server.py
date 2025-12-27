@@ -2970,6 +2970,42 @@ async def get_unread_notifications_count(
         raise HTTPException(status_code=500, detail=str(e))
 
 # ========== SETTINGS ROUTES ==========
+
+@api_router.get("/public/branding")
+async def get_public_branding(tenant_slug: Optional[str] = None):
+    """
+    Public endpoint to fetch branding settings for login page.
+    No authentication required.
+    """
+    try:
+        if tenant_slug:
+            # Fetch from tenant-specific database
+            try:
+                target_db = await resolve_tenant_db(tenant_slug)
+                settings = await target_db.settings.find_one({}, {"_id": 0})
+                if settings:
+                    return {
+                        "logo_url": settings.get("logo_url"),
+                        "website_name": settings.get("website_name", "Smart Business ERP"),
+                        "background_image_url": settings.get("background_image_url")
+                    }
+            except Exception as e:
+                logger.warning(f"Could not resolve tenant branding for {tenant_slug}: {e}")
+        
+        # Return default branding
+        return {
+            "logo_url": None,
+            "website_name": "Smart Business ERP",
+            "background_image_url": None
+        }
+    except Exception as e:
+        logger.error(f"Error fetching public branding: {e}")
+        return {
+            "logo_url": None,
+            "website_name": "Smart Business ERP",
+            "background_image_url": None
+        }
+
 @api_router.get("/settings", response_model=Settings)
 async def get_settings(
     current_user: dict = Depends(get_current_user)

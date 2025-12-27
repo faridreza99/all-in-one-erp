@@ -276,6 +276,11 @@ const App = () => {
         localStorage.setItem("branch_id", decoded.branch_id);
       }
       localStorage.setItem("user_role", decoded.role);
+      
+      // Save tenant_slug for login page branding
+      if (userData.tenant_slug) {
+        localStorage.setItem("last_tenant_slug", userData.tenant_slug);
+      }
 
       setUser(enrichedUser);
     } catch (error) {
