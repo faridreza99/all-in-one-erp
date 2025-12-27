@@ -118,13 +118,47 @@ const ProtectedSectorRouteWrapper = ({ user, module, children, element }) => {
   return content;
 };
 
-
 // Production-ready API base URL
 // Uses relative path "/api" which works behind Nginx reverse proxy
 // Can be overridden with REACT_APP_BACKEND_URL for specific deployments
 export const API = process.env.REACT_APP_BACKEND_URL 
   ? `${process.env.REACT_APP_BACKEND_URL}/api` 
   : "/api";
+// Auto-detect backend URL based on environment
+const getBackendUrl = () => {
+  // Priority 1: Use explicit API URL environment variable if set
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // Priority 2: If running on Render production (onrender.com)
+  if (window.location.hostname.includes("onrender.com")) {
+    // Use the backend URL from environment or construct from hostname
+    // Replace 'frontend' with 'backend' in the hostname for the API
+    const hostname = window.location.hostname;
+    if (hostname.includes("-frontend")) {
+      return `https://${hostname.replace("-frontend", "-backend")}`;
+    }
+    // If no 'frontend' in name, try using the REACT_APP_BACKEND_URL
+    return process.env.REACT_APP_BACKEND_URL || window.location.origin;
+  }
+  
+  // Priority 3: If running in Replit webview (hostname contains replit.dev)
+  if (window.location.hostname.includes("replit.dev")) {
+    const hostname = window.location.hostname;
+    const backendPort = process.env.REACT_APP_BACKEND_PORT || "";
+    const backendHost = process.env.REACT_APP_BACKEND_HOST || hostname;
+    
+    if (backendPort) {
+      return `${window.location.protocol}//${backendHost}:${backendPort}`;
+    }
+    return window.location.origin;
+  }
+  
+  // Priority 4: For local development
+  return process.env.REACT_APP_BACKEND_URL || "/api";
+};
+>>>>>>> 8f7bc8b (fix: use /api instead of localhost for production)
 
 // Helper to get WebSocket URL dynamically
 // Works on any domain/protocol without hardcoding
